@@ -4,8 +4,6 @@ plugins {
 }
 
 repositories {
-	maven("https://api.modrinth.com/maven")
-	maven("https://maven.terraformersmc.com/releases")
 	// Add repositories to retrieve artifacts from in here.
 	// You should only use this when depending on other mods because
 	// Loom adds the essential maven repositories to download Minecraft and libraries from automatically.
@@ -40,13 +38,10 @@ dependencies {
 	// Fabric API. This is technically optional, but you probably want it anyway.
 	implementation("net.fabricmc.fabric-api:fabric-api:${providers.gradleProperty("fabric_api_version").get()}")
 	implementation("maven.modrinth:carpet:${providers.gradleProperty("carpet_version").get()}")
-	implementation("com.terraformersmc:modmenu:${providers.gradleProperty("modmenu_version").get()}")
+	// Use Modrinth so builds do not depend on Terraformers Maven being reachable.
+	implementation("maven.modrinth:modmenu:${providers.gradleProperty("modmenu_version").get()}")
 	implementation("maven.modrinth:tcdcommons:FwE7UAgA")
 	implementation("maven.modrinth:7PCm6yD1:fB2DWKS1")
-	// Optional PRY compatibility: compile against the supplied 26.3 jar, never bundle or require it at runtime.
-	// Override with -Ppry_compile_jar=path/to/a/compatible/pry.jar when using another build.
-	compileOnly(files(providers.gradleProperty("pry_compile_jar")
-		.orElse("run/mods/carpet-pry-addition-v1.2.2-mc26.3+build.190.jar")))
 }
 
 tasks.processResources {
@@ -60,6 +55,25 @@ tasks.processResources {
 
 tasks.withType<JavaCompile>().configureEach {
 	options.release = 25
+}
+
+val addonVerification = sourceSets.create("addonVerification") {
+	java.srcDir("src/verification/java")
+	compileClasspath += sourceSets["main"].output
+	runtimeClasspath += sourceSets["main"].output
+}
+configurations[addonVerification.implementationConfigurationName].extendsFrom(configurations["implementation"])
+configurations[addonVerification.runtimeOnlyConfigurationName].extendsFrom(configurations["runtimeOnly"])
+
+val verifyAddonDiscovery by tasks.registering(JavaExec::class) {
+	group = "verification"
+	description = "Checks automatic addon metadata discovery without launching Minecraft."
+	classpath = addonVerification.runtimeClasspath
+	mainClass.set("io.github.piscescup.fabricmc.carpetgui.integration.carpet.AddonDiscoveryTest")
+}
+
+tasks.check {
+	dependsOn(verifyAddonDiscovery)
 }
 
 java {

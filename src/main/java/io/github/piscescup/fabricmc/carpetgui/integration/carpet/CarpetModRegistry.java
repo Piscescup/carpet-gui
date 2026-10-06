@@ -3,18 +3,10 @@ package io.github.piscescup.fabricmc.carpetgui.integration.carpet;
 import carpet.CarpetExtension;
 import carpet.CarpetServer;
 import carpet.api.settings.CarpetRule;
-import com.liuyue.igny.IGNYServer;
-import com.liuyue.igny.IGNYServerMod;
-import com.liuyue.igny.IGNYSettings;
-import com.liuyue.igny.rule.RuleContext;
 import io.github.piscescup.fabricmc.carpetgui.api.CarpetAddonAdapter;
 import io.github.piscescup.fabricmc.carpetgui.api.CarpetModInfoApi;
 import io.github.piscescup.fabricmc.carpetgui.api.CarpetModRulesApi;
 import io.github.piscescup.fabricmc.carpetgui.api.CarpetModTranslationApi;
-import me.primaryuan.carpet.CarpetPrimaryuanMod;
-import me.primaryuan.carpet.CarpetPrimaryuanServer;
-import me.primaryuan.carpet.CarpetPrimaryuanSettings;
-import me.primaryuan.carpet.settings.Rule;
 import net.fabricmc.loader.api.FabricLoader;
 
 import java.util.ArrayList;
@@ -45,19 +37,31 @@ public final class CarpetModRegistry {
         FabricLoader loader = FabricLoader.getInstance();
         Map<String, CarpetModInfoApi> infos = new LinkedHashMap<>();
         Map<String, CarpetModRulesApi> rules = new LinkedHashMap<>();
+
         loader.getModContainer("carpet").ifPresent(mod -> infos.put("carpet", new ModInfo("carpet", "Carpet Mod")));
+
         for (String id : translations.modIds()) {
             loader.getModContainer(id).ifPresent(mod -> infos.putIfAbsent(id, new ModInfo(id, mod.getMetadata().getName())));
         }
+
+        for (var extension : ReflectiveAddonAdapters.discover()) {
+            infos.put(extension.modId(), new ModInfo(extension.modId(), extension.fancyName()));
+            translations.registerMod(extension.modId());
+        }
+
         Map<String, CarpetModInfoApi> declared = new LinkedHashMap<>();
+
         for (CarpetModInfoApi info : loader.getEntrypoints(CarpetModInfoApi.ENTRYPOINT, CarpetModInfoApi.class)) {
             if (declared.putIfAbsent(info.carpetModId(), info) != null) {
                 throw new IllegalArgumentException("Duplicate Carpet mod info for " + info.carpetModId());
             }
         }
+
         for (CarpetExtension extension : List.copyOf(CarpetServer.extensions)) {
-            if (extension instanceof CarpetModInfoApi info) declared.putIfAbsent(info.carpetModId(), info);
+            if (extension instanceof CarpetModInfoApi info)
+                declared.putIfAbsent(info.carpetModId(), info);
         }
+
         for (CarpetModInfoApi info : declared.values()) {
             String id = info.carpetModId();
             if (id == null || !loader.isModLoaded(id) || info.carpetFancyName() == null || info.carpetFancyName().isBlank()) {
@@ -68,27 +72,19 @@ public final class CarpetModRegistry {
             if (info instanceof CarpetModRulesApi provider) rules.put(id, provider);
             if (info instanceof CarpetModTranslationApi provider) translations.registerProviderIfAbsent(provider);
         }
-        if (loader.isModLoaded("carpet-igny-addition") && !rules.containsKey("carpet-igny-addition")) {
-            CarpetModRulesApi igny = CarpetAddonAdapter.fromRules(
-                    IGNYServerMod.getModId(), "carpet",
-                    () -> IGNYSettings.listRules().stream().map(RuleContext::rule).toList())
-                .withFancyName(IGNYServer.fancyName)
-                .withTranslations(language -> IGNYServer.getInstance().canHasTranslations(language));
-            infos.putIfAbsent(igny.carpetModId(), igny);
-            if (!declared.containsKey(igny.carpetModId())) infos.put(igny.carpetModId(), igny);
-            rules.put(igny.carpetModId(), igny);
-            translations.registerProviderIfAbsent(igny);
+        for (String id : List.of("carpet-igny-addition", "carpet-pry-addition")) {
+            if (!loader.isModLoaded(id) || rules.containsKey(id)) continue;
+            try {
+                CarpetAddonAdapter addon = id.equals("carpet-igny-addition")
+                    ? ReflectiveAddonAdapters.igny() : ReflectiveAddonAdapters.pry();
+                if (!declared.containsKey(id)) infos.put(id, addon);
+                rules.put(id, addon);
+                translations.registerProviderIfAbsent(addon);
+            } catch (ReflectiveOperationException | RuntimeException | LinkageError failure) {
+                LOGGER.warn("Skipping incompatible optional Carpet addon adapter for {}", id, failure);
+            }
         }
-        if (loader.isModLoaded("carpet-pry-addition") && !rules.containsKey("carpet-pry-addition")) {
-            CarpetModRulesApi pry = CarpetAddonAdapter.fromSettingsClass(
-                    CarpetPrimaryuanMod.getModId(), "carpet",
-                    CarpetPrimaryuanSettings.class, Rule.class)
-                .withTranslations(language -> CarpetPrimaryuanServer.getInstance().canHasTranslations(language));
-            infos.putIfAbsent(pry.carpetModId(), pry);
-            if (!declared.containsKey(pry.carpetModId())) infos.put(pry.carpetModId(), pry);
-            rules.put(pry.carpetModId(), pry);
-            translations.registerProviderIfAbsent(pry);
-        }
+
         return new Providers(infos, rules);
     }
 

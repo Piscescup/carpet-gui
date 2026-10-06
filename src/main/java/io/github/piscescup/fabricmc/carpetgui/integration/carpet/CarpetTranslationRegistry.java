@@ -103,7 +103,8 @@ public final class CarpetTranslationRegistry {
             var manager = extension.extensionSettingsManager();
             String managerId = manager == null ? "" : manager.identifier();
             Optional<ModContainer> mod = extension instanceof CarpetModTranslationApi provider
-                ? findById(provider.getModId()) : findMod(extension.getClass(), managerId);
+                ? findById(provider.getModId()) : CarpetModLookup.find(this.mods, extension.getClass(), "")
+                    .or(() -> findMod(extension.getClass(), managerId));
             mod.ifPresent(owner -> source(owner).extensions.add(extension));
             if (manager == null) continue;
             if (extension instanceof CarpetModTranslationApi provider) {
@@ -159,7 +160,7 @@ public final class CarpetTranslationRegistry {
 
     public Optional<ModContainer> findMod(Class<?> owner, String managerId) {
         String modId = managerOwners.get(managerId);
-        return modId == null ? CarpetModLookup.find(mods, owner.getName(), managerId) : findById(modId);
+        return modId == null ? CarpetModLookup.find(mods, owner, managerId) : findById(modId);
     }
 
     /**

@@ -81,6 +81,18 @@ public final class CarpetAddonAdapter implements CarpetModRulesApi {
      * Use the addon's actual rule annotation; non-rule fields are excluded. Same ownership caveat as forRuleNames.
      */
     public static CarpetAddonAdapter fromSettingsClass(
+        String modId, String managerId, String settingsClassName, String ruleAnnotationName
+    ) throws ClassNotFoundException {
+        nonBlank(settingsClassName, "Settings class name");
+        nonBlank(ruleAnnotationName, "Rule annotation name");
+        Class<? extends Annotation> annotationClass = Class.forName(ruleAnnotationName, false,
+            CarpetAddonAdapter.class.getClassLoader()).asSubclass(Annotation.class);
+        Class<?> settingsClass = Class.forName(settingsClassName, false, CarpetAddonAdapter.class.getClassLoader());
+        return fromSettingsClass(modId, managerId, settingsClass, annotationClass);
+    }
+
+    /** Typed variant for callers that already depend on the addon. */
+    public static CarpetAddonAdapter fromSettingsClass(
         String modId, String managerId, Class<?> settingsClass, Class<? extends Annotation> ruleAnnotation
     ) {
         Objects.requireNonNull(settingsClass, "Settings class");

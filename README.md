@@ -73,6 +73,10 @@ public final class ExtraModInfo implements CarpetModInfoApi {
 
 ### 已发布附属的通用兼容适配器
 
+Mod 信息自动发现不要求附属实现新接口：遍历 `CarpetServer.extensions`，从每个扩展的运行时类定位其所在 Fabric Mod。类来源优先；无法定位时尝试公开静态 `getModId()` / `carpetModId()` 或 `MOD_ID` / `MODID` / `modId`，结果必须对应实际安装的 Mod。名称尝试公开的 `carpetFancyName()` / `getFancyName()` / `getModName()` 以及 `fancyName` / `FANCY_NAME` / `MOD_NAME` 字段，最后回退到 Fabric 元数据。翻译直接关联该扩展自己的 `canHasTranslations(language)`，无需反射查找单例。共享 Carpet 管理器不会被用于推断附属 MODID。
+
+此流程自动发现所有已注册扩展的 Mod 信息和翻译。独立管理器按现有逻辑分配规则；共享管理器的规则归属仍需实际规则来源，反射得到 MODID 本身不能区分同一管理器内每条规则的注册者。现有 Igny / PRY 专用规则适配保留，原有显式接口仍可覆盖自动发现结果。
+
 `CarpetAddonAdapter` 实现 `CarpetModRulesApi`，让 Carpet GUI 自己提供兼容适配，不要求附属修改或重新发布。Igny 和 PRY 已使用它；专用类仅提供规则集合/配置类和翻译来源，公共类处理管理器查找、名称、未初始化状态、真实注册实例校验和去重。
 
 ```java
@@ -105,7 +109,16 @@ var customized = shared.withFancyName("Your Carpet Addition")
 
 注意：两个 ID 无法从共享管理器推断归属。规则名/配置字段方案只能查到该名称当前注册的对象，无法证明同名冲突中是哪一个 Mod 注册成功；提供者应确保名称属于目标附属，能取得真实实例时优先用 `fromRules`。分类和翻译键不作为归属依据。适配器按实际版本配置后，规则仍只分配给一个 Mod 标签页；未适配的其他附属不会因此自动独立分页。
 
-PRY 当前编译参考 `run/mods/carpet-pry-addition-v1.2.2-mc26.3+build.190.jar`（用户提供的 26.3 构建），仅为 `compileOnly`，不打包进 GUI，也不加入运行时必需依赖。开发者构建时需要这个 jar；其他路径可通过 `-Ppry_compile_jar=path/to/pry.jar` 指定。玩家使用已打包的 GUI 时只需按需安装兼容 PRY，无需配置该编译路径。
+Igny 和 PRY 通过 `ReflectiveAddonAdapters` 按完整类名读取公开 API，不导入附属包，也不需要它们的编译依赖或本地 jar。仅在 Fabric 确认附属已安装且没有显式规则提供者时创建适配；接口不兼容时记录警告，规则保留在原管理器页。Igny 仍从 `listRules()` / `rule()` 取得真实注册实例，PRY 按配置字段的原始注解名筛选，翻译通过反射取得服务实例后调用公共 `CarpetExtension.canHasTranslations(language)`。
+
+其他附属也可用字符串重载，避免引用附属类型（确认已安装后调用，并处理反射/链接失败）：
+
+```java
+var addon = CarpetAddonAdapter.fromSettingsClass("your_addon", "carpet",
+    "your.addon.Settings", "your.addon.settings.Rule");
+```
+
+反射适配仍需知道该附属的实际配置类、注解或规则列表 API；不会仅凭分类或同名字段猜测所有共享管理器附属的规则归属。
 
 ### CarpetModTranslationApi
 
