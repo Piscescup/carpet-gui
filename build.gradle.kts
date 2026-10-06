@@ -41,7 +41,8 @@ dependencies {
 	// Use Modrinth so builds do not depend on Terraformers Maven being reachable.
 	implementation("maven.modrinth:modmenu:${providers.gradleProperty("modmenu_version").get()}")
 	implementation("maven.modrinth:tcdcommons:FwE7UAgA")
-	implementation("maven.modrinth:7PCm6yD1:fB2DWKS1")
+	// Optional addon for development runs; its API is accessed through reflection.
+	runtimeOnly("maven.modrinth:7PCm6yD1:fB2DWKS1")
 }
 
 tasks.processResources {
@@ -55,25 +56,6 @@ tasks.processResources {
 
 tasks.withType<JavaCompile>().configureEach {
 	options.release = 25
-}
-
-val addonVerification = sourceSets.create("addonVerification") {
-	java.srcDir("src/verification/java")
-	compileClasspath += sourceSets["main"].output
-	runtimeClasspath += sourceSets["main"].output
-}
-configurations[addonVerification.implementationConfigurationName].extendsFrom(configurations["implementation"])
-configurations[addonVerification.runtimeOnlyConfigurationName].extendsFrom(configurations["runtimeOnly"])
-
-val verifyAddonDiscovery by tasks.registering(JavaExec::class) {
-	group = "verification"
-	description = "Checks automatic addon metadata discovery without launching Minecraft."
-	classpath = addonVerification.runtimeClasspath
-	mainClass.set("io.github.piscescup.fabricmc.carpetgui.integration.carpet.AddonDiscoveryTest")
-}
-
-tasks.check {
-	dependsOn(verifyAddonDiscovery)
 }
 
 java {

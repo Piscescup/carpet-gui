@@ -52,6 +52,32 @@ public final class CarpetModLookup {
         return mods.stream().filter(mod -> mod.getMetadata().getId().equals(id)).findFirst();
     }
 
+    /** Optional public name conventions, falling back to the actual Fabric metadata name. */
+    public static String displayName(Object extension, String fallback) {
+        Class<?> type = extension.getClass();
+        for (String name : java.util.List.of("carpetFancyName", "getFancyName", "getModName")) {
+            try {
+                var method = type.getMethod(name);
+                if (method.getReturnType() != String.class) continue;
+                String value = (String) method.invoke(Modifier.isStatic(method.getModifiers()) ? null : extension);
+                if (value != null && !value.isBlank()) return value;
+            } catch (ReflectiveOperationException | RuntimeException | LinkageError ignored) {
+                // Optional conventions must not prevent metadata fallback.
+            }
+        }
+        for (String name : java.util.List.of("fancyName", "FANCY_NAME", "MOD_NAME")) {
+            try {
+                var field = type.getField(name);
+                if (field.getType() != String.class) continue;
+                String value = (String) field.get(Modifier.isStatic(field.getModifiers()) ? null : extension);
+                if (value != null && !value.isBlank()) return value;
+            } catch (ReflectiveOperationException | RuntimeException | LinkageError ignored) {
+                // Never access private fields.
+            }
+        }
+        return fallback;
+    }
+
     private static Optional<ModContainer> findClassOwner(Collection<ModContainer> mods, String ownerClassName) {
         String classPath = ownerClassName.replace('.', '/') + ".class";
         return mods.stream().filter(mod -> mod.findPath(classPath).isPresent()).findFirst();

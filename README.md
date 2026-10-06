@@ -71,55 +71,24 @@ public final class ExtraModInfo implements CarpetModInfoApi {
 
 规则注册和服务端同步仍由原 Mod 负责；接口不创建规则或管理器。只有能在真实已注册管理器中找到的同一个规则实例才会显示。管理器本体返回完整规则集合时，附属对自身规则的声明优先，不会重复展示；两个附属同时声明同一规则时会报错。独立管理器默认按对应 Mod 分页，共享管理器按显式规则归属拆页，未声明归属的规则留在管理器默认 Mod 页中。当前 Igny 和 PRY 已内置适配，不要求改动它们的 jar。
 
-### 已发布附属的通用兼容适配器
+### 已发布附属的反射适配
 
-Mod 信息自动发现不要求附属实现新接口：遍历 `CarpetServer.extensions`，从每个扩展的运行时类定位其所在 Fabric Mod。类来源优先；无法定位时尝试公开静态 `getModId()` / `carpetModId()` 或 `MOD_ID` / `MODID` / `modId`，结果必须对应实际安装的 Mod。名称尝试公开的 `carpetFancyName()` / `getFancyName()` / `getModName()` 以及 `fancyName` / `FANCY_NAME` / `MOD_NAME` 字段，最后回退到 Fabric 元数据。翻译直接关联该扩展自己的 `canHasTranslations(language)`，无需反射查找单例。共享 Carpet 管理器不会被用于推断附属 MODID。
-
-此流程自动发现所有已注册扩展的 Mod 信息和翻译。独立管理器按现有逻辑分配规则；共享管理器的规则归属仍需实际规则来源，反射得到 MODID 本身不能区分同一管理器内每条规则的注册者。现有 Igny / PRY 专用规则适配保留，原有显式接口仍可覆盖自动发现结果。
-
-`CarpetAddonAdapter` 实现 `CarpetModRulesApi`，让 Carpet GUI 自己提供兼容适配，不要求附属修改或重新发布。Igny 和 PRY 已使用它；专用类仅提供规则集合/配置类和翻译来源，公共类处理管理器查找、名称、未初始化状态、真实注册实例校验和去重。
+反射接入集中在 `CarpetAddonAdapter`，注册集中在 `CarpetModRegistry.ADDONS`，Mod 来源和名称解析复用 `CarpetModLookup`。附属无需增加接口或入口，也不需要 GUI 导入附属类型。
 
 ```java
-import io.github.piscescup.fabricmc.carpetgui.api.CarpetAddonAdapter;
+var addon = CarpetAddonAdapter.fromClassNames(
+    "your.addon.AddonExtension", "your.addon.AddonSettings");
 
-// 独立且归该 Mod 所有的管理器：两个 ID 足够，默认名称来自 Fabric 元数据。
-var independent = CarpetAddonAdapter.fromIndependentManager("your_mod", "your_manager");
-
-// 共享管理器：必须额外提供归属信息，不能把父管理器全部规则当作附属规则。
-var shared = CarpetAddonAdapter.fromRuleNames("your_addon", "carpet",
-    () -> List.of("yourRule", "anotherRule"));
-
-// 如果附属提供自身的真实规则集合，优先使用它，避免规则名冲突导致归属误判。
-var liveRules = CarpetAddonAdapter.fromRules("your_addon", "carpet", addon::registeredRules);
-
-// 已发布附属只有带注解的配置字段时，传入实际配置类和该附属的规则注解。
-var annotated = CarpetAddonAdapter.fromSettingsClass("your_addon", "carpet",
-    AddonSettings.class, AddonRule.class);
-
-// 可选覆盖 Fancy Name / 翻译；返回新的适配器，原适配器不变。
-var customized = shared.withFancyName("Your Carpet Addition")
-    .withTranslations(extension::canHasTranslations);
+// 可选：严格指定实际规则注解的全类名。
+var exact = CarpetAddonAdapter.fromClassNames(
+    "your.addon.AddonExtension", "your.addon.AddonSettings", "your.addon.settings.Rule");
 ```
 
-以上是不同接入方式的示例，`addon` / `extension` / 配置类需换成目标附属实际提供的 API。默认翻译仍通过 MODID 读取原 Mod 资源；不会复制到 GUI 的语言文件，也不会修改全局 Carpet 语言。共享管理器适配器不会宣称独占该管理器，`carpetManagerId()` 只用于查找真实命令根。
+工厂只创建提供者。扩展类必须实现 `CarpetExtension`，并提供公开静态无参 `getInstance()`；Mod ID 和默认名称从扩展类所在 Fabric Mod 获取。读取时获取当前单例、实际管理器和翻译，不创建扩展或管理器。单例尚未就绪时返回空规则/翻译、元数据名称及空管理器 ID；没有独立管理器时使用真实 Carpet 管理器。
 
-这些工厂只创建提供者，不会自动注册它。对未实现接口的已发布附属，在 `CarpetModRegistry` 中检测安装状态后，将适配器加入信息、规则和翻译提供者（当前 Igny 和 PRY 就采用此路径）。可选依赖的专用类只能在确认 Mod 已安装后加载。主动接入的附属仍可使用原 `carpet-gui-mods` 入口。
+Settings 提供公开静态无参 `listRules()` 时，读取真实 `CarpetRule` 或集合元素公开 `rule()` 返回的实例。否则筛选声明的静态字段，默认识别运行时注解简单名 `Rule`，第三个参数可严格限定注解类。不会读取配置字段值、访问私有成员或提前初始化 Settings。只返回真实管理器中已注册的同一个规则实例，并去重；字段名方式仍无法区分同名注册冲突，不根据分类或翻译键猜测归属。
 
-规则在调用 `getRules()` 时才查询，因此创建提供者不会提前触发规则初始化。管理器尚未初始化或目标 Mod 未安装时返回空集合。`fromRules` 排除未成功注册、同名冲突或属于其他管理器的规则实例；所有方式只使用真实规则，不创建规则或假的管理器。`fromSettingsClass` 只检查声明字段的名称与注解，不读取字段值，不调用 `setAccessible`，不访问 Carpet 私有实现。
-
-注意：两个 ID 无法从共享管理器推断归属。规则名/配置字段方案只能查到该名称当前注册的对象，无法证明同名冲突中是哪一个 Mod 注册成功；提供者应确保名称属于目标附属，能取得真实实例时优先用 `fromRules`。分类和翻译键不作为归属依据。适配器按实际版本配置后，规则仍只分配给一个 Mod 标签页；未适配的其他附属不会因此自动独立分页。
-
-Igny 和 PRY 通过 `ReflectiveAddonAdapters` 按完整类名读取公开 API，不导入附属包，也不需要它们的编译依赖或本地 jar。仅在 Fabric 确认附属已安装且没有显式规则提供者时创建适配；接口不兼容时记录警告，规则保留在原管理器页。Igny 仍从 `listRules()` / `rule()` 取得真实注册实例，PRY 按配置字段的原始注解名筛选，翻译通过反射取得服务实例后调用公共 `CarpetExtension.canHasTranslations(language)`。
-
-其他附属也可用字符串重载，避免引用附属类型（确认已安装后调用，并处理反射/链接失败）：
-
-```java
-var addon = CarpetAddonAdapter.fromSettingsClass("your_addon", "carpet",
-    "your.addon.Settings", "your.addon.settings.Rule");
-```
-
-反射适配仍需知道该附属的实际配置类、注解或规则列表 API；不会仅凭分类或同名字段猜测所有共享管理器附属的规则归属。
-
+PRY 和 Igny 均使用此工厂。新增兼容项在 `CarpetModRegistry.ADDONS` 添加安装检查用的 MODID、两个全类名和可选注解名即可；显式规则提供者仍优先。旧的规则名/规则集合/配置类工厂及自定义名称、翻译包装入口已移除。
 ### CarpetModTranslationApi
 
 公共接口：`io.github.piscescup.fabricmc.carpetgui.api.CarpetModTranslationApi`，不依赖 Mod Menu 或客户端类。
