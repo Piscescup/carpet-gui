@@ -1,0 +1,45 @@
+{
+	"schemaVersion": 1,
+	"id": "carpet-gui",
+	"version": "${version}",
+	"name": "Carpet GUI",
+	"description": "A grouped, collapsible rule browser for Carpet mods.",
+	"authors": [
+		"Me!"
+	],
+	"contact": {
+		"homepage": "https://fabricmc.net/",
+		"sources": "https://github.com/FabricMC/fabric-example-mod"
+	},
+	"license": "CC0-1.0",
+	"icon": "assets/carpet-gui/icon.png",
+	"environment": "*",
+	"entrypoints": {
+		"modmenu": [
+			"io.github.piscescup.fabricmc.carpetgui.integration.modmenu.CarpetGuiModMenu"
+		],
+		"main": [
+			"io.github.piscescup.fabricmc.carpetgui.CarpetGUI"
+		],
+		"client": [
+			"io.github.piscescup.fabricmc.carpetgui.client.CarpetGUIClient"
+		],
+		"fabric-datagen": [
+			"io.github.piscescup.fabricmc.carpetgui.CarpetGUIDataGenerator"
+		]
+	},
+	"mixins": [
+		"carpet-gui.mixins.json"
+	],
+	"depends": {
+		"fabricloader": ">=0.19.5",
+		"minecraft": "~26.3",
+		"java": ">=25",
+		"fabric-api": "*",
+		"carpet": ">=26.3",
+		"tcdcommons": ">=5.6.0-beta.2"
+	},
+	"suggests": {
+		"modmenu": ">=21.0.0"
+	}
+}
