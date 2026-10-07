@@ -21,6 +21,9 @@ public final class RuleNetworking {
             .register(RuleEditRequest.TYPE, RuleEditRequest.CODEC);
         PayloadTypeRegistry.clientboundPlay()
             .register(RuleEditResponse.TYPE, RuleEditResponse.CODEC);
+        PayloadTypeRegistry.clientboundPlay()
+            .register(RuleChangeEvent.TYPE, RuleChangeEvent.CODEC);
+        ServerRuleChanges.initialize();
         ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> BUDGETS.remove(handler.player));
         ServerPlayNetworking.registerGlobalReceiver(
             RuleEditRequest.TYPE, (request, context) -> {

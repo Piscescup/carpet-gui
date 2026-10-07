@@ -54,7 +54,8 @@ final class RuleListPanel
             y += 24;
             if (model.expanded(group.category())) {
                 for (var rule : group.rules()) {
-                    var row = new WorkspaceRuleRow(page.id(), rule, result -> screen.feedback(rule, result), this::cancelDrafts);
+                    String ownerId = page instanceof AllRulesPage allRules ? allRules.ownerId(rule) : page.id();
+                    var row = new WorkspaceRuleRow(ownerId, rule, result -> screen.feedback(rule, result), this::cancelDrafts);
                     row.setBounds(bounds.x + 10, y, rowWidth, WorkspaceStyle.RULE_HEIGHT);
                     add(row);
                     rows.add(row);
