@@ -121,11 +121,11 @@ final class RuleGroupWorkspace {
             item.setSelected(group.id().equals(selectedGroupId));
             item.setBounds(x, y, width, WorkspaceStyle.RULE_HEIGHT);
             panel.add(item);
-            WorkspaceStyle.label(item, Component.literal(group.name()), x + 7, y + 3,
+            WorkspaceStyle.label(panel, Component.literal(group.name()), x + 7, y + 3,
                 Math.max(1, width - 14), 10,
                 group.id().equals(selectedGroupId) ? WorkspaceStyle.ACCENT : WorkspaceStyle.TEXT);
             String state = group.commitsAhead() > 0 ? "↑" + group.commitsAhead() : "✓";
-            var label = WorkspaceStyle.label(item,
+            var label = WorkspaceStyle.label(panel,
                 Component.literal((group.tag().isBlank() ? "HEAD" : group.tag()) + "  ·  r" + group.revision() + "  " + state),
                 x + 7, y + 14, Math.max(1, width - 14), 9, WorkspaceStyle.MUTED);
             label.textScaleProperty().set(WorkspaceStyle.SMALL_TEXT_SCALE, RuleGroupWorkspace.class);
