@@ -1,6 +1,7 @@
 package io.github.piscescup.fabricmc.carpetgui.gui.workspace;
 
 import com.thecsdev.commonmc.api.client.gui.TElement;
+import com.thecsdev.commonmc.api.client.gui.label.TLabelElement;
 import com.thecsdev.commonmc.api.client.gui.render.TGuiGraphics;
 import com.thecsdev.commonmc.api.client.gui.tooltip.TTooltip;
 import io.github.piscescup.fabricmc.carpetgui.gui.model.EditableRuleView;
@@ -14,6 +15,8 @@ import net.minecraft.network.chat.Component;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.function.Consumer;
+import java.util.function.IntSupplier;
+import java.util.function.Supplier;
 
 /**
  * One live rule: presentation and drafts only, all mutations go through the existing RuleEditor.
@@ -27,6 +30,11 @@ final class WorkspaceRuleRow
     private final RuleView rule;
     private final Consumer<RuleEditResult> feedback;
     private final Consumer<String> discardDrafts;
+    private final IntSupplier statusColor;
+    private final Supplier<Component> detailText;
+    private final boolean coloredStatus;
+    private TLabelElement title;
+    private TLabelElement description;
     private TElement valueControl;
     private NativeTextInput text;
     private WorkspaceStyle.Dropdown<String> choices;
@@ -42,10 +50,28 @@ final class WorkspaceRuleRow
     private String pendingSaveValue;
 
     WorkspaceRuleRow(String modId, RuleView rule, Consumer<RuleEditResult> feedback, Consumer<String> discardDrafts) {
+        this(modId, rule, feedback, discardDrafts, () -> WorkspaceStyle.TEXT, rule::description, false);
+    }
+
+    WorkspaceRuleRow(String modId, RuleView rule, Consumer<RuleEditResult> feedback, Consumer<String> discardDrafts,
+                     IntSupplier statusColor) {
+        this(modId, rule, feedback, discardDrafts, statusColor, rule::description, true);
+    }
+
+    WorkspaceRuleRow(String modId, RuleView rule, Consumer<RuleEditResult> feedback, Consumer<String> discardDrafts,
+                     IntSupplier statusColor, Supplier<Component> detailText) {
+        this(modId, rule, feedback, discardDrafts, statusColor, detailText, true);
+    }
+
+    private WorkspaceRuleRow(String modId, RuleView rule, Consumer<RuleEditResult> feedback, Consumer<String> discardDrafts,
+                             IntSupplier statusColor, Supplier<Component> detailText, boolean coloredStatus) {
         this.modId = modId;
         this.rule = rule;
         this.feedback = feedback;
         this.discardDrafts = discardDrafts;
+        this.statusColor = statusColor;
+        this.detailText = detailText;
+        this.coloredStatus = coloredStatus;
         observed = rule.value();
         tooltipProperty().set(ignored -> tooltip(), WorkspaceRuleRow.class);
     }
@@ -63,11 +89,11 @@ final class WorkspaceRuleRow
         int resetX = favoriteX - resetWidth - 4;
         int saveX = persistent ? resetX - saveWidth - 4 : resetX;
         int valueX = saveX - valueWidth - 4;
-        var title = WorkspaceStyle.label(this, rule.label(), bounds.x + 5, bounds.y + 3, valueX - bounds.x - 10, 10, WorkspaceStyle.TEXT);
+        title = WorkspaceStyle.label(this, rule.label(), bounds.x + 5, bounds.y + 3, valueX - bounds.x - 10, 10, statusColor.getAsInt());
         title.wrapTextProperty()
             .set(false, WorkspaceRuleRow.class);
-        var description = WorkspaceStyle.label(
-            this, rule.description(), bounds.x + 5, bounds.y + 14,
+        description = WorkspaceStyle.label(
+            this, detailText.get(), bounds.x + 5, bounds.y + 14,
             valueX - bounds.x - 10, 9, WorkspaceStyle.MUTED
         );
         description.wrapTextProperty()
@@ -262,6 +288,8 @@ final class WorkspaceRuleRow
 
     void refresh() {
         if (valueControl == null) return;
+        if (title != null) title.textColorProperty().set(statusColor.getAsInt(), WorkspaceRuleRow.class);
+        if (description != null) description.setText(detailText.get());
         boolean editable = editable();
         if (text != null) {
             text.setEnabled(editable);
@@ -348,6 +376,7 @@ final class WorkspaceRuleRow
         var bounds = getBounds();
         graphics.fillColor(bounds.x, bounds.y, bounds.width, bounds.height, WorkspaceStyle.RULE_BACKGROUND);
         graphics.drawOutlineIn(bounds.x, bounds.y, bounds.width, bounds.height, WorkspaceStyle.BORDER);
+        if (coloredStatus) graphics.fillColor(bounds.x + 1, bounds.y + 1, 3, Math.max(0, bounds.height - 2), statusColor.getAsInt());
     }
 
     @Override

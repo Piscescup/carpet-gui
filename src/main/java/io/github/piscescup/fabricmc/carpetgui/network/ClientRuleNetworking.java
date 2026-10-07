@@ -1,9 +1,6 @@
 package io.github.piscescup.fabricmc.carpetgui.network;
 
-import carpet.api.settings.InvalidRuleValueException;
 import io.github.piscescup.fabricmc.carpetgui.gui.model.RuleEditResult;
-import io.github.piscescup.fabricmc.carpetgui.integration.carpet.CarpetManagerBinding;
-import io.github.piscescup.fabricmc.carpetgui.integration.carpet.CarpetRuleSource;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.network.chat.Component;
@@ -42,15 +39,9 @@ public final class ClientRuleNetworking {
         lastResponse = response;
         if (!response.value().isEmpty()) {
             // Apply only a matched server acknowledgement, just as Carpet's own rule synchronization does.
-            for (var binding : CarpetManagerBinding.discover()) {
-                if (!binding.manager().identifier().equals(response.managerId())) continue;
-                var rule = binding.manager().getCarpetRule(response.ruleId());
-                if (rule != null) {
-                    try { rule.set(null, response.value()); } catch (InvalidRuleValueException ignored) { }
-                }
-            }
-            CarpetRuleSource.RULE_REVISION.incrementAndGet();
+            ClientRuleChanges.applyServerValue(response.managerId(), response.ruleId(), response.value());
         }
+        if (response.success()) ClientRuleChanges.clear(response.managerId() + ":" + response.ruleId());
         pending.callback().accept(new RuleEditResult(response.success(), false, Component.translatable(response.messageKey())));
     }
     public static void tick() {
