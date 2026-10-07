@@ -23,6 +23,8 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.CharacterEvent;
 import net.minecraft.client.input.PreeditEvent;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
+import org.jspecify.annotations.NonNull;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -94,7 +96,7 @@ public final class CarpetWorkspaceScreen
     }
 
     @Override
-    protected TScreenWrapper<?> createWrapperScreen() {
+    protected @NonNull TScreenWrapper<?> createWrapperScreen() {
         return new Wrapper(this);
     }
 
@@ -135,10 +137,10 @@ public final class CarpetWorkspaceScreen
         homeHelpHeading = null;
         homeHelpBody = null;
         var screen = getBounds();
-        int x = Math.max(4, screen.width / 20);
+        int x = Math.max(4, screen.width / 40);
         int width = Math.max(1, screen.width - 2 * x);
         int bodyY = WorkspaceStyle.BODY_Y;
-        int bodyHeight = Math.max(1, screen.height - bodyY - 23);
+        int bodyHeight = Math.max(1, screen.height - bodyY - 10);
         var frame = new TPanelElement.Paintable(WorkspaceStyle.FRAME, WorkspaceStyle.BORDER, WorkspaceStyle.BORDER);
         frame.setBounds(x, WorkspaceStyle.TAB_Y - 1, width, bodyY + bodyHeight - WorkspaceStyle.TAB_Y + 1);
         frame.hoverableProperty().set(false, CarpetWorkspaceScreen.class);
@@ -262,17 +264,17 @@ public final class CarpetWorkspaceScreen
     private void initRules(RulePage page, int x, int y, int width, int height) {
         RuleBrowserModel model = RuleBrowserModel.forPage(page.id());
         observedCategories = model.categories(page);
-        if (!model.category.isEmpty() && !model.categories(page)
-            .contains(model.category)) {
+        if (!model.category.isEmpty() && !model.category.equals(RuleBrowserModel.FAVORITES)
+            && !model.categories(page).contains(model.category)) {
             model.category = "";
         }
         int sidebarWidth = Math.clamp(width * 30 / 100, Math.min(120, width / 3), 235);
-        var sidebar = new WorkspacePanel(9);
+        var sidebar = new WorkspacePanel(12);
         addPane(sidebar, x, y, sidebarWidth, height);
         initSidebar(sidebar, page, model);
         int listX = x + sidebarWidth;
         int listWidth = Math.max(1, width - sidebarWidth);
-        counts = WorkspaceStyle.label(this, Component.empty(), listX + 10, y + 2, listWidth - 20, 18, WorkspaceStyle.MUTED);
+        counts = WorkspaceStyle.label(this, Component.empty(), listX + 10, y + 8, listWidth - 20, 18, WorkspaceStyle.MUTED);
         ruleList = new RuleListPanel(this, page, model);
         addPane(ruleList, listX, y + 23, listWidth, Math.max(1, height - 23));
     }
@@ -287,6 +289,9 @@ public final class CarpetWorkspaceScreen
         categories.add(new WorkspaceStyle.Option<>("", tr("all_categories")));
         model.categories(page)
             .forEach(category -> categories.add(new WorkspaceStyle.Option<>(category, categoryLabel(page, category))));
+        WorkspaceStyle.Option<String> lastCategory = categories.removeLast();
+        categories.add(new WorkspaceStyle.Option<>(lastCategory.value(), lastCategory.label(), true));
+        categories.add(new WorkspaceStyle.Option<>(RuleBrowserModel.FAVORITES, tr("favorites")));
         addDropdown(
             sidebar, x, y, width, categories, model.category, category -> {
                 model.category = category;
@@ -504,10 +509,12 @@ public final class CarpetWorkspaceScreen
     }
 
     private void addIcon(TElement parent, String modId, int x, int y, int size) {
-        var icon = icons.icon(modId);
-        if (icon.isPresent()) {
-            var texture = new TTextureElement(icon.get());
-            // Dynamic identifiers are not GUI-atlas sprites, even without a .png suffix.
+        Identifier icon = "minecraft".equals(modId)
+            ? Identifier.withDefaultNamespace("textures/block/grass_block_side.png")
+            : icons.icon(modId).orElse(null);
+        if (icon != null) {
+            var texture = new TTextureElement(icon);
+            // Mod icons are dynamic textures; the vanilla icon is a direct resource texture.
             texture.modeProperty().set(TTextureElement.Mode.TEXTURE, CarpetWorkspaceScreen.class);
             texture.setBounds(x, y, size, size);
             parent.add(texture);
@@ -570,6 +577,7 @@ public final class CarpetWorkspaceScreen
 
     Component categoryLabel(RulePage page, String category) {
         if (category.equals(RuleBrowserModel.ALL_RULES)) return Component.translatable("carpet-gui.tab.all");
+        if (category.equals(RuleBrowserModel.FAVORITES)) return tr("favorites");
         return category.equals(RuleBrowserModel.UNCATEGORIZED) ? tr("uncategorized") : page.categoryLabel(category);
     }
 

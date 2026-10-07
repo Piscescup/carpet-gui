@@ -2,7 +2,7 @@ package io.github.piscescup.fabricmc.carpetgui.integration.carpet;
 
 import carpet.CarpetExtension;
 import carpet.CarpetServer;
-import io.github.piscescup.fabricmc.carpetgui.api.CarpetModTranslationApi;
+import io.github.piscescup.fabricmc.carpetgui.api.CarpetModInfoApi;
 import net.fabricmc.loader.api.FabricLoader;
 import net.fabricmc.loader.api.ModContainer;
 
@@ -36,10 +36,10 @@ public final class CarpetTranslationRegistry {
      * Adapts installed Carpet mods to the public API, including those not implementing it themselves.
      */
     private static final class Source
-        implements CarpetModTranslationApi
+        implements CarpetModInfoApi
     {
         private final ModContainer mod;
-        private CarpetModTranslationApi explicit;
+        private CarpetModInfoApi explicit;
         private final List<CarpetExtension> extensions = new ArrayList<>();
 
         private Source(ModContainer mod) {
@@ -47,9 +47,13 @@ public final class CarpetTranslationRegistry {
         }
 
         @Override
-        public String getModId() {
-            return mod.getMetadata()
-                .getId();
+        public String carpetModId() {
+            return mod.getMetadata().getId();
+        }
+
+        @Override
+        public String carpetFancyName() {
+            return explicit == null ? mod.getMetadata().getName() : explicit.carpetFancyName();
         }
 
         @Override
@@ -73,18 +77,18 @@ public final class CarpetTranslationRegistry {
         FabricLoader loader = FabricLoader.getInstance();
         return new CarpetTranslationRegistry(
             loader.getAllMods(),
-            loader.getEntrypoints(CarpetModTranslationApi.ENTRYPOINT, CarpetModTranslationApi.class),
+            loader.getEntrypoints(CarpetModInfoApi.ENTRYPOINT, CarpetModInfoApi.class),
             List.copyOf(CarpetServer.extensions)
         );
     }
 
     public CarpetTranslationRegistry(
         Collection<ModContainer> mods,
-        Collection<CarpetModTranslationApi> providers,
+        Collection<CarpetModInfoApi> providers,
         Collection<CarpetExtension> extensions
     ) {
         this.mods = List.copyOf(mods);
-        for (CarpetModTranslationApi provider : providers) register(provider);
+        for (CarpetModInfoApi provider : providers) register(provider);
         CarpetModLookup.find(this.mods, CarpetServer.class.getName(), "carpet")
             .ifPresent(mod -> {
                 source(mod);
@@ -96,18 +100,18 @@ public final class CarpetTranslationRegistry {
                 );
             });
         for (CarpetExtension extension : extensions) {
-            if (extension instanceof CarpetModTranslationApi provider) {
+            if (extension instanceof CarpetModInfoApi provider) {
                 Source existing = sources.get(provider.getModId());
                 if (existing == null || existing.explicit == null) register(provider);
             }
             var manager = extension.extensionSettingsManager();
             String managerId = manager == null ? "" : manager.identifier();
-            Optional<ModContainer> mod = extension instanceof CarpetModTranslationApi provider
+            Optional<ModContainer> mod = extension instanceof CarpetModInfoApi provider
                 ? findById(provider.getModId()) : CarpetModLookup.find(this.mods, extension.getClass(), "")
                     .or(() -> findMod(extension.getClass(), managerId));
             mod.ifPresent(owner -> source(owner).extensions.add(extension));
             if (manager == null) continue;
-            if (extension instanceof CarpetModTranslationApi provider) {
+            if (extension instanceof CarpetModInfoApi provider) {
                 claimManager(managerId, provider.getModId());
             } else if (mod.isPresent()) {
                 managerOwners.putIfAbsent(
@@ -123,6 +127,7 @@ public final class CarpetTranslationRegistry {
         }
     }
 
+
     private Source source(ModContainer mod) {
         return sources.computeIfAbsent(
             mod.getMetadata()
@@ -130,13 +135,15 @@ public final class CarpetTranslationRegistry {
         );
     }
 
-    private void register(CarpetModTranslationApi provider) {
+    private void register(CarpetModInfoApi provider) {
         String id = Objects.requireNonNull(provider.getModId(), "Translation provider Mod ID");
-        ModContainer mod = findById(id).orElseThrow(() -> new IllegalArgumentException(
-            "Carpet translation provider refers to an unloaded mod: " + id));
+        ModContainer mod = findById(id)
+            .orElseThrow(() -> new IllegalArgumentException(
+                "Carpet translation provider refers to an unloaded mod: " + id)
+            );
         Source source = source(mod);
         if (source.explicit != null && source.explicit != provider) {
-            throw new IllegalArgumentException("Duplicate Carpet translation provider for mod " + id);
+            throw new IllegalArgumentException("Duplicate Carpet mod provider for mod " + id);
         }
         source.explicit = provider;
         for (String managerId : provider.getSettingsManagerIds()) claimManager(managerId, id);
@@ -166,7 +173,7 @@ public final class CarpetTranslationRegistry {
     /**
      * Returns the runtime translation API for this mod, including automatically adapted extensions.
      */
-    public Optional<CarpetModTranslationApi> findProvider(String modId) {
+    public Optional<CarpetModInfoApi> findProvider(String modId) {
         return Optional.ofNullable(sources.get(modId));
     }
 
@@ -179,7 +186,7 @@ public final class CarpetTranslationRegistry {
     }
 
     /** A dedicated translation entrypoint wins over an info/rules entrypoint's default translations. */
-    public void registerProviderIfAbsent(CarpetModTranslationApi provider) {
+    public void registerProviderIfAbsent(CarpetModInfoApi provider) {
         Source source = sources.get(provider.getModId());
         if (source == null || source.explicit == null) {
             register(provider);

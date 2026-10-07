@@ -1,9 +1,10 @@
 package io.github.piscescup.fabricmc.carpetgui.network;
 
+import io.github.piscescup.fabricmc.carpetgui.References;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.resources.Identifier;
+import org.jspecify.annotations.NonNull;
 
 /**
  * Versioned, bounded request. No player identity, permission claim or arbitrary command is accepted.
@@ -21,8 +22,9 @@ public record RuleEditRequest(
     public static final int VERSION = 1;
     public static final int SET_VALUE = 0;
     public static final int SAVE_DEFAULT = 1;
-    public static final Type<RuleEditRequest> TYPE = new Type<>(Identifier.fromNamespaceAndPath("carpet-gui", "rule_edit_v1"));
+    public static final Type<RuleEditRequest> TYPE = new Type<>(References.fromPath("rule_edit_v1"));
     public static final StreamCodec<RegistryFriendlyByteBuf, RuleEditRequest> CODEC = new StreamCodec<>() {
+        @NonNull
         @Override
         public RuleEditRequest decode(RegistryFriendlyByteBuf buffer) {
             return new RuleEditRequest(

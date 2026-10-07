@@ -1,6 +1,7 @@
 package io.github.piscescup.fabricmc.carpetgui.gui.workspace;
 
 import com.mojang.blaze3d.platform.NativeImage;
+import io.github.piscescup.fabricmc.carpetgui.References;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.texture.DynamicTexture;
@@ -45,7 +46,7 @@ final class ModIconStore
                 image.close();
                 return Optional.empty();
             }
-            Identifier id = Identifier.fromNamespaceAndPath("carpet-gui", "mod_icons/" + storeId + "/" + modId);
+            Identifier id = References.fromPath("mod_icons/" + storeId + "/" + modId);
             DynamicTexture texture;
             try {
                 texture = new DynamicTexture(() -> "Carpet GUI icon: " + modId, image);

@@ -13,6 +13,7 @@ import net.minecraft.network.chat.Component;
 import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.Objects;
+import java.util.function.BooleanSupplier;
 
 /** Shared flat workspace visuals; no rule-system dependency. */
 public final class WorkspaceStyle {
@@ -145,7 +146,61 @@ public final class WorkspaceStyle {
         }
     }
 
-    public record Option<T>(T value, Component label) {}
+    public record Option<T>(T value, Component label, boolean separatorAfter) {
+        public Option(T value, Component label) {
+            this(value, label, false);
+        }
+    }
+
+    /** Font-independent pixel heart: an outline when inactive and a red fill when favorited. */
+    public static final class FavoriteButton extends TButtonWidget.Transparent {
+        private static final String[] OUTLINE = {
+            "  ##   ##  ",
+            " #  # #  # ",
+            "#    #    #",
+            "#         #",
+            " #       # ",
+            "  #     #  ",
+            "   #   #   ",
+            "    # #    ",
+            "     #     "
+        };
+        private static final String[] FILLED = {
+            "  ##   ##  ",
+            " ######### ",
+            "###########",
+            "###########",
+            " ######### ",
+            "  #######  ",
+            "   #####   ",
+            "    ###    ",
+            "     #     "
+        };
+        private final BooleanSupplier favorite;
+
+        public FavoriteButton(BooleanSupplier favorite, Runnable action) {
+            this.favorite = Objects.requireNonNull(favorite, "favorite");
+            getLabel().setText(Component.empty());
+            eClicked.addListener(ignored -> action.run());
+        }
+
+        @Override public void renderCallback(TGuiGraphics graphics) {
+            var bounds = getBounds();
+            if (isHoveredOrFocused()) {
+                graphics.fillColor(bounds.x, bounds.y, bounds.width, bounds.height, 0x50393939);
+                graphics.drawOutlineIn(bounds.x, bounds.y, bounds.width, bounds.height, FOCUS);
+            }
+            String[] pixels = favorite.getAsBoolean() ? FILLED : OUTLINE;
+            int color = favorite.getAsBoolean() ? 0xFFFF5555 : 0xFFE0E0E0;
+            int x = bounds.x + (bounds.width - pixels[0].length()) / 2;
+            int y = bounds.y + (bounds.height - pixels.length) / 2;
+            for (int row = 0; row < pixels.length; row++) {
+                for (int column = 0; column < pixels[row].length(); column++) {
+                    if (pixels[row].charAt(column) == '#') graphics.fillColor(x + column, y + row, 1, 1, color);
+                }
+            }
+        }
+    }
 
     /** All workspace dropdowns use the same popup as the top navigation menus. */
     public static final class Dropdown<T> extends TButtonWidget {
@@ -178,7 +233,7 @@ public final class WorkspaceStyle {
             var screen = screenProperty().get();
             if (screen == null || entries.isEmpty()) return;
             var items = entries.stream().map(option -> new WorkspaceNavigationMenu.Entry(null, option.label(),
-                selectedEntry.get() != null && Objects.equals(option.value(), selectedEntry.get().value()), false, () -> {
+                selectedEntry.get() != null && Objects.equals(option.value(), selectedEntry.get().value()), option.separatorAfter(), () -> {
                     screen.focusedElementProperty().set(this, Dropdown.class);
                     selectedEntry.set(option, Dropdown.class);
                 })).toList();

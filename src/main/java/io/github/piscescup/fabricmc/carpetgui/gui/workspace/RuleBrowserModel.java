@@ -18,6 +18,7 @@ import java.util.Map;
 public final class RuleBrowserModel {
     public static final String UNCATEGORIZED = "__uncategorized";
     public static final String ALL_RULES = "__all_rules";
+    public static final String FAVORITES = "__favorites";
     private static final Map<String, RuleBrowserModel> SESSION = new LinkedHashMap<>();
 
     public enum Sort {
@@ -35,7 +36,10 @@ public final class RuleBrowserModel {
         KILOMETERS
     }
 
-    public enum Grouping { CATEGORY, NONE }
+    public enum Grouping {
+        CATEGORY,
+        NONE
+    }
 
     public enum Time {
         AUTO,
@@ -98,10 +102,10 @@ public final class RuleBrowserModel {
         return page.rules()
             .stream()
             .filter(rule -> !modifiedOnly || rule.modified())
-            .filter(rule -> category.isEmpty() || rule.categories()
-                .contains(category)
-                            || category.equals(UNCATEGORIZED) && rule.categories()
-                .isEmpty())
+            .filter(rule -> category.isEmpty()
+                || category.equals(FAVORITES) && FavoriteRules.contains(rule.stateId())
+                || rule.categories().contains(category)
+                || category.equals(UNCATEGORIZED) && rule.categories().isEmpty())
             .filter(rule -> matches(rule, tokens))
             .sorted(comparator())
             .map(rule -> (RuleView) rule)
@@ -109,6 +113,10 @@ public final class RuleBrowserModel {
     }
 
     public List<Group> groups(RulePage page) {
+        if (category.equals(FAVORITES)) {
+            List<RuleView> rules = rules(page);
+            return rules.isEmpty() ? List.of() : List.of(new Group(FAVORITES, rules));
+        }
         if (grouping == Grouping.NONE) {
             List<RuleView> rules = rules(page);
             return rules.isEmpty() ? List.of() : List.of(new Group(ALL_RULES, rules));
@@ -175,8 +183,11 @@ public final class RuleBrowserModel {
     }
 
     private static BigDecimal numericValue(String value) {
-        try { return new BigDecimal(value); }
-        catch (NumberFormatException ignored) { return null; }
+        try {
+            return new BigDecimal(value);
+        } catch (NumberFormatException ignored) {
+            return null;
+        }
     }
 
     private static String normalize(String text) {

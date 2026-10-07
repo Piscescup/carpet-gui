@@ -1,9 +1,11 @@
 package io.github.piscescup.fabricmc.carpetgui.network;
 
+import io.github.piscescup.fabricmc.carpetgui.References;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.Identifier;
+import org.jspecify.annotations.NonNull;
 
 /**
  * A result belongs to exactly one request; value is the server's resulting value, never an optimistic guess.
@@ -20,8 +22,9 @@ public record RuleEditResponse(
 )
     implements CustomPacketPayload
 {
-    public static final Type<RuleEditResponse> TYPE = new Type<>(Identifier.fromNamespaceAndPath("carpet-gui", "rule_result_v1"));
+    public static final Type<RuleEditResponse> TYPE = new Type<>(References.fromPath("rule_result_v1"));
     public static final StreamCodec<RegistryFriendlyByteBuf, RuleEditResponse> CODEC = new StreamCodec<>() {
+        @NonNull
         @Override
         public RuleEditResponse decode(RegistryFriendlyByteBuf buffer) {
             return new RuleEditResponse(

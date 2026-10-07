@@ -3,178 +3,286 @@ package io.github.piscescup.fabricmc.carpetgui.integration.carpet;
 import carpet.CarpetExtension;
 import carpet.CarpetServer;
 import carpet.api.settings.CarpetRule;
-import io.github.piscescup.fabricmc.carpetgui.api.CarpetAddonAdapter;
+import io.github.piscescup.fabricmc.carpetgui.adapter.CarpetAddonAdapter;
 import io.github.piscescup.fabricmc.carpetgui.api.CarpetModInfoApi;
 import io.github.piscescup.fabricmc.carpetgui.api.CarpetModRulesApi;
-import io.github.piscescup.fabricmc.carpetgui.api.CarpetModTranslationApi;
 import net.fabricmc.loader.api.FabricLoader;
+import net.fabricmc.loader.api.ModContainer;
 
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 import static io.github.piscescup.fabricmc.carpetgui.References.LOGGER;
+import static io.github.piscescup.fabricmc.carpetgui.integration.carpet.CarpetSeriesMods.CARPET_SERIES;
 
-/**
- * Separates mod/page identity from rule manager identity and preserves shared-manager ownership.
- */
+/** Separates Fabric mod/page identity from Carpet settings-manager identity. */
 public final class CarpetModRegistry {
-    private record AddonClasses(String modId, String extensionClass, String settingsClass, String ruleAnnotation) {}
-
-    private static final List<AddonClasses> ADDONS = List.of(
-        new AddonClasses("carpet-pry-addition", "me.primaryuan.carpet.CarpetPrimaryuanServer",
-            "me.primaryuan.carpet.CarpetPrimaryuanSettings", "me.primaryuan.carpet.settings.Rule"),
-        new AddonClasses("carpet-igny-addition", "com.liuyue.igny.IGNYServer",
-            "com.liuyue.igny.IGNYSettings", null)
-    );
 
     private CarpetModRegistry() {
     }
 
-    private record ModInfo(String carpetModId, String carpetFancyName) implements CarpetModInfoApi {
-    }
-
     private record RuleKey(String manager, String name) {
         private static RuleKey of(CarpetRule<?> rule) {
-            return new RuleKey(
-                rule.settingsManager()
-                    .identifier(), rule.name()
-            );
+            return new RuleKey(rule.settingsManager().identifier(), rule.name());
         }
     }
 
     private record Providers(Map<String, CarpetModInfoApi> infos, Map<String, CarpetModRulesApi> rules) {
     }
 
-    /**
-     * Can be called by Mod Menu before the game/world initializes rules.
-     */
+    /** Can be called by Mod Menu before the game/world initializes rules. */
     public static List<CarpetModInfoApi> discoverInfos() {
-        return List.copyOf(providers(CarpetTranslationRegistry.discover()).infos()
-            .values());
+        return List.copyOf(
+            providers(CarpetTranslationRegistry.discover())
+                .infos()
+                .values()
+        );
     }
 
     private static Providers providers(CarpetTranslationRegistry translations) {
         FabricLoader loader = FabricLoader.getInstance();
+
         Map<String, CarpetModInfoApi> infos = new LinkedHashMap<>();
         Map<String, CarpetModRulesApi> rules = new LinkedHashMap<>();
 
-        loader.getModContainer("carpet")
-            .ifPresent(mod -> infos.put("carpet", new ModInfo("carpet", "Carpet Mod")));
-
         for (String id : translations.modIds()) {
-            loader.getModContainer(id)
-                .ifPresent(mod -> infos.putIfAbsent(
-                    id, new ModInfo(
-                        id, mod.getMetadata()
-                        .getName()
-                    )
-                ));
+            translations.findProvider(id).ifPresent(info -> infos.putIfAbsent(id, info));
         }
 
-        for (CarpetExtension extension : List.copyOf(CarpetServer.extensions)) {
-            var manager = extension.extensionSettingsManager();
-            String managerId = manager == null || manager == CarpetServer.settingsManager ? "" : manager.identifier();
-            CarpetModLookup.find(loader.getAllMods(), extension.getClass(), managerId).ifPresent(mod -> {
-                String id = mod.getMetadata().getId();
-                infos.put(id, new ModInfo(id, CarpetModLookup.displayName(extension, mod.getMetadata().getName())));
-                translations.registerMod(id);
-            });
-        }
+        List<CarpetExtension> extensions = List.copyOf(CarpetServer.extensions);
+        discoverExtensionInfos(loader, translations, infos, extensions);
 
-        Map<String, CarpetModInfoApi> declared = new LinkedHashMap<>();
+        Map<String, CarpetModInfoApi> declared =
+            declaredProviders(loader, extensions);
 
-        for (CarpetModInfoApi info : loader.getEntrypoints(CarpetModInfoApi.ENTRYPOINT, CarpetModInfoApi.class)) {
-            if (declared.putIfAbsent(info.carpetModId(), info) != null) {
-                throw new IllegalArgumentException("Duplicate Carpet mod info for " + info.carpetModId());
+        for (Map.Entry<String, CarpetModInfoApi> entry : declared.entrySet()) {
+            String id = entry.getKey();
+            CarpetModInfoApi info = entry.getValue();
+            String name = info.carpetFancyName();
+
+            if (id == null || id.isBlank()
+                || !loader.isModLoaded(id)
+                || name == null || name.isBlank()) {
+                throw new IllegalArgumentException(
+                    "Invalid Carpet mod info provider: " + id
+                );
             }
-        }
 
-        for (CarpetExtension extension : List.copyOf(CarpetServer.extensions)) {
-            if (extension instanceof CarpetModInfoApi info) {
-                declared.putIfAbsent(info.carpetModId(), info);
-            }
-        }
-
-        for (CarpetModInfoApi info : declared.values()) {
-            String id = info.carpetModId();
-            if (id == null || !loader.isModLoaded(id) || info.carpetFancyName() == null || info.carpetFancyName()
-                .isBlank()) {
-                throw new IllegalArgumentException("Invalid Carpet mod info provider: " + id);
-            }
             infos.put(id, info);
             translations.registerMod(id);
-            if (info instanceof CarpetModRulesApi provider) rules.put(id, provider);
-            if (info instanceof CarpetModTranslationApi provider) translations.registerProviderIfAbsent(provider);
+
+            if (info instanceof CarpetModRulesApi provider) {
+                rules.put(id, provider);
+                translations.registerProviderIfAbsent(provider);
+            }
+
         }
-        for (var classes : ADDONS) {
-            String id = classes.modId();
+
+        registerCarpetSeriesMods(
+            loader,
+            translations,
+            infos,
+            rules,
+            declared
+        );
+        return new Providers(infos, rules);
+    }
+
+    private static void discoverExtensionInfos(
+        FabricLoader loader,
+        CarpetTranslationRegistry translations,
+        Map<String, CarpetModInfoApi> infos,
+        List<CarpetExtension> extensions
+    ) {
+        Collection<ModContainer> mods = loader.getAllMods();
+        for (CarpetExtension extension : extensions) {
+            String managerId = "";
+            try {
+                var manager = extension.extensionSettingsManager();
+
+                if (manager != null && manager != CarpetServer.settingsManager)
+                    managerId = manager.identifier();
+
+            } catch (RuntimeException | LinkageError failure) {
+                LOGGER.warn("Cannot inspect the settings manager for Carpet extension {}", extension.getClass().getName(), failure);
+            }
+            CarpetModLookup.find(mods, extension.getClass(), managerId)
+                .ifPresent(mod -> {
+                        String id = mod.getMetadata().getId();
+                        translations.registerMod(id);
+                        translations.findProvider(id).ifPresent(info -> infos.put(id, info));
+                    }
+                );
+        }
+    }
+
+    private static Map<String, CarpetModInfoApi> declaredProviders(
+        FabricLoader loader,
+        List<CarpetExtension> extensions
+    ) {
+        Map<String, CarpetModInfoApi> declared = new LinkedHashMap<>();
+        for (CarpetModInfoApi info : loader.getEntrypoints(CarpetModInfoApi.ENTRYPOINT, CarpetModInfoApi.class)) {
+            String id = info.carpetModId();
+            if (declared.putIfAbsent(id, info) != null) {
+                throw new IllegalArgumentException("Duplicate Carpet mod info for " + id);
+            }
+        }
+        for (CarpetExtension extension : extensions) {
+            if (extension instanceof CarpetModInfoApi info) declared.putIfAbsent(info.carpetModId(), info);
+        }
+        return declared;
+    }
+
+    private static void registerCarpetSeriesMods(
+        FabricLoader loader,
+        CarpetTranslationRegistry translations,
+        Map<String, CarpetModInfoApi> infos,
+        Map<String, CarpetModRulesApi> rules,
+        Map<String, CarpetModInfoApi> declared
+    ) {
+        for (CarpetAddonAdapter carpet : CARPET_SERIES) {
+            String id = carpet.carpetModId();
             if (!loader.isModLoaded(id) || rules.containsKey(id)) continue;
             try {
-                CarpetAddonAdapter addon = CarpetAddonAdapter.fromClassNames(
-                    classes.extensionClass(), classes.settingsClass(), classes.ruleAnnotation());
-                if (!id.equals(addon.carpetModId())) {
+                if (!id.equals(carpet.carpetModId())) {
                     throw new IllegalArgumentException(
-                        "Addon class belongs to " + addon.carpetModId() + ", expected " + id);
+                        "Addon class belongs to " + carpet.carpetModId() + ", expected " + id);
                 }
-                if (!declared.containsKey(id)) infos.put(id, addon);
-                rules.put(id, addon);
-                translations.registerProviderIfAbsent(addon);
-            } catch (ReflectiveOperationException | RuntimeException | LinkageError failure) {
+                if (!declared.containsKey(id)) {
+                    infos.put(id, carpet);
+                }
+                rules.put(id, carpet);
+                translations.registerProviderIfAbsent(carpet);
+            } catch (RuntimeException | LinkageError failure) {
                 LOGGER.warn("Skipping incompatible optional Carpet addon adapter for {}", id, failure);
             }
         }
 
-        return new Providers(infos, rules);
     }
 
+    /** Discovers pages and assigns every registered rule to at most one Fabric mod page. */
     public static List<CarpetModBinding> discover(CarpetTranslationRegistry translations) {
         Providers providers = providers(translations);
-        var managers = CarpetManagerBinding.discover(translations);
+        List<CarpetManagerBinding> managers = CarpetManagerBinding.discover(translations);
+        Map<String, CarpetModInfoApi> infos = new LinkedHashMap<>(providers.infos());
         Map<RuleKey, CarpetRule<?>> registered = new LinkedHashMap<>();
         Map<RuleKey, String> owners = new LinkedHashMap<>();
+
         for (CarpetManagerBinding binding : managers) {
-            for (CarpetRule<?> rule : binding.manager()
-                .getCarpetRules()) {
-                registered.putIfAbsent(RuleKey.of(rule), rule);
-                owners.putIfAbsent(RuleKey.of(rule), binding.modId());
-            }
+            addManagerInfoIfAbsent(infos, binding);
+            registerManagerRules(binding, registered, owners);
         }
+
         Map<RuleKey, String> defaultOwners = new LinkedHashMap<>(owners);
         Map<RuleKey, String> claimed = new LinkedHashMap<>();
-        for (CarpetModRulesApi provider : providers.rules()
-            .values()) {
-            for (CarpetRule<?> rule : provider.getRules()) {
-                if (rule == null || rule.settingsManager() == null) continue;
-                RuleKey key = RuleKey.of(rule);
-                if (registered.get(key) != rule) {
-                    LOGGER.warn(
-                        "Ignoring unregistered rule {}/{} from {}", key.manager(), key.name(), provider.carpetModId());
-                    continue;
-                }
-                String previous = claimed.putIfAbsent(key, provider.carpetModId());
-                if (previous != null && !previous.equals(provider.carpetModId())) {
-                    // A manager owner's broad list is a fallback; a specific addon owns its shared rules.
-                    if (provider.carpetModId()
-                        .equals(defaultOwners.get(key))) {
-                        continue;
-                    }
-                    if (!previous.equals(defaultOwners.get(key))) {
-                        throw new IllegalArgumentException(
-                            "Rule " + key + " claimed by " + previous + " and " + provider.carpetModId());
-                    }
-                    claimed.put(key, provider.carpetModId());
-                }
-                owners.put(key, provider.carpetModId());
+        for (Map.Entry<String, CarpetModRulesApi> entry : providers.rules().entrySet()) {
+            String providerId = entry.getKey();
+            for (CarpetRule<?> rule : providerRules(providerId, entry.getValue())) {
+                claimRule(providerId, rule, registered, owners, defaultOwners, claimed);
             }
         }
+
         Map<String, List<CarpetRule<?>>> grouped = new LinkedHashMap<>();
-        registered.forEach((key, rule) -> grouped.computeIfAbsent(owners.get(key), ignored -> new ArrayList<>())
-            .add(rule));
+        registered.forEach((key, rule) -> grouped.computeIfAbsent(owners.get(key), ignored -> new ArrayList<>()).add(rule));
+
         List<CarpetModBinding> pages = new ArrayList<>();
-        providers.infos()
-            .forEach((id, info) -> pages.add(new CarpetModBinding(info, grouped.getOrDefault(id, List.of()))));
+        infos.forEach((id, info) -> pages.add(new CarpetModBinding(info, grouped.getOrDefault(id, List.of()))));
         return List.copyOf(pages);
+    }
+
+    private static void addManagerInfoIfAbsent(
+        Map<String, CarpetModInfoApi> infos,
+        CarpetManagerBinding binding
+    ) {
+        String id = binding.modId();
+        if (id == null || id.isBlank() || infos.containsKey(id)) return;
+        String name = binding.title().getString();
+        String displayName = name.isBlank() ? id : name;
+        infos.put(id, new CarpetModInfoApi() {
+            @Override
+            public String carpetModId() {
+                return id;
+            }
+
+            @Override
+            public String carpetFancyName() {
+                return displayName;
+            }
+        });
+    }
+
+    private static void registerManagerRules(
+        CarpetManagerBinding binding,
+        Map<RuleKey, CarpetRule<?>> registered,
+        Map<RuleKey, String> owners
+    ) {
+        Collection<CarpetRule<?>> rules;
+        try {
+            rules = binding.manager().getCarpetRules();
+        } catch (RuntimeException | LinkageError failure) {
+            LOGGER.warn("Cannot read Carpet rules from manager {}", binding.manager().identifier(), failure);
+            return;
+        }
+        if (rules == null) {
+            LOGGER.warn("Carpet manager {} returned a null rule collection", binding.manager().identifier());
+            return;
+        }
+        for (CarpetRule<?> rule : rules) {
+            if (rule == null || rule.settingsManager() == null) continue;
+            RuleKey key = RuleKey.of(rule);
+            CarpetRule<?> previous = registered.putIfAbsent(key, rule);
+            if (previous != null && previous != rule) {
+                LOGGER.warn("Ignoring duplicate registered Carpet rule instance {}/{}", key.manager(), key.name());
+                continue;
+            }
+            owners.putIfAbsent(key, binding.modId());
+        }
+    }
+
+    private static List<CarpetRule<?>> providerRules(String providerId, CarpetModRulesApi provider) {
+        try {
+            Collection<CarpetRule<?>> rules = provider.asCarpetRules();
+            if (rules == null) {
+                LOGGER.warn("Carpet rule provider {} returned a null rule collection", providerId);
+                return List.of();
+            }
+            return new ArrayList<>(rules);
+        } catch (RuntimeException | LinkageError failure) {
+            LOGGER.warn("Cannot read Carpet rules from provider {}", providerId, failure);
+            return List.of();
+        }
+    }
+
+    private static void claimRule(
+        String providerId,
+        CarpetRule<?> rule,
+        Map<RuleKey, CarpetRule<?>> registered,
+        Map<RuleKey, String> owners,
+        Map<RuleKey, String> defaultOwners,
+        Map<RuleKey, String> claimed
+    ) {
+        if (rule == null || rule.settingsManager() == null) return;
+        RuleKey key = RuleKey.of(rule);
+        if (registered.get(key) != rule) {
+            LOGGER.warn("Ignoring unregistered rule {}/{} from {}", key.manager(), key.name(), providerId);
+            return;
+        }
+
+        String previous = claimed.putIfAbsent(key, providerId);
+        if (previous != null && !previous.equals(providerId)) {
+            // A manager owner's broad list is a fallback; a specific addon owns its shared rules.
+            if (providerId.equals(defaultOwners.get(key))) return;
+            if (!previous.equals(defaultOwners.get(key))) {
+                // Addons sharing Carpet's root manager can legitimately use the same rule name.
+                // Reflection resolves both declarations to the one live rule instance, so keep
+                // the first specific owner instead of making an optional compatibility clash fatal.
+                LOGGER.warn(
+                    "Rule {}/{} is exposed by both {} and {}; keeping {}",
+                    key.manager(), key.name(), previous, providerId, previous
+                );
+                return;
+            }
+            claimed.put(key, providerId);
+        }
+        owners.put(key, providerId);
     }
 }

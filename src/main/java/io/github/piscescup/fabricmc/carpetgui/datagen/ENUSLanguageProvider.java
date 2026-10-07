@@ -35,6 +35,8 @@ public class ENUSLanguageProvider
         translationBuilder.add("carpet-gui.category.player", "Players");
         translationBuilder.add("carpet-gui.category.survival", "Survival");
         translationBuilder.add("carpet-gui.category.world", "World");
+        translationBuilder.add("carpet-gui.favorite.add", "Add to favorites");
+        translationBuilder.add("carpet-gui.favorite.remove", "Remove from favorites");
         translationBuilder.add("carpet-gui.close", "Close (Esc)");
         translationBuilder.add("carpet-gui.collapse_all", "Collapse All");
         translationBuilder.add("carpet-gui.collapsed", "collapsed");
@@ -129,6 +131,7 @@ public class ENUSLanguageProvider
         translationBuilder.add("carpet-gui.workspace.units_hint", "Display preferences only. Ordinary rule values are not converted.");
         translationBuilder.add("carpet-gui.workspace.quick_access", "Quick access");
         translationBuilder.add("carpet-gui.workspace.features", "Features");
+        translationBuilder.add("carpet-gui.workspace.favorites", "Favorites");
         translationBuilder.add("carpet-gui.workspace.features_placeholder", "Reserved for future features.");
         translationBuilder.add("carpet-gui.workspace.news", "News & Updates");
         translationBuilder.add("carpet-gui.workspace.news_intro", "Updates included in this build; no external news requests.");

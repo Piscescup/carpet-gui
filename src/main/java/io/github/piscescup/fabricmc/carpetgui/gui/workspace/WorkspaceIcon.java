@@ -1,6 +1,7 @@
 package io.github.piscescup.fabricmc.carpetgui.gui.workspace;
 
 import com.thecsdev.commonmc.api.client.gui.misc.TTextureElement;
+import io.github.piscescup.fabricmc.carpetgui.References;
 import net.minecraft.resources.Identifier;
 
 /** Resource-backed original PNG icons; replace the files without changing layout code. */
@@ -13,7 +14,7 @@ public final class WorkspaceIcon extends TTextureElement {
 
         private final Identifier texture;
         Kind(String filename) {
-            texture = Identifier.fromNamespaceAndPath("carpet-gui", "textures/gui/icons/" + filename);
+            texture = References.fromPath("textures/gui/icons/" + filename);
         }
         public Identifier texture() { return texture; }
     }

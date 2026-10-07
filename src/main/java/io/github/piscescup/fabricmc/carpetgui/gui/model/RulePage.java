@@ -19,7 +19,9 @@ public interface RulePage
 
     List<? extends RuleView> rules();
 
-    default boolean isVanilla() { return false; }
+    default boolean isVanilla() {
+        return false;
+    }
 
     default Component categoryLabel(String category) {
         return Component.translatableWithFallback("carpet-gui.category." + category, category);

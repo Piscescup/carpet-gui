@@ -15,8 +15,12 @@ import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.function.Consumer;
 
-/** One live rule: presentation and drafts only, all mutations go through the existing RuleEditor. */
-final class WorkspaceRuleRow extends TElement {
+/**
+ * One live rule: presentation and drafts only, all mutations go through the existing RuleEditor.
+ */
+final class WorkspaceRuleRow
+    extends TElement
+{
     private static final Map<String, String> PERMISSIONS = Map.of(
         "ops", "op", "0", "all", "1", "moderator", "2", "game master", "3", "admin", "4", "owner");
     private final String modId;
@@ -29,6 +33,7 @@ final class WorkspaceRuleRow extends TElement {
     private WorkspaceStyle.Button valueButton;
     private WorkspaceStyle.Button reset;
     private WorkspaceStyle.Button saveDefault;
+    private WorkspaceStyle.FavoriteButton favorite;
     private String observed;
     private String lastAttempt;
     private boolean dirty;
@@ -45,75 +50,146 @@ final class WorkspaceRuleRow extends TElement {
         tooltipProperty().set(ignored -> tooltip(), WorkspaceRuleRow.class);
     }
 
-    @Override protected void initCallback() {
+    @Override
+    protected void initCallback() {
         var bounds = getBounds();
         RuleEditor editor = rule instanceof EditableRuleView editable ? editable.editor() : null;
         boolean persistent = editor instanceof PersistentRuleEditor;
         int resetWidth = 37;
         int saveWidth = persistent ? 66 : 0;
+        int favoriteWidth = 20;
         int valueWidth = Math.clamp(bounds.width / 6, 58, 96);
-        int resetX = bounds.endX - resetWidth - 4;
+        int favoriteX = bounds.endX - favoriteWidth - 4;
+        int resetX = favoriteX - resetWidth - 4;
         int saveX = persistent ? resetX - saveWidth - 4 : resetX;
         int valueX = saveX - valueWidth - 4;
         var title = WorkspaceStyle.label(this, rule.label(), bounds.x + 5, bounds.y + 3, valueX - bounds.x - 10, 10, WorkspaceStyle.TEXT);
-        title.wrapTextProperty().set(false, WorkspaceRuleRow.class);
-        var description = WorkspaceStyle.label(this, rule.description(), bounds.x + 5, bounds.y + 14,
-            valueX - bounds.x - 10, 9, WorkspaceStyle.MUTED);
-        description.wrapTextProperty().set(false, WorkspaceRuleRow.class);
-        description.textScaleProperty().set(WorkspaceStyle.SMALL_TEXT_SCALE, WorkspaceRuleRow.class);
+        title.wrapTextProperty()
+            .set(false, WorkspaceRuleRow.class);
+        var description = WorkspaceStyle.label(
+            this, rule.description(), bounds.x + 5, bounds.y + 14,
+            valueX - bounds.x - 10, 9, WorkspaceStyle.MUTED
+        );
+        description.wrapTextProperty()
+            .set(false, WorkspaceRuleRow.class);
+        description.textScaleProperty()
+            .set(WorkspaceStyle.SMALL_TEXT_SCALE, WorkspaceRuleRow.class);
 
         if (editor != null && editor.inputKind() == RuleEditor.InputKind.BOOLEAN) {
-            valueButton = new WorkspaceStyle.Button(valueLabel(rule.value()),
-                () -> submit(Boolean.toString(!Boolean.parseBoolean(rule.value()))));
+            valueButton = new WorkspaceStyle.Button(
+                valueLabel(rule.value()),
+                () -> submit(Boolean.toString(!Boolean.parseBoolean(rule.value())))
+            );
             valueControl = valueButton;
-        } else if (editor != null && editor.strict() && !editor.suggestions().isEmpty()) {
+        } else if (editor != null && editor.strict() && !editor.suggestions()
+            .isEmpty()) {
             choices = new WorkspaceStyle.Dropdown<>(new WorkspaceStyle.Option<>(rule.value(), valueLabel(rule.value())));
             LinkedHashSet<String> values = new LinkedHashSet<>(editor.suggestions());
             values.add(rule.value());
-            values.forEach(value -> choices.getEntries().add(new WorkspaceStyle.Option<>(value, valueLabel(value))));
-            choices.selectedEntryProperty().addChangeListener((property, previous, selected) -> {
-                if (!synchronizing && selected != null) submit(selected.value());
-            });
+            values.forEach(value -> choices.getEntries()
+                .add(new WorkspaceStyle.Option<>(value, valueLabel(value))));
+            choices.selectedEntryProperty()
+                .addChangeListener((property, previous, selected) -> {
+                    if (!synchronizing && selected != null) submit(selected.value());
+                });
             valueControl = choices;
         } else if (editor != null) {
-            text = new NativeTextInput(rule.label(), rule.value(), value -> {
+            text = new NativeTextInput(
+                rule.label(), rule.value(), value -> {
                 if (synchronizing) return;
                 dirty = !value.equals(observed);
                 lastAttempt = null;
-            }, () -> { if (!suppressBlur) commit(); suppressBlur = false; }, this::cancelAndUnfocus);
+            }, () -> {
+                if (!suppressBlur) commit();
+                suppressBlur = false;
+            }, this::cancelAndUnfocus
+            );
             valueControl = text;
         } else {
-            valueButton = new WorkspaceStyle.Button(valueLabel(rule.value()), () -> {});
+            valueButton = new WorkspaceStyle.Button(
+                valueLabel(rule.value()), () -> {
+            }
+            );
             valueControl = valueButton;
         }
         valueControl.setBounds(valueX, bounds.y + 2, valueWidth, WorkspaceStyle.CONTROL_HEIGHT);
-        valueControl.tooltipProperty().set(ignored -> tooltip(), WorkspaceRuleRow.class);
+        valueControl.tooltipProperty()
+            .set(ignored -> tooltip(), WorkspaceRuleRow.class);
         add(valueControl);
-        reset = new WorkspaceStyle.Button(Component.translatable("carpet-gui.reset"), () -> {
-            discardDrafts.accept(rule.stateId()); submit(rule.defaultValue());
-        });
+        reset = new WorkspaceStyle.Button(
+            Component.translatable("carpet-gui.reset"), () -> {
+            discardDrafts.accept(rule.stateId());
+            submit(rule.defaultValue());
+        }
+        );
         reset.setBounds(resetX, bounds.y + 2, resetWidth, WorkspaceStyle.CONTROL_HEIGHT);
-        reset.tooltipProperty().set(ignored -> tooltip(), WorkspaceRuleRow.class);
+        reset.tooltipProperty()
+            .set(ignored -> tooltip(), WorkspaceRuleRow.class);
         add(reset);
         if (persistent) {
             saveDefault = new WorkspaceStyle.Button(Component.translatable("carpet-gui.set_default"), this::saveDefault);
             saveDefault.setBounds(saveX, bounds.y + 2, saveWidth, WorkspaceStyle.CONTROL_HEIGHT);
-            saveDefault.tooltipProperty().set(ignored -> TTooltip.of(Component.translatable("carpet-gui.set_default_hint")), WorkspaceRuleRow.class);
+            saveDefault.tooltipProperty()
+                .set(ignored -> TTooltip.of(Component.translatable("carpet-gui.set_default_hint")), WorkspaceRuleRow.class);
             add(saveDefault);
         }
+        favorite = new WorkspaceStyle.FavoriteButton(
+            () -> FavoriteRules.contains(rule.stateId()),
+            () -> {
+                FavoriteRules.toggle(rule.stateId());
+                favorite.invalidateTooltipCache();
+                var screen = screenProperty().get();
+                if (screen instanceof CarpetWorkspaceScreen workspace) workspace.requestListRefresh();
+            }
+        );
+        favorite.setBounds(favoriteX, bounds.y + 2, favoriteWidth, WorkspaceStyle.CONTROL_HEIGHT);
+        favorite.tooltipProperty()
+            .set(
+                ignored -> TTooltip.of(Component.translatable(
+                    FavoriteRules.contains(rule.stateId()) ? "carpet-gui.favorite.remove" : "carpet-gui.favorite.add"
+                )), WorkspaceRuleRow.class
+            );
+        add(favorite);
         refresh();
     }
 
-    boolean interacting() { return dirty || text != null && text.isFocused(); }
+    boolean interacting() {
+        return dirty || text != null && text.isFocused();
+    }
 
-    String stateId() { return rule.stateId(); }
-    boolean resetHit(double x, double y) { return reset != null && reset.enabledProperty().getZ() && inside(reset, x, y); }
-    boolean saveHit(double x, double y) { return saveDefault != null && saveDefault.enabledProperty().getZ() && inside(saveDefault, x, y); }
-    boolean focusedText() { return text != null && text.isFocused(); }
-    String draftValue() { return text != null && dirty ? text.value() : rule.value(); }
-    void suppressNextBlur() { suppressBlur = true; }
-    void prepareSave(String value) { pendingSaveValue = value; }
-    void clearPendingSave() { pendingSaveValue = null; }
+    String stateId() {
+        return rule.stateId();
+    }
+
+    boolean resetHit(double x, double y) {
+        return reset != null && reset.enabledProperty()
+            .getZ() && inside(reset, x, y);
+    }
+
+    boolean saveHit(double x, double y) {
+        return saveDefault != null && saveDefault.enabledProperty()
+            .getZ() && inside(saveDefault, x, y);
+    }
+
+    boolean focusedText() {
+        return text != null && text.isFocused();
+    }
+
+    String draftValue() {
+        return text != null && dirty ? text.value() : rule.value();
+    }
+
+    void suppressNextBlur() {
+        suppressBlur = true;
+    }
+
+    void prepareSave(String value) {
+        pendingSaveValue = value;
+    }
+
+    void clearPendingSave() {
+        pendingSaveValue = null;
+    }
 
     private static boolean inside(TElement element, double x, double y) {
         if (element == null) return false;
@@ -130,19 +206,30 @@ final class WorkspaceRuleRow extends TElement {
     private void cancelAndUnfocus() {
         cancelDraft();
         var screen = screenProperty().get();
-        if (screen != null) screen.focusedElementProperty().set(null, WorkspaceRuleRow.class);
+        if (screen != null) {
+            screen.focusedElementProperty()
+                .set(null, WorkspaceRuleRow.class);
+        }
     }
 
     private void commit() {
-        if (text == null || !dirty || !editable() || text.value().equals(lastAttempt)) return;
-        if (text.value().equals(rule.value())) { cancelDraft(); return; }
+        if (text == null || !dirty || !editable() || text.value()
+            .equals(lastAttempt)) {
+            return;
+        }
+        if (text.value()
+            .equals(rule.value())) {
+            cancelDraft();
+            return;
+        }
         lastAttempt = text.value();
         if (submit(lastAttempt).accepted()) cancelDraft();
     }
 
     private RuleEditResult submit(String value) {
         if (!(rule instanceof EditableRuleView editable)) return RuleEditResult.rejected(Component.empty());
-        RuleEditResult result = editable.editor().submit(value, feedback);
+        RuleEditResult result = editable.editor()
+            .submit(value, feedback);
         feedback.accept(result);
         refresh();
         return result;
@@ -158,12 +245,19 @@ final class WorkspaceRuleRow extends TElement {
         if (result.accepted()) discardDrafts.accept(rule.stateId());
     }
 
-    private boolean editable() { return rule instanceof EditableRuleView editable && editable.editor().editable(); }
+    private boolean editable() {
+        return rule instanceof EditableRuleView editable && editable.editor()
+            .editable();
+    }
 
     private void synchronizeText() {
         observed = rule.value();
         synchronizing = true;
-        try { text.setValue(observed); } finally { synchronizing = false; }
+        try {
+            text.setValue(observed);
+        } finally {
+            synchronizing = false;
+        }
     }
 
     void refresh() {
@@ -171,24 +265,36 @@ final class WorkspaceRuleRow extends TElement {
         boolean editable = editable();
         if (text != null) {
             text.setEnabled(editable);
-            if (!editable) cancelDraft();
-            else if (!dirty) synchronizeText();
+            if (!editable) {
+                cancelDraft();
+            } else if (!dirty) synchronizeText();
         } else if (valueButton != null) {
-            valueButton.enabledProperty().set(editable, WorkspaceRuleRow.class);
-            valueButton.getLabel().setText(valueLabel(rule.value()));
+            valueButton.enabledProperty()
+                .set(editable, WorkspaceRuleRow.class);
+            valueButton.getLabel()
+                .setText(valueLabel(rule.value()));
         } else if (choices != null) {
-            choices.enabledProperty().set(editable, WorkspaceRuleRow.class);
-            var selected = choices.selectedEntryProperty().get();
-            if (selected == null || !selected.value().equals(rule.value())) {
+            choices.enabledProperty()
+                .set(editable, WorkspaceRuleRow.class);
+            var selected = choices.selectedEntryProperty()
+                .get();
+            if (selected == null || !selected.value()
+                .equals(rule.value())) {
                 synchronizing = true;
-                try { choices.selectedEntryProperty().set(new WorkspaceStyle.Option<>(rule.value(), valueLabel(rule.value())), WorkspaceRuleRow.class); }
-                finally { synchronizing = false; }
+                try {
+                    choices.selectedEntryProperty()
+                        .set(new WorkspaceStyle.Option<>(rule.value(), valueLabel(rule.value())), WorkspaceRuleRow.class);
+                } finally {
+                    synchronizing = false;
+                }
             }
         }
-        reset.enabledProperty().set(editable && (rule.modified() || dirty), WorkspaceRuleRow.class);
+        reset.enabledProperty()
+            .set(editable && (rule.modified() || dirty), WorkspaceRuleRow.class);
         if (saveDefault != null) {
             var editor = (PersistentRuleEditor) ((EditableRuleView) rule).editor();
-            saveDefault.enabledProperty().set(editor.canSaveDefault(), WorkspaceRuleRow.class);
+            saveDefault.enabledProperty()
+                .set(editor.canSaveDefault(), WorkspaceRuleRow.class);
         }
         invalidateTooltipCache();
         valueControl.invalidateTooltipCache();
@@ -197,31 +303,55 @@ final class WorkspaceRuleRow extends TElement {
     private Component valueLabel(String value) {
         RuleEditor editor = rule instanceof EditableRuleView editable ? editable.editor() : null;
         String label = editor != null && editor.inputKind() == RuleEditor.InputKind.TEXT
-            && rule.categories().stream().anyMatch(category -> category.equalsIgnoreCase("command"))
+                       && rule.categories()
+                           .stream()
+                           .anyMatch(category -> category.equalsIgnoreCase("command"))
             ? PERMISSIONS.getOrDefault(value, value) : value;
-        return Component.literal(label).withStyle(value.equals("true") ? ChatFormatting.GREEN
-            : value.equals("false") ? ChatFormatting.RED : ChatFormatting.WHITE);
+        return Component.literal(label)
+            .withStyle(value.equals("true") ? ChatFormatting.GREEN
+                : value.equals("false") ? ChatFormatting.RED : ChatFormatting.WHITE);
     }
 
     private TTooltip tooltip() {
-        String key = rule.id().contains(":") ? rule.id() : modId + ":" + rule.id();
-        var text = rule.label().copy().withStyle(ChatFormatting.YELLOW)
-            .append(Component.literal("\nKey: " + key + "\nValue: " + rule.value()).withStyle(ChatFormatting.GRAY));
-        if (!rule.description().getString().isBlank()) text.append(Component.literal("\n\n")).append(rule.description().copy().withStyle(ChatFormatting.WHITE));
-        for (Component info : rule.extraInfo()) text.append(Component.literal("\n")).append(info.copy().withStyle(ChatFormatting.GRAY));
-        if (rule instanceof EditableRuleView editable && !editable.editor().editable()) {
-            text.append(Component.literal("\n")).append(editable.editor().disabledReason().copy().withStyle(ChatFormatting.RED));
+        String key = rule.id()
+            .contains(":") ? rule.id() : modId + ":" + rule.id();
+        var text = rule.label()
+            .copy()
+            .withStyle(ChatFormatting.YELLOW)
+            .append(Component.literal("\nKey: " + key + "\nValue: " + rule.value())
+                .withStyle(ChatFormatting.GRAY));
+        if (!rule.description()
+            .getString()
+            .isBlank()) {
+            text.append(Component.literal("\n\n"))
+                .append(rule.description()
+                    .copy()
+                    .withStyle(ChatFormatting.WHITE));
+        }
+        for (Component info : rule.extraInfo())
+            text.append(Component.literal("\n"))
+                .append(info.copy()
+                    .withStyle(ChatFormatting.GRAY));
+        if (rule instanceof EditableRuleView editable && !editable.editor()
+            .editable()) {
+            text.append(Component.literal("\n"))
+                .append(editable.editor()
+                    .disabledReason()
+                    .copy()
+                    .withStyle(ChatFormatting.RED));
         }
         return TTooltip.of(text);
     }
 
-    @Override public void renderCallback(TGuiGraphics graphics) {
+    @Override
+    public void renderCallback(TGuiGraphics graphics) {
         var bounds = getBounds();
         graphics.fillColor(bounds.x, bounds.y, bounds.width, bounds.height, WorkspaceStyle.RULE_BACKGROUND);
         graphics.drawOutlineIn(bounds.x, bounds.y, bounds.width, bounds.height, WorkspaceStyle.BORDER);
     }
 
-    @Override public void postRenderCallback(TGuiGraphics graphics) {
+    @Override
+    public void postRenderCallback(TGuiGraphics graphics) {
         if (isHoveredOrFocused() || findChild(TElement::isHoveredOrFocused, true).isPresent()) {
             var bounds = getBounds();
             graphics.drawOutlineIn(bounds.x, bounds.y, bounds.width, bounds.height, WorkspaceStyle.FOCUS);

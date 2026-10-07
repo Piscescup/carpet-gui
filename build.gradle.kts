@@ -2,7 +2,6 @@ plugins {
 	id("net.fabricmc.fabric-loom")
 	`maven-publish`
 }
-
 repositories {
 	// Add repositories to retrieve artifacts from in here.
 	// You should only use this when depending on other mods because
@@ -34,15 +33,16 @@ dependencies {
 	// To change the versions see the gradle.properties file
 	minecraft("com.mojang:minecraft:${providers.gradleProperty("minecraft_version").get()}")
 	implementation("net.fabricmc:fabric-loader:${providers.gradleProperty("loader_version").get()}")
-
 	// Fabric API. This is technically optional, but you probably want it anyway.
 	implementation("net.fabricmc.fabric-api:fabric-api:${providers.gradleProperty("fabric_api_version").get()}")
-	implementation("maven.modrinth:carpet:${providers.gradleProperty("carpet_version").get()}")
-	// Use Modrinth so builds do not depend on Terraformers Maven being reachable.
 	implementation("maven.modrinth:modmenu:${providers.gradleProperty("modmenu_version").get()}")
-	implementation("maven.modrinth:tcdcommons:FwE7UAgA")
-	// Optional addon for development runs; its API is accessed through reflection.
-	runtimeOnly("maven.modrinth:7PCm6yD1:fB2DWKS1")
+
+	testImplementation("org.junit.jupiter:junit-jupiter:${providers.gradleProperty("junit_version").get()}")
+	testRuntimeOnly("org.junit.platform:junit-platform-launcher:${providers.gradleProperty("junit_version").get()}")
+
+
+	implementation("maven.modrinth:carpet:${providers.gradleProperty("carpet_version").get()}")
+	implementation("maven.modrinth:tcdcommons:${providers.gradleProperty("tcdcommons_version").get()}")
 }
 
 tasks.processResources {
@@ -92,4 +92,8 @@ publishing {
 		// The repositories here will be used for publishing your artifact, not for
 		// retrieving dependencies.
 	}
+}
+
+tasks.test {
+	useJUnitPlatform()
 }

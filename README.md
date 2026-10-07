@@ -34,13 +34,13 @@ GUI 自身的按钮/提示翻译分别维护在 `datagen/ENUSLanguageProvider.ja
 
 运行 `gradlew.bat runDatagen` 后再运行 `gradlew.bat assemble`。生成结果位于 `src/main/generated/assets/carpet-gui/lang/en_us.json` 和 `zh_cn.json`，Loom 自动将它们作为资源打包；不要手动修改生成的 JSON。GUI 按钮/提示的翻译保持不变，外部规则翻译不会再写入这些文件。
 
-规则描述、额外说明和分类在运行时按所属 Mod 获取：页面先确定规则归属的 MODID，再调用对应的 `CarpetModTranslationApi.getTranslations(language)`。因此即使 Igny 与 Carpet 共用管理器，Igny 页仍读取 Igny 的翻译，而不是仅由管理器 ID 选择 Carpet 的翻译。每个 Mod 和语言独立缓存，不再把所有 Mod 的文本合并到一个全局表；未实现接口的 Carpet 本体和扩展由自动适配器提供同一接口。适配器读取显式接口、该 Mod 的 `CarpetExtension.canHasTranslations(language)` 和原 Mod 自己的资源，缺失项通过现代 `RuleHelper.translatedDescription(rule)` / `rule.extraInfo()` 回退。
+规则描述、额外说明和分类在运行时按所属 Mod 获取：页面先确定规则归属的 MODID，再调用对应的 `CarpetModInfoApi.getTranslations(language)`。因此即使 Igny 与 Carpet 共用管理器，Igny 页仍读取 Igny 的翻译，而不是仅由管理器 ID 选择 Carpet 的翻译。每个 Mod 和语言独立缓存，不再把所有 Mod 的文本合并到一个全局表；未实现接口的 Carpet 本体和扩展由内部适配器读取 `CarpetExtension.canHasTranslations(language)` 和原 Mod 自己的资源，缺失项通过现代 `RuleHelper.translatedDescription(rule)` / `rule.extraInfo()` 回退。
 
 显示优先级为：Minecraft 客户端资源/资源包的原始语言键 → 对应 Mod 接口的客户端当前语言 → 对应 Mod 接口的英文 → Carpet API 回退。标题直接由规则 ID 拆词生成，例如 `creativeNoClip → Creative No Clip`。切换语言会选用相应缓存，重新打开界面会重新发现提供者；运行时不修改 `CarpetSettings.language`、不写语言文件。安装新扩展无需重新运行 datagen。未提供翻译的语言不会自动机器翻译。MODID、管理器命令根 ID、资源命名空间可以三者不同。
 
 ### CarpetModInfoApi / CarpetModRulesApi
 
-`CarpetModInfoApi` 仅描述 Mod 信息，提供你指定的两个方法。第一行的按钮使用 Fancy Name，不使用命令根或 MODID 代替显示名称：
+公开扩展点只有这两个接口。`CarpetModInfoApi` 的两个必填方法提供 Mod ID 和显示名称；管理器归属与翻译通过该接口的默认方法提供。第一行的按钮使用 Fancy Name，不使用命令根或 MODID 代替显示名称：
 
 ```java
 import io.github.piscescup.fabricmc.carpetgui.api.CarpetModInfoApi;
@@ -65,61 +65,19 @@ public final class ExtraModInfo implements CarpetModInfoApi {
 
 也可直接在已注册的 `CarpetExtension` 上实现 Info / Rules 接口，无需重复注册入口；同一 Mod 的独立 `carpet-gui-mods` 入口优先。
 
-需要提供规则归属时，实现可选的 `CarpetModRulesApi`：它继承 Info 和 Translation 接口，另外提供 `Collection<CarpetRule<?>> getRules()`，返回自己已经注册的真实规则。仍通过同一个 `carpet-gui-mods` 入口注册。`getModId()` 默认委托 `carpetModId()`，无需填写两份 MODID；可覆盖 `getTranslations(language)` 委托自己的 Carpet 扩展翻译。
+需要提供规则归属时，实现 `CarpetModRulesApi`：它继承 `CarpetModInfoApi`，只额外提供 `Collection<CarpetRule<?>> asCarpetRules()`，返回自己已经注册的真实规则。仍通过同一个 `carpet-gui-mods` 入口注册。`getModId()` 默认委托 `carpetModId()`，无需填写两份 MODID；可覆盖 `getTranslations(language)` 委托自己的 Carpet 扩展翻译。
 
-共用管理器时不要用 `getSettingsManagerIds()` 宣称独占 `carpet` 管理器；通过 `getRules()` 声明自己的规则即可。该方法仅用于独立管理器的特殊归属定位。
+共用管理器时不要用 `getSettingsManagerIds()` 宣称独占 `carpet` 管理器；通过 `asCarpetRules()` 声明自己的规则即可。该方法仅用于独立管理器的特殊归属定位。
 
 规则注册和服务端同步仍由原 Mod 负责；接口不创建规则或管理器。只有能在真实已注册管理器中找到的同一个规则实例才会显示。管理器本体返回完整规则集合时，附属对自身规则的声明优先，不会重复展示；两个附属同时声明同一规则时会报错。独立管理器默认按对应 Mod 分页，共享管理器按显式规则归属拆页，未声明归属的规则留在管理器默认 Mod 页中。当前 Igny 和 PRY 已内置适配，不要求改动它们的 jar。
 
 ### 已发布附属的反射适配
 
-反射接入集中在 `CarpetAddonAdapter`，注册集中在 `CarpetModRegistry.ADDONS`，Mod 来源和名称解析复用 `CarpetModLookup`。附属无需增加接口或入口，也不需要 GUI 导入附属类型。
+反射兼容只用于尚未实现上述两个接口的已发布附属，集中在内部 `adapter` 包中。它最终仍直接实现 `CarpetModRulesApi`，不会再引入额外公共 API、规则 DTO 或 Mod 信息 `record`。显式提供的 `CarpetModInfoApi` / `CarpetModRulesApi` 始终优先。
 
-```java
-var addon = CarpetAddonAdapter.fromClassNames(
-    "your.addon.AddonExtension", "your.addon.AddonSettings");
+### 翻译与管理器归属
 
-// 可选：严格指定实际规则注解的全类名。
-var exact = CarpetAddonAdapter.fromClassNames(
-    "your.addon.AddonExtension", "your.addon.AddonSettings", "your.addon.settings.Rule");
-```
-
-工厂只创建提供者。扩展类必须实现 `CarpetExtension`，并提供公开静态无参 `getInstance()`；Mod ID 和默认名称从扩展类所在 Fabric Mod 获取。读取时获取当前单例、实际管理器和翻译，不创建扩展或管理器。单例尚未就绪时返回空规则/翻译、元数据名称及空管理器 ID；没有独立管理器时使用真实 Carpet 管理器。
-
-Settings 提供公开静态无参 `listRules()` 时，读取真实 `CarpetRule` 或集合元素公开 `rule()` 返回的实例。否则筛选声明的静态字段，默认识别运行时注解简单名 `Rule`，第三个参数可严格限定注解类。不会读取配置字段值、访问私有成员或提前初始化 Settings。只返回真实管理器中已注册的同一个规则实例，并去重；字段名方式仍无法区分同名注册冲突，不根据分类或翻译键猜测归属。
-
-PRY 和 Igny 均使用此工厂。新增兼容项在 `CarpetModRegistry.ADDONS` 添加安装检查用的 MODID、两个全类名和可选注解名即可；显式规则提供者仍优先。旧的规则名/规则集合/配置类工厂及自定义名称、翻译包装入口已移除。
-### CarpetModTranslationApi
-
-公共接口：`io.github.piscescup.fabricmc.carpetgui.api.CarpetModTranslationApi`，不依赖 Mod Menu 或客户端类。
-
-- `getModId()`：唯一必填项，提供自己真实的 Fabric Mod ID。本体和每个附属 Mod 分别注册，不使用父 Mod 的 ID。
-- `getSettingsManagerIds()`：可选。入口类无法正确定位归属时，声明自己的命令根 ID；一个 Mod 可拥有多个管理器。已注册的 Carpet 扩展直接实现接口时，其管理器会自动关联。
-- `getTranslations(language)`：可选。默认通过 MODID 找到原 Mod，扫描其 `assets/*/lang/<language>.json`，使用 Carpet 的 `Translations.getTranslationFromResourcePath(...)` 读取原始翻译。特殊路径或动态翻译可覆盖此方法，也可直接委托自己扩展的 `canHasTranslations(language)`。返回 Carpet 原始翻译键，不要加 `carpet-gui` 前缀，也不要修改 `CarpetSettings.language`。
-
-最简单的提供者只需实现 Mod ID：
-
-```java
-import io.github.piscescup.fabricmc.carpetgui.api.CarpetModTranslationApi;
-
-public final class ExtraTranslations implements CarpetModTranslationApi {
-    @Override public String getModId() { return "your_mod"; }
-}
-```
-
-在该 Mod 自己的 `fabric.mod.json` 注册公共入口（不要放入 `modmenu` 入口）：
-
-```json
-{
-  "entrypoints": {
-    "carpet-gui-translations": ["your.package.ExtraTranslations"]
-  }
-}
-```
-
-也可直接在已经注册到 Carpet 的 `CarpetExtension` 上实现接口；此方式无需再注册上述入口。同一 Mod 同时使用两种方式时，独立入口提供者优先。各 Mod 注册一个提供者；重复独立入口、未加载的 Mod ID 或管理器归属冲突会明确报错。
-
-特殊资源路径可复用 Carpet 的读取 API，并显式提供管理器归属：
+翻译和管理器归属直接由 `CarpetModInfoApi` 的默认方法承载，不存在单独的 Translation API。默认按 MODID 扫描原 Mod 的语言资源；特殊资源路径可覆盖方法：
 
 ```java
 @Override public Set<String> getSettingsManagerIds() {
@@ -134,7 +92,7 @@ public final class ExtraTranslations implements CarpetModTranslationApi {
 
 语言文件中的规则描述键为 `your_command_root.rule.creativeNoClip.desc`，额外说明为 `your_command_root.rule.creativeNoClip.extra.0`，分类为 `your_command_root.category.creative`。旧 `rule.*` / `category.*` 键仍按照 Carpet 的约定映射到 `carpet.*`，附属 Mod 应使用自己的管理器前缀。
 
-使用接口的 Mod 应声明对 `carpet-gui` 的依赖。接口只管理翻译和 Mod 归属，不创建规则、注册 SettingsManager 或改变服务端规则。未实现接口的旧扩展继续自动兼容；Carpet 本体使用相同接口的自动适配器。
+使用接口的 Mod 应声明对 `carpet-gui` 的依赖。接口只提供现有信息，不创建规则、注册 SettingsManager 或改变服务端规则。未实现接口的旧扩展继续由内部适配逻辑兼容。
 
 按 MODID 获取对应翻译（运行时调用）：
 

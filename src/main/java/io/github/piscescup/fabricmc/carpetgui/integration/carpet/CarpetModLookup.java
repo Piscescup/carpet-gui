@@ -4,6 +4,7 @@ import net.fabricmc.loader.api.FabricLoader;
 import net.fabricmc.loader.api.ModContainer;
 
 import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 import java.lang.reflect.Modifier;
 
@@ -17,11 +18,14 @@ public final class CarpetModLookup {
     public static Optional<ModContainer> find(Class<?> owner, String managerId) {
         return find(
             FabricLoader.getInstance()
-            .getAllMods(), owner, managerId
+                .getAllMods(),
+            owner, managerId
         );
     }
 
-    /** Class origin wins; public reflected Mod IDs help wrappers whose class path cannot be found. */
+    /**
+     * Class origin wins; public reflected Mod IDs help wrappers whose class path cannot be found.
+     */
     public static Optional<ModContainer> find(Collection<ModContainer> mods, Class<?> owner, String managerId) {
         Optional<ModContainer> origin = findClassOwner(mods, owner.getName());
         if (origin.isPresent()) return origin;
@@ -49,13 +53,19 @@ public final class CarpetModLookup {
     }
 
     private static Optional<ModContainer> byId(Collection<ModContainer> mods, String id) {
-        return mods.stream().filter(mod -> mod.getMetadata().getId().equals(id)).findFirst();
+        return mods.stream()
+            .filter(mod -> mod.getMetadata()
+                .getId()
+                .equals(id))
+            .findFirst();
     }
 
-    /** Optional public name conventions, falling back to the actual Fabric metadata name. */
+    /**
+     * Optional public name conventions, falling back to the actual Fabric metadata name.
+     */
     public static String displayName(Object extension, String fallback) {
         Class<?> type = extension.getClass();
-        for (String name : java.util.List.of("carpetFancyName", "getFancyName", "getModName")) {
+        for (String name : List.of("carpetFancyName", "getFancyName", "getModName")) {
             try {
                 var method = type.getMethod(name);
                 if (method.getReturnType() != String.class) continue;
@@ -65,7 +75,7 @@ public final class CarpetModLookup {
                 // Optional conventions must not prevent metadata fallback.
             }
         }
-        for (String name : java.util.List.of("fancyName", "FANCY_NAME", "MOD_NAME")) {
+        for (String name : List.of("fancyName", "FANCY_NAME", "MOD_NAME")) {
             try {
                 var field = type.getField(name);
                 if (field.getType() != String.class) continue;
@@ -80,7 +90,10 @@ public final class CarpetModLookup {
 
     private static Optional<ModContainer> findClassOwner(Collection<ModContainer> mods, String ownerClassName) {
         String classPath = ownerClassName.replace('.', '/') + ".class";
-        return mods.stream().filter(mod -> mod.findPath(classPath).isPresent()).findFirst();
+        return mods.stream()
+            .filter(mod -> mod.findPath(classPath)
+                .isPresent())
+            .findFirst();
     }
 
     public static Optional<ModContainer> find(Collection<ModContainer> mods, String ownerClassName, String managerId) {

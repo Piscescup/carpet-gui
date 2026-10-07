@@ -35,6 +35,8 @@ public class ZHCNLanguageProvider
         builder.add("carpet-gui.category.player", "玩家");
         builder.add("carpet-gui.category.survival", "生存");
         builder.add("carpet-gui.category.world", "世界");
+        builder.add("carpet-gui.favorite.add", "添加到收藏");
+        builder.add("carpet-gui.favorite.remove", "取消收藏");
         builder.add("carpet-gui.close", "关闭（Esc）");
         builder.add("carpet-gui.collapse_all", "折叠所有");
         builder.add("carpet-gui.collapsed", "已折叠");
@@ -129,6 +131,7 @@ public class ZHCNLanguageProvider
         builder.add("carpet-gui.workspace.units_hint", "仅保存显示偏好，不换算普通规则的值。");
         builder.add("carpet-gui.workspace.quick_access", "快速访问");
         builder.add("carpet-gui.workspace.features", "功能");
+        builder.add("carpet-gui.workspace.favorites", "收藏");
         builder.add("carpet-gui.workspace.features_placeholder", "此区域预留给后续功能。");
         builder.add("carpet-gui.workspace.news", "新闻与更新");
         builder.add("carpet-gui.workspace.news_intro", "当前构建的更新信息；不请求外部新闻。");

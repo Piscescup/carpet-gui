@@ -1,6 +1,7 @@
 package io.github.piscescup.fabricmc.carpetgui.client;
 
 import com.mojang.blaze3d.platform.InputConstants;
+import io.github.piscescup.fabricmc.carpetgui.References;
 import io.github.piscescup.fabricmc.carpetgui.api.CarpetGuiScreens;
 import io.github.piscescup.fabricmc.carpetgui.integration.carpet.CarpetRuleSource;
 import io.github.piscescup.fabricmc.carpetgui.integration.vanilla.VanillaRuleStore;
@@ -21,7 +22,8 @@ public final class CarpetGUIClient implements ClientModInitializer {
         ClientPlayConnectionEvents.DISCONNECT.register((connection, client) -> VanillaRuleStore.clear());
         KeyMapping openRules = KeyMappingHelper.registerKeyMapping(new KeyMapping(
                 "key.carpet-gui.open_rules", InputConstants.Type.KEYBOARD, InputConstants.KEY_F9,
-                KeyMapping.Category.register(Identifier.fromNamespaceAndPath("carpet-gui", "main"))));
+                KeyMapping.Category.register(References.fromPath("main")))
+        );
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             ClientRuleNetworking.tick();
