@@ -475,9 +475,9 @@ public final class CarpetWorkspaceScreen
         left.add(groupsFeature);
         nextY += 56;
         WorkspaceStyle.label(left, tr("news"), contentX, nextY, contentWidth, 18, WorkspaceStyle.ACCENT);
-        nextY = addParagraph(left, tr("news_intro"), contentX, nextY + 22, contentWidth, WorkspaceStyle.MUTED) + 16;
-        nextY = addParagraph(left, tr("news_workspace"), contentX, nextY, contentWidth, WorkspaceStyle.TEXT) + 16;
-        addParagraph(left, tr("news_addons"), contentX, nextY, contentWidth, WorkspaceStyle.TEXT);
+        // nextY = addParagraph(left, tr("news_intro"), contentX, nextY + 22, contentWidth, WorkspaceStyle.MUTED) + 16;
+        // nextY = addParagraph(left, tr("news_workspace"), contentX, nextY, contentWidth, WorkspaceStyle.TEXT) + 16;
+        // addParagraph(left, tr("news_addons"), contentX, nextY, contentWidth, WorkspaceStyle.TEXT);
         var rightBounds = right.getBounds();
         int rightX = rightBounds.x + 12, rightWidth = Math.max(1, rightBounds.width - 24), rightY = y + 12;
         WorkspaceStyle.label(right, tr("overview"), rightX, rightY, rightWidth, 18, WorkspaceStyle.ACCENT);
