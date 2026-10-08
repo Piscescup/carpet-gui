@@ -108,7 +108,13 @@ public class ENUSLanguageProvider
         translationBuilder.add("carpet-gui.workspace.search", "Search");
         translationBuilder.add("carpet-gui.workspace.search_hint", "Search rules (Chinese / English)");
         translationBuilder.add("carpet-gui.workspace.sort", "Sort");
-        translationBuilder.add("carpet-gui.workspace.modified_only", "Only modified rules");
+        translationBuilder.add("carpet-gui.workspace.modified_only", "Differs from server config");
+        translationBuilder.add("carpet-gui.workspace.modified_only_hint", "Show rules whose current value differs from the server configuration.");
+        translationBuilder.add("carpet-gui.workspace.modified_only_server_required", "Requires Carpet GUI on the server.");
+        translationBuilder.add("carpet-gui.workspace.initial_difference_only", "Differs from mod initial value");
+        translationBuilder.add("carpet-gui.workspace.initial_difference_hint", "Show rules whose current value differs from the value declared in mod code.");
+        translationBuilder.add("carpet-gui.workspace.saved_default_only", "Saved as server default");
+        translationBuilder.add("carpet-gui.workspace.saved_default_only_hint", "Show rules explicitly saved in this world's Carpet configuration.");
         translationBuilder.add("carpet-gui.workspace.grouping", "Grouping");
         translationBuilder.add("carpet-gui.workspace.grouping.category", "Categories");
         translationBuilder.add("carpet-gui.workspace.grouping.none", "No grouping");
@@ -128,7 +134,6 @@ public class ENUSLanguageProvider
         translationBuilder.add("carpet-gui.workspace.time.seconds", "Seconds");
         translationBuilder.add("carpet-gui.workspace.time.minutes", "Minutes");
         translationBuilder.add("carpet-gui.workspace.time.hours", "Hours");
-        translationBuilder.add("carpet-gui.workspace.units_hint", "Display preferences only. Ordinary rule values are not converted.");
         translationBuilder.add("carpet-gui.workspace.quick_access", "Quick access");
         translationBuilder.add("carpet-gui.workspace.features", "Features");
         translationBuilder.add("carpet-gui.workspace.favorites", "Favorites");

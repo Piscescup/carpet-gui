@@ -79,9 +79,9 @@ tasks.jar {
 	archiveFileName.set("$projectName-ver$modVersion-$loaderName-${fabricApiVersion}mc.jar")
 	inputs.property("projectName", projectName)
 
-	from("LICENSE") {
-		rename { "${it}_$projectName" }
-	}
+//	from("LICENSE") {
+//		rename { "${it}_$projectName" }
+//	}
 }
 
 // configure the maven publication

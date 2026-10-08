@@ -7,6 +7,7 @@ import io.github.piscescup.fabricmc.carpetgui.integration.carpet.CarpetRuleSourc
 import io.github.piscescup.fabricmc.carpetgui.integration.vanilla.VanillaRuleStore;
 import io.github.piscescup.fabricmc.carpetgui.network.ClientRuleNetworking;
 import io.github.piscescup.fabricmc.carpetgui.network.ClientRuleChanges;
+import io.github.piscescup.fabricmc.carpetgui.network.ClientRuleConfigurations;
 import carpet.api.settings.SettingsManager;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.fabricmc.api.ClientModInitializer;
@@ -20,6 +21,7 @@ public final class CarpetGUIClient implements ClientModInitializer {
     public void onInitializeClient() {
         ClientRuleNetworking.initialize();
         ClientRuleChanges.initialize();
+        ClientRuleConfigurations.initialize();
         SettingsManager.registerGlobalRuleObserver((source, rule, value) -> CarpetRuleSource.RULE_REVISION.incrementAndGet());
         ClientPlayConnectionEvents.DISCONNECT.register((connection, client) -> VanillaRuleStore.clear());
         KeyMapping openRules = KeyMappingHelper.registerKeyMapping(new KeyMapping(

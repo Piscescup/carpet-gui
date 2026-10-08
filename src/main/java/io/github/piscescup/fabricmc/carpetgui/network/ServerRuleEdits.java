@@ -54,6 +54,7 @@ public final class ServerRuleEdits {
                     .contains(rule.name() + " " + request.value())) {
                     return RuleEditResponse.result(request, false, RuleHelper.toRuleString(rule.value()), "carpet-gui.network.save_failed");
                 }
+                ServerRuleChanges.configurationSaved(source.getServer(), rule);
             }
             return RuleEditResponse.result(
                 request, true, RuleHelper.toRuleString(rule.value()),

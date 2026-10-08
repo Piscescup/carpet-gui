@@ -67,7 +67,7 @@ public class AnnotationCarpetAddonAdapter extends CarpetAddonAdapter {
         if (current != null) return current;
 
         Class<?> candidate = Class.forName(
-            annotationClassName,
+            this.packageName + DOT + annotationClassName,
             false,
             CarpetAddonAdapter.class.getClassLoader()
         );

@@ -6,11 +6,13 @@ import carpet.api.settings.RuleHelper;
 import carpet.api.settings.SettingsManager;
 import io.github.piscescup.fabricmc.carpetgui.gui.model.*;
 import io.github.piscescup.fabricmc.carpetgui.integration.RuleCommandGateway;
+import io.github.piscescup.fabricmc.carpetgui.network.ClientRuleConfigurations;
 import net.minecraft.locale.Language;
 import net.minecraft.network.chat.Component;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.function.Consumer;
 
 /**
@@ -79,6 +81,16 @@ public final class CarpetRuleView
     @Override
     public String defaultValue() {
         return RuleHelper.toRuleString(rule.defaultValue());
+    }
+
+    @Override
+    public Optional<String> configuredValue() {
+        return ClientRuleConfigurations.value(stateId());
+    }
+
+    @Override
+    public boolean explicitlyConfigured() {
+        return ClientRuleConfigurations.explicitlyConfigured(stateId());
     }
 
     @Override
@@ -191,7 +203,12 @@ public final class CarpetRuleView
     }
 
     @Override public boolean isSavedDefault(String value) {
-        return value.equals(savedDefault);
+        // The server configuration survives reconnects; savedDefault only covers the
+        // current session when connected to an older server without configuration sync.
+        return configuredValue()
+            .filter(ignored -> explicitlyConfigured())
+            .map(value::equals)
+            .orElseGet(() -> value.equals(savedDefault));
     }
 
     @Override

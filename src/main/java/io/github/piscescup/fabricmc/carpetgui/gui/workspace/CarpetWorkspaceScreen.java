@@ -18,7 +18,9 @@ import io.github.piscescup.fabricmc.carpetgui.gui.model.RuleEditResult;
 import io.github.piscescup.fabricmc.carpetgui.gui.model.RulePage;
 import io.github.piscescup.fabricmc.carpetgui.gui.model.RuleSource;
 import io.github.piscescup.fabricmc.carpetgui.gui.model.RuleView;
+import io.github.piscescup.fabricmc.carpetgui.network.ClientRuleConfigurations;
 import net.fabricmc.loader.api.FabricLoader;
+import net.minecraft.ChatFormatting;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.CharacterEvent;
 import net.minecraft.client.input.PreeditEvent;
@@ -61,6 +63,8 @@ public final class CarpetWorkspaceScreen
     private TLabelElement homeHelpHeading;
     private TLabelElement homeHelpBody;
     private TPanelElement tabs;
+    private TCheckboxWidget modifiedFilter;
+    private TCheckboxWidget savedDefaultFilter;
     private Component feedback = Component.empty();
     private boolean listDirty;
     private boolean resetScroll;
@@ -148,6 +152,8 @@ public final class CarpetWorkspaceScreen
         connectionStatus = null;
         homeHelpHeading = null;
         homeHelpBody = null;
+        modifiedFilter = null;
+        savedDefaultFilter = null;
         var screen = getBounds();
         int x = Math.max(4, screen.width / 40);
         int width = Math.max(1, screen.width - 2 * x);
@@ -331,15 +337,56 @@ public final class CarpetWorkspaceScreen
             .set(ignored -> TTooltip.of(tr("search_hint")), CarpetWorkspaceScreen.class);
         sidebar.add(search);
         y += 25;
-        var modified = new TCheckboxWidget(model.modifiedOnly);
-        modified.setBounds(x, y, WorkspaceStyle.CONTROL_HEIGHT, WorkspaceStyle.CONTROL_HEIGHT);
-        modified.checkedProperty().addChangeListener((property, previous, checked) -> {
+        if (!ClientRuleConfigurations.ready()) model.modifiedOnly = false;
+        modifiedFilter = new TCheckboxWidget(model.modifiedOnly);
+        modifiedFilter.setBounds(x, y, WorkspaceStyle.CONTROL_HEIGHT, WorkspaceStyle.CONTROL_HEIGHT);
+        modifiedFilter.enabledProperty().set(ClientRuleConfigurations.ready() && !page.isVanilla(), CarpetWorkspaceScreen.class);
+        modifiedFilter.checkedProperty().addChangeListener((property, previous, checked) -> {
             model.modifiedOnly = checked;
             requestListRefresh(true);
         });
-        modified.tooltipProperty().set(ignored -> TTooltip.of(tr("modified_only")), CarpetWorkspaceScreen.class);
-        sidebar.add(modified);
-        WorkspaceStyle.label(sidebar, tr("modified_only"), x + 27, y + 6, width - 27, 12, WorkspaceStyle.TEXT);
+        Component modifiedHint = tr("modified_only_hint").copy()
+            .append("\n")
+            .append(tr("modified_only_server_required").copy().withStyle(ChatFormatting.GOLD));
+        modifiedFilter.tooltipProperty().set(ignored -> TTooltip.of(modifiedHint), CarpetWorkspaceScreen.class);
+        sidebar.add(modifiedFilter);
+        var modifiedLabel = WorkspaceStyle.label(sidebar, tr("modified_only"), x + 27, y + 6, width - 27, 12, WorkspaceStyle.TEXT);
+        modifiedLabel.tooltipProperty().set(ignored -> TTooltip.of(modifiedHint), CarpetWorkspaceScreen.class);
+        y += 27;
+        var initialDifference = new TCheckboxWidget(model.initialDifferenceOnly);
+        initialDifference.setBounds(x, y, WorkspaceStyle.CONTROL_HEIGHT, WorkspaceStyle.CONTROL_HEIGHT);
+        initialDifference.checkedProperty().addChangeListener((property, previous, checked) -> {
+            model.initialDifferenceOnly = checked;
+            requestListRefresh(true);
+        });
+        initialDifference.tooltipProperty().set(
+            ignored -> TTooltip.of(tr("initial_difference_hint")), CarpetWorkspaceScreen.class
+        );
+        sidebar.add(initialDifference);
+        var initialDifferenceLabel = WorkspaceStyle.label(
+            sidebar, tr("initial_difference_only"), x + 27, y + 6, width - 27, 12, WorkspaceStyle.TEXT
+        );
+        initialDifferenceLabel.tooltipProperty().set(
+            ignored -> TTooltip.of(tr("initial_difference_hint")), CarpetWorkspaceScreen.class
+        );
+        y += 27;
+        if (!ClientRuleConfigurations.ready()) model.savedDefaultOnly = false;
+        savedDefaultFilter = new TCheckboxWidget(model.savedDefaultOnly);
+        savedDefaultFilter.setBounds(x, y, WorkspaceStyle.CONTROL_HEIGHT, WorkspaceStyle.CONTROL_HEIGHT);
+        savedDefaultFilter.enabledProperty().set(ClientRuleConfigurations.ready() && !page.isVanilla(), CarpetWorkspaceScreen.class);
+        savedDefaultFilter.checkedProperty().addChangeListener((property, previous, checked) -> {
+            model.savedDefaultOnly = checked;
+            requestListRefresh(true);
+        });
+        Component savedDefaultHint = tr("saved_default_only_hint").copy()
+            .append("\n")
+            .append(tr("modified_only_server_required").copy().withStyle(ChatFormatting.GOLD));
+        savedDefaultFilter.tooltipProperty().set(ignored -> TTooltip.of(savedDefaultHint), CarpetWorkspaceScreen.class);
+        sidebar.add(savedDefaultFilter);
+        var savedDefaultLabel = WorkspaceStyle.label(
+            sidebar, tr("saved_default_only"), x + 27, y + 6, width - 27, 12, WorkspaceStyle.TEXT
+        );
+        savedDefaultLabel.tooltipProperty().set(ignored -> TTooltip.of(savedDefaultHint), CarpetWorkspaceScreen.class);
         y += 27;
         addIconDropdown(
             sidebar,
@@ -399,10 +446,6 @@ public final class CarpetWorkspaceScreen
             value -> model.time = value
         );
         y += 29;
-        var unitsHint = WorkspaceStyle.label(sidebar, tr("units_hint"), x, y, width, 33, WorkspaceStyle.MUTED);
-        unitsHint.textScaleProperty()
-            .set(WorkspaceStyle.SMALL_TEXT_SCALE, CarpetWorkspaceScreen.class);
-        y += 38;
         int gap = 4;
         int expandWidth = Math.max(1, (width - gap) / 2);
         int collapseWidth = Math.max(1, width - gap - expandWidth);
@@ -686,6 +729,23 @@ public final class CarpetWorkspaceScreen
         boolean sourceChanged = observedRevision != source.revision();
         if (poll || sourceChanged) allRules.refreshIndex();
         RulePage page = page();
+        if (modifiedFilter != null) {
+            boolean configurationAvailable = ClientRuleConfigurations.ready() && page != null && !page.isVanilla();
+            modifiedFilter.enabledProperty().set(configurationAvailable, CarpetWorkspaceScreen.class);
+            if (!configurationAvailable && page != null && RuleBrowserModel.forPage(page.id()).modifiedOnly) {
+                RuleBrowserModel.forPage(page.id()).modifiedOnly = false;
+                modifiedFilter.checkedProperty().set(false, CarpetWorkspaceScreen.class);
+                requestListRefresh(true);
+            }
+            if (savedDefaultFilter != null) {
+                savedDefaultFilter.enabledProperty().set(configurationAvailable, CarpetWorkspaceScreen.class);
+                if (!configurationAvailable && page != null && RuleBrowserModel.forPage(page.id()).savedDefaultOnly) {
+                    RuleBrowserModel.forPage(page.id()).savedDefaultOnly = false;
+                    savedDefaultFilter.checkedProperty().set(false, CarpetWorkspaceScreen.class);
+                    requestListRefresh(true);
+                }
+            }
+        }
         if (ruleList != null) {
             // Live refresh is independent of the backend's observer support.
             ruleList.refreshRows();

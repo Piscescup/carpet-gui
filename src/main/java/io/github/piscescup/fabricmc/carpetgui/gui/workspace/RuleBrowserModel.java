@@ -58,6 +58,8 @@ public final class RuleBrowserModel {
     public String query = "";
     public String category = "";
     public boolean modifiedOnly;
+    public boolean initialDifferenceOnly;
+    public boolean savedDefaultOnly;
     public Sort sort = Sort.NAME_ASC;
     public Grouping grouping = Grouping.CATEGORY;
     public Distance distance = Distance.AUTO;
@@ -101,7 +103,9 @@ public final class RuleBrowserModel {
             .split("\\s+"));
         return page.rules()
             .stream()
-            .filter(rule -> !modifiedOnly || rule.modified())
+            .filter(rule -> !modifiedOnly || rule.differsFromConfiguredValue())
+            .filter(rule -> !initialDifferenceOnly || rule.differsFromInitialValue())
+            .filter(rule -> !savedDefaultOnly || rule.explicitlyConfigured())
             .filter(rule -> category.isEmpty()
                 || category.equals(FAVORITES) && FavoriteRules.contains(rule.stateId())
                 || rule.categories().contains(category)
@@ -149,7 +153,8 @@ public final class RuleBrowserModel {
     public List<String> signature(RulePage page) {
         // Detect backend changes in one linear pass; sorting is only needed when rebuilding.
         return page.rules().stream()
-            .map(rule -> rule.stateId() + "\0" + rule.value() + "\0" + rule.modified())
+            .map(rule -> rule.stateId() + "\0" + rule.value() + "\0" + rule.differsFromConfiguredValue()
+                + "\0" + rule.differsFromInitialValue() + "\0" + rule.explicitlyConfigured())
             .toList();
     }
 
@@ -171,7 +176,7 @@ public final class RuleBrowserModel {
             case NAME_ASC -> names.thenComparing(RuleView::stateId);
             case NAME_DESC -> names.reversed()
                 .thenComparing(RuleView::stateId);
-            case MODIFIED_FIRST -> Comparator.comparing(RuleView::modified)
+            case MODIFIED_FIRST -> Comparator.comparing(RuleView::differsFromConfiguredValue)
                 .reversed()
                 .thenComparing(names);
             case VALUE_ASC -> ((Comparator<RuleView>) (left, right) -> compareValues(left.value(), right.value())).thenComparing(names);

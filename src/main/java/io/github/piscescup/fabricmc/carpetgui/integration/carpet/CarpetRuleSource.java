@@ -6,6 +6,7 @@ import io.github.piscescup.fabricmc.carpetgui.integration.vanilla.VanillaRuleSto
 import io.github.piscescup.fabricmc.carpetgui.integration.vanilla.VanillaRuleView;
 import io.github.piscescup.fabricmc.carpetgui.integration.vanilla.VanillaRulePage;
 import io.github.piscescup.fabricmc.carpetgui.network.ClientRuleNetworking;
+import io.github.piscescup.fabricmc.carpetgui.network.ClientRuleConfigurations;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
@@ -68,7 +69,7 @@ public final class CarpetRuleSource
 
     @Override
     public long revision() {
-        return RULE_REVISION.get() + VanillaRuleStore.revision();
+        return RULE_REVISION.get() + VanillaRuleStore.revision() + ClientRuleConfigurations.revision();
     }
 
     @Override

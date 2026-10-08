@@ -27,7 +27,14 @@ public final class RuleNetworking {
             .register(RuleEditResponse.TYPE, RuleEditResponse.CODEC);
         PayloadTypeRegistry.clientboundPlay()
             .register(RuleChangeEvent.TYPE, RuleChangeEvent.CODEC);
+        PayloadTypeRegistry.clientboundPlay()
+            .register(RuleConfigurationSnapshot.TYPE, RuleConfigurationSnapshot.CODEC);
         ServerRuleChanges.initialize();
+        ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
+            if (ServerPlayNetworking.canSend(handler.player, RuleConfigurationSnapshot.TYPE)) {
+                ServerPlayNetworking.send(handler.player, ServerRuleChanges.configurationSnapshot(server));
+            }
+        });
         ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> BUDGETS.remove(handler.player));
         ServerPlayNetworking.registerGlobalReceiver(
             RuleEditRequest.TYPE, (request, context) -> {

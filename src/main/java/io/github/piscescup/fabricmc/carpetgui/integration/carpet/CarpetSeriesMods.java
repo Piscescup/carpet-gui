@@ -15,6 +15,11 @@ public final class CarpetSeriesMods {
     /** Compatibility adapters for released addons which cannot implement Carpet GUI's APIs themselves. */
     public static final List<CarpetAddonAdapter> CARPET_SERIES = new ArrayList<>(
         List.of(
+            CarpetAddonAdapter.fromAnnotation(
+                "carpet-pry-addition", "Carpet PRY Addition",
+                "CarpetPrimaryuanServer", "CarpetPrimaryuanSettings",
+                "settings.Rule"
+            ).withPackage("me.primaryuan.carpet"),
             CarpetAddonAdapter.fromMethod(
                 "carpet-igny-addition", "Carpet Igny Addition",
                 "IGNYServer", "IGNYSettings",
@@ -24,7 +29,7 @@ public final class CarpetSeriesMods {
                 "carpet-tis-addition", "Carpet TIS Addition",
                 "CarpetTISAdditionServer",
                 "CarpetTISAdditionSettings",
-                "carpettisaddition.settings.Rule"
+                "settings.Rule"
             ).withPackage("carpettisaddition"),
             CarpetAddonAdapter.fromMethod(
                 "carpet-org-addition", "Carpet Org Addition",
@@ -35,7 +40,7 @@ public final class CarpetSeriesMods {
                 "carpet-ams-addition", "Carpet AMS Addition",
                 "CarpetAMSAdditionServer",
                 "CarpetAMSAdditionSettings",
-                "carpetamsaddition.settings.Rule"
+                "settings.Rule"
             ).withPackage("carpetamsaddition"),
             CarpetAddonAdapter.fromAnnotationOnCarpetRule(
                 "carpet-extra-extras", "Carpet Extra Extras",

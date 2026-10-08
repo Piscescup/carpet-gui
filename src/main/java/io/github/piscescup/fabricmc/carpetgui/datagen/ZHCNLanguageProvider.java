@@ -108,7 +108,13 @@ public class ZHCNLanguageProvider
         builder.add("carpet-gui.workspace.search", "搜索");
         builder.add("carpet-gui.workspace.search_hint", "搜索规则（中／英文）");
         builder.add("carpet-gui.workspace.sort", "排序");
-        builder.add("carpet-gui.workspace.modified_only", "仅显示已修改规则");
+        builder.add("carpet-gui.workspace.modified_only", "与服务器配置值不同");
+        builder.add("carpet-gui.workspace.modified_only_hint", "显示当前值与服务器配置值不同的规则。");
+        builder.add("carpet-gui.workspace.modified_only_server_required", "需要服务端安装 Carpet GUI。");
+        builder.add("carpet-gui.workspace.initial_difference_only", "与 Mod 初始值不同");
+        builder.add("carpet-gui.workspace.initial_difference_hint", "显示当前值与 Mod Java 代码声明初始值不同的规则。");
+        builder.add("carpet-gui.workspace.saved_default_only", "已设为服务器默认值");
+        builder.add("carpet-gui.workspace.saved_default_only_hint", "显示已明确保存到当前世界 Carpet 配置文件中的规则。");
         builder.add("carpet-gui.workspace.grouping", "分组");
         builder.add("carpet-gui.workspace.grouping.category", "按分类分组");
         builder.add("carpet-gui.workspace.grouping.none", "不分组");
@@ -128,7 +134,6 @@ public class ZHCNLanguageProvider
         builder.add("carpet-gui.workspace.time.seconds", "秒");
         builder.add("carpet-gui.workspace.time.minutes", "分钟");
         builder.add("carpet-gui.workspace.time.hours", "小时");
-        builder.add("carpet-gui.workspace.units_hint", "仅保存显示偏好，不换算普通规则的值。");
         builder.add("carpet-gui.workspace.quick_access", "快速访问");
         builder.add("carpet-gui.workspace.features", "功能");
         builder.add("carpet-gui.workspace.favorites", "收藏");
