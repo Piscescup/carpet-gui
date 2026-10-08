@@ -7,6 +7,8 @@ import net.minecraft.server.level.ServerPlayer;
 
 import java.util.WeakHashMap;
 
+import static io.github.piscescup.fabricmc.carpetgui.References.*;
+
 /**
  * Common entrypoint: safe on dedicated servers, with per-connection replay/rate protection.
  */
@@ -17,6 +19,8 @@ public final class RuleNetworking {
     }
 
     public static void initialize() {
+        LOGGER.info("Initialize Rule Networking of {} ver {}", MOD_NAME, MOD_VERSION);
+
         PayloadTypeRegistry.serverboundPlay()
             .register(RuleEditRequest.TYPE, RuleEditRequest.CODEC);
         PayloadTypeRegistry.clientboundPlay()

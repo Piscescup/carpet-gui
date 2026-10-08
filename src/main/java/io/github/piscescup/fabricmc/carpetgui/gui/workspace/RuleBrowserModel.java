@@ -113,16 +113,20 @@ public final class RuleBrowserModel {
     }
 
     public List<Group> groups(RulePage page) {
+        return groups(rules(page));
+    }
+
+    List<Group> groups(List<RuleView> filteredRules) {
         if (category.equals(FAVORITES)) {
-            List<RuleView> rules = rules(page);
+            List<RuleView> rules = filteredRules;
             return rules.isEmpty() ? List.of() : List.of(new Group(FAVORITES, rules));
         }
         if (grouping == Grouping.NONE) {
-            List<RuleView> rules = rules(page);
+            List<RuleView> rules = filteredRules;
             return rules.isEmpty() ? List.of() : List.of(new Group(ALL_RULES, rules));
         }
         Map<String, List<RuleView>> groups = new LinkedHashMap<>();
-        for (RuleView rule : rules(page)) {
+        for (RuleView rule : filteredRules) {
             List<String> categories = rule.categories()
                 .isEmpty() ? List.of(UNCATEGORIZED) : rule.categories();
             for (String group : categories) {
@@ -143,7 +147,8 @@ public final class RuleBrowserModel {
      * Values and modified flags are included so live synchronization also updates value-based sort order.
      */
     public List<String> signature(RulePage page) {
-        return rules(page).stream()
+        // Detect backend changes in one linear pass; sorting is only needed when rebuilding.
+        return page.rules().stream()
             .map(rule -> rule.stateId() + "\0" + rule.value() + "\0" + rule.modified())
             .toList();
     }

@@ -20,6 +20,8 @@ final class RuleListPanel
     private final RuleBrowserModel model;
     private final List<WorkspaceRuleRow> rows = new ArrayList<>();
     private List<String> signature = List.of();
+    private int ruleCount;
+    private int groupCount;
 
     RuleListPanel(CarpetWorkspaceScreen screen, RulePage page, RuleBrowserModel model) {
         super(10);
@@ -32,9 +34,12 @@ final class RuleListPanel
     protected void initCallback() {
         rows.clear();
         var bounds = getBounds();
-        int rowWidth = Math.max(320, bounds.width - 20);
+        int rowWidth = Math.max(1, bounds.width - 20);
         int y = bounds.y + 10;
-        List<RuleBrowserModel.Group> groups = model.groups(page);
+        var filteredRules = model.rules(page);
+        List<RuleBrowserModel.Group> groups = model.groups(filteredRules);
+        ruleCount = filteredRules.size();
+        groupCount = groups.size();
         signature = model.signature(page);
         if (groups.isEmpty()) {
             WorkspaceStyle.label(
@@ -56,6 +61,7 @@ final class RuleListPanel
                 for (var rule : group.rules()) {
                     String ownerId = page instanceof AllRulesPage allRules ? allRules.ownerId(rule) : page.id();
                     var row = new WorkspaceRuleRow(ownerId, rule, result -> screen.feedback(rule, result), this::cancelDrafts);
+                    row.deferOffscreenControls();
                     row.setBounds(bounds.x + 10, y, rowWidth, WorkspaceStyle.RULE_HEIGHT);
                     add(row);
                     rows.add(row);
@@ -105,6 +111,10 @@ final class RuleListPanel
 
     boolean changed() {
         return !signature.equals(model.signature(page));
+    }
+
+    Component countsText() {
+        return Component.translatable("carpet-gui.counts", ruleCount, groupCount);
     }
 
     void rebuild(boolean resetScroll) {

@@ -39,8 +39,8 @@ final class WorkspaceRuleRow
     private NativeTextInput text;
     private WorkspaceStyle.Dropdown<String> choices;
     private WorkspaceStyle.Button valueButton;
-    private WorkspaceStyle.Button reset;
-    private WorkspaceStyle.Button saveDefault;
+    private WorkspaceStyle.RuleActionIcon reset;
+    private WorkspaceStyle.RuleActionIcon saveDefault;
     private WorkspaceStyle.FavoriteButton favorite;
     private String observed;
     private String lastAttempt;
@@ -48,6 +48,20 @@ final class WorkspaceRuleRow
     private boolean synchronizing;
     private boolean suppressBlur;
     private String pendingSaveValue;
+    private boolean deferOffscreen;
+
+    void deferOffscreenControls() {
+        deferOffscreen = true;
+    }
+
+    private boolean nearViewport() {
+        var parent = parentProperty().get();
+        if (parent == null) return true;
+        var viewport = parent.getBounds();
+        var bounds = getBounds();
+        return bounds.endY >= viewport.y - viewport.height
+            && bounds.y <= viewport.endY + viewport.height;
+    }
 
     WorkspaceRuleRow(String modId, RuleView rule, Consumer<RuleEditResult> feedback, Consumer<String> discardDrafts) {
         this(modId, rule, feedback, discardDrafts, () -> WorkspaceStyle.TEXT, rule::description, false);
@@ -78,13 +92,14 @@ final class WorkspaceRuleRow
 
     @Override
     protected void initCallback() {
+        if (deferOffscreen && !nearViewport()) return;
         var bounds = getBounds();
         RuleEditor editor = rule instanceof EditableRuleView editable ? editable.editor() : null;
         boolean persistent = editor instanceof PersistentRuleEditor;
-        int resetWidth = 37;
-        int saveWidth = persistent ? 66 : 0;
+        int resetWidth = 20;
+        int saveWidth = persistent ? 20 : 0;
         int favoriteWidth = 20;
-        int valueWidth = Math.clamp(bounds.width / 6, 58, 96);
+        int valueWidth = Math.clamp(bounds.width / 8, 48, 76);
         int favoriteX = bounds.endX - favoriteWidth - 4;
         int resetX = favoriteX - resetWidth - 4;
         int saveX = persistent ? resetX - saveWidth - 4 : resetX;
@@ -142,8 +157,7 @@ final class WorkspaceRuleRow
         valueControl.tooltipProperty()
             .set(ignored -> tooltip(), WorkspaceRuleRow.class);
         add(valueControl);
-        reset = new WorkspaceStyle.Button(
-            Component.translatable("carpet-gui.reset"), () -> {
+        reset = new WorkspaceStyle.RuleActionIcon(false, () -> false, () -> {
             discardDrafts.accept(rule.stateId());
             submit(rule.defaultValue());
         }
@@ -153,7 +167,8 @@ final class WorkspaceRuleRow
             .set(ignored -> tooltip(), WorkspaceRuleRow.class);
         add(reset);
         if (persistent) {
-            saveDefault = new WorkspaceStyle.Button(Component.translatable("carpet-gui.set_default"), this::saveDefault);
+            saveDefault = new WorkspaceStyle.RuleActionIcon(true,
+                () -> ((PersistentRuleEditor) ((EditableRuleView) rule).editor()).isSavedDefault(draftValue()), this::saveDefault);
             saveDefault.setBounds(saveX, bounds.y + 2, saveWidth, WorkspaceStyle.CONTROL_HEIGHT);
             saveDefault.tooltipProperty()
                 .set(ignored -> TTooltip.of(Component.translatable("carpet-gui.set_default_hint")), WorkspaceRuleRow.class);
@@ -287,6 +302,13 @@ final class WorkspaceRuleRow
     }
 
     void refresh() {
+        if (deferOffscreen) {
+            if (!nearViewport() && !interacting()) return;
+            if (valueControl == null) {
+                clearAndInit();
+                return;
+            }
+        }
         if (valueControl == null) return;
         if (title != null) title.textColorProperty().set(statusColor.getAsInt(), WorkspaceRuleRow.class);
         if (description != null) description.setText(detailText.get());

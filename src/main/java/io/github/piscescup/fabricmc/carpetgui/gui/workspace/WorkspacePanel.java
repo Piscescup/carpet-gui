@@ -7,9 +7,25 @@ import com.thecsdev.commonmc.api.client.gui.util.TInputContext;
 
 /** Scroll by wheel, keyboard or scrollbar, not by dragging blank panel space. */
 class WorkspacePanel extends TPanelElement.Paintable {
+    private TElement scrollExtent;
+
     WorkspacePanel(int padding) {
         super(WorkspaceStyle.PANEL, WorkspaceStyle.BORDER, WorkspaceStyle.BORDER);
-        scrollPaddingProperty().set(padding, WorkspacePanel.class);
+        // Layouts already include their own insets. TPanelElement otherwise snaps the
+        // children's bounding box to scrollPadding on the first wheel event, moving
+        // both axes even when the content fits inside the viewport.
+        scrollPaddingProperty().set(0, WorkspacePanel.class);
+        eInitialized.addListener(ignored -> {
+            if (scrollExtent != null) remove(scrollExtent);
+            var bounds = getBounds();
+            var content = getContentBounds();
+            scrollExtent = new TElement();
+            scrollExtent.setBounds(bounds.x, bounds.y, bounds.width,
+                Math.max(bounds.height, content.endY - bounds.y + padding));
+            scrollExtent.focusableProperty().set(false, WorkspacePanel.class);
+            scrollExtent.hoverableProperty().set(false, WorkspacePanel.class);
+            add(scrollExtent);
+        });
         // These workspaces only expose a vertical scrollbar. Trackpads may still report a
         // horizontal wheel component, so clamp it here instead of letting content drift sideways.
         scrollAmountProperty().addFilter(point -> new Point2d(0, point.y), WorkspacePanel.class);

@@ -42,6 +42,8 @@ final class RuleGroupWorkspace {
     private String tagDraft = "";
     private String commitMessageDraft = "";
     private long observedRemoteRevision;
+    private List<WorkspacePanel> panels = List.of();
+    private int[] pendingScrollOffsets;
 
     RuleGroupWorkspace(CarpetWorkspaceScreen screen, List<? extends RulePage> pages) {
         this.screen = screen;
@@ -59,12 +61,25 @@ final class RuleGroupWorkspace {
         RuleGroupStore.Group selected = selectedGroupId == null ? null : RuleGroupStore.find(selectedGroupId);
         int actionsHeight = 34;
         int contentHeight = Math.max(1, height - actionsHeight);
-        int leftWidth = Math.clamp(width * 22 / 100, Math.min(110, width / 3), 210);
-        int rightWidth = Math.clamp(width * 30 / 100, Math.min(140, width / 3), 310);
+        // Keep the navigation and history compact so the editable rule list gets most
+        // of the available width. The lower bounds still protect small GUI scales.
+        int leftWidth = Math.clamp(width * 18 / 100, Math.min(100, width / 3), 175);
+        int rightWidth = Math.clamp(width * 24 / 100, Math.min(130, width / 3), 250);
         int centerWidth = Math.max(1, width - leftWidth - rightWidth);
         var left = new WorkspacePanel(8);
         var center = new WorkspacePanel(8);
         var right = new WorkspacePanel(8);
+        panels = List.of(left, center, right);
+        if (pendingScrollOffsets != null) {
+            int[] offsets = pendingScrollOffsets;
+            pendingScrollOffsets = null;
+            for (int index = 0; index < panels.size(); index++) {
+                WorkspacePanel panel = panels.get(index);
+                int offset = offsets[index];
+                // Restore after the panel's content and scroll extent have initialized.
+                panel.eInitialized.addListener(ignored -> panel.scroll(0, -offset));
+            }
+        }
         screen.addWorkspacePane(left, x, y, leftWidth, contentHeight);
         screen.addWorkspacePane(center, x + leftWidth, y, centerWidth, contentHeight);
         screen.addWorkspacePane(right, x + leftWidth + centerWidth, y, rightWidth, contentHeight);
@@ -160,7 +175,7 @@ final class RuleGroupWorkspace {
     /** The normal group page: only member rules, using the same live editors as ordinary rule pages. */
     private void initGroupRules(WorkspacePanel panel, RuleGroupStore.Group group) {
         var bounds = panel.getBounds();
-        int x = bounds.x + 9, y = bounds.y + 8, width = Math.max(320, bounds.width - 18);
+        int x = bounds.x + 9, y = bounds.y + 8, width = Math.max(1, bounds.width - 18);
         if (group == null) {
             WorkspaceStyle.label(panel, tr("group_rules"), x, y, width, 16, WorkspaceStyle.ACCENT);
             paragraph(panel, tr("select_or_create_group"), x, y + 24, width, WorkspaceStyle.MUTED);
@@ -171,8 +186,7 @@ final class RuleGroupWorkspace {
         manage.setBounds(x + width - 94, y - 3, 94, WorkspaceStyle.CONTROL_HEIGHT);
         panel.add(manage);
         y += 24;
-        addStatusLegend(panel, x, y, width);
-        y += 17;
+        y = addStatusLegend(panel, x, y, width) + 6;
         Map<String, RuleRef> byId = rulesById();
         if (group.members().isEmpty()) {
             y = paragraph(panel, tr("empty_group"), x, y + 8, width, WorkspaceStyle.MUTED) + 12;
@@ -202,7 +216,7 @@ final class RuleGroupWorkspace {
     /** Membership picker. Adding a member does not stage or commit it. */
     private void initManageRules(WorkspacePanel panel, RuleGroupStore.Group group) {
         var bounds = panel.getBounds();
-        int x = bounds.x + 9, y = bounds.y + 8, width = Math.max(320, bounds.width - 18);
+        int x = bounds.x + 9, y = bounds.y + 8, width = Math.max(1, bounds.width - 18);
         WorkspaceStyle.label(panel, tr("manage_group_rules"), x, y, Math.max(1, width - 70), 16, WorkspaceStyle.ACCENT);
         var done = new WorkspaceStyle.ControlButton(tr("done"), () -> setMode(Mode.VIEW));
         done.setBounds(x + width - 64, y - 3, 64, WorkspaceStyle.CONTROL_HEIGHT);
@@ -248,7 +262,7 @@ final class RuleGroupWorkspace {
     /** Status GUI: staged and unstaged are deliberately distinct. */
     private void initStatus(WorkspacePanel panel, RuleGroupStore.Group group) {
         var bounds = panel.getBounds();
-        int x = bounds.x + 9, y = bounds.y + 8, width = Math.max(320, bounds.width - 18);
+        int x = bounds.x + 9, y = bounds.y + 8, width = Math.max(1, bounds.width - 18);
         WorkspaceStyle.label(panel, tr("status_title"), x, y, Math.max(1, width - 70), 16, WorkspaceStyle.ACCENT);
         var back = new WorkspaceStyle.ControlButton(tr("back"), () -> setMode(Mode.VIEW));
         back.setBounds(x + width - 64, y - 3, 64, WorkspaceStyle.CONTROL_HEIGHT);
@@ -287,7 +301,7 @@ final class RuleGroupWorkspace {
 
     private void initCommit(WorkspacePanel panel, RuleGroupStore.Group group) {
         var bounds = panel.getBounds();
-        int x = bounds.x + 9, y = bounds.y + 8, width = Math.max(320, bounds.width - 18);
+        int x = bounds.x + 9, y = bounds.y + 8, width = Math.max(1, bounds.width - 18);
         WorkspaceStyle.label(panel, tr("create_commit"), x, y, Math.max(1, width - 70), 16, WorkspaceStyle.ACCENT);
         var back = new WorkspaceStyle.ControlButton(tr("back"), () -> setMode(Mode.STATUS));
         back.setBounds(x + width - 64, y - 3, 64, WorkspaceStyle.CONTROL_HEIGHT);
@@ -513,6 +527,9 @@ final class RuleGroupWorkspace {
     }
 
     private void mutate(Runnable change) {
+        pendingScrollOffsets = panels.stream()
+            .mapToInt(panel -> Math.max(0, panel.getBounds().y - panel.getContentBounds().y))
+            .toArray();
         change.run();
         screen.rebuildWorkspace();
     }
@@ -564,19 +581,27 @@ final class RuleGroupWorkspace {
         return label.getBounds().endY;
     }
 
-    private void addStatusLegend(TElement parent, int x, int y, int width) {
-        int column = Math.max(1, width / 5);
-        addLegendItem(parent, tr("color_new"), x, y, column, NEW_RULE);
-        addLegendItem(parent, tr("color_modified"), x + column, y, column, MODIFIED_RULE);
-        addLegendItem(parent, tr("color_staged"), x + column * 2, y, column, STAGED_RULE);
-        addLegendItem(parent, tr("color_remote"), x + column * 3, y, column, REMOTE_RULE);
-        addLegendItem(parent, tr("color_committed"), x + column * 4, y, width - column * 4, WorkspaceStyle.TEXT);
-    }
-
-    private void addLegendItem(TElement parent, Component text, int x, int y, int width, int color) {
-        var label = WorkspaceStyle.label(parent, Component.literal("● ").append(text), x, y, width, 11, color);
-        label.textScaleProperty().set(WorkspaceStyle.SMALL_TEXT_SCALE, RuleGroupWorkspace.class);
-        label.wrapTextProperty().set(false, RuleGroupWorkspace.class);
+    private int addStatusLegend(TElement parent, int x, int y, int width) {
+        String[] keys = {"color_new", "color_modified", "color_staged", "color_remote", "color_committed"};
+        int[] colors = {NEW_RULE, MODIFIED_RULE, STAGED_RULE, REMOTE_RULE, WorkspaceStyle.TEXT};
+        int nextX = x;
+        int bottom = y;
+        for (int index = 0; index < keys.length; index++) {
+            Component text = Component.literal("● ").append(tr(keys[index]));
+            int itemWidth = Math.min(width, (int) Math.ceil(screen.getClient().font.width(text)
+                * WorkspaceStyle.SMALL_TEXT_SCALE) + 2);
+            if (nextX > x && nextX + itemWidth > x + width) {
+                nextX = x;
+                y = bottom + 4;
+            }
+            var label = WorkspaceStyle.label(parent, text, nextX, y, itemWidth, 11, colors[index]);
+            label.textScaleProperty().set(WorkspaceStyle.SMALL_TEXT_SCALE, RuleGroupWorkspace.class);
+            label.wrapTextProperty().set(true, RuleGroupWorkspace.class);
+            label.setBoundsToFitText(nextX, y, Math.max(1, itemWidth));
+            bottom = Math.max(bottom, label.getBounds().endY);
+            nextX += itemWidth + 10;
+        }
+        return bottom;
     }
 
     private int ruleColor(RuleGroupStore.Group group, String key, RuleView rule) {

@@ -25,6 +25,7 @@ public final class CarpetRuleView
     private final CarpetClientTranslationResolver translations;
     private final String modId;
     private List<String> searchableText;
+    private String savedDefault;
 
     public CarpetRuleView(SettingsManager manager, CarpetRule<?> rule, RuleCommandGateway gateway) {
         this(manager, rule, gateway, null);
@@ -189,6 +190,10 @@ public final class CarpetRuleView
         return gateway.carpetServer() && editable();
     }
 
+    @Override public boolean isSavedDefault(String value) {
+        return value.equals(savedDefault);
+    }
+
     @Override
     public Component defaultDisabledReason() {
         return gateway.carpetServer() ? disabledReason() : Component.translatable("carpet-gui.edit.default_no_server");
@@ -208,7 +213,12 @@ public final class CarpetRuleView
         if (value.isEmpty() || !validInput(value)) {
             return RuleEditResult.rejected(Component.translatable("carpet-gui.edit.invalid_value"));
         }
-        return gateway.editCarpetRule(manager.identifier(), id(), value, true, completed);
+        RuleEditResult result = gateway.editCarpetRule(manager.identifier(), id(), value, true, response -> {
+            if (response.accepted() && !response.queued()) savedDefault = value;
+            completed.accept(response);
+        });
+        if (result.accepted() && !result.queued()) savedDefault = value;
+        return result;
     }
 
     private boolean validInput(String value) {

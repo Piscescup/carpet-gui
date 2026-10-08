@@ -17,7 +17,9 @@ public record RuleChangeEvent(
     String oldValue,
     String newValue,
     long changedAt
-) implements CustomPacketPayload {
+)
+    implements CustomPacketPayload
+{
     public static final int VERSION = 1;
     public static final Type<RuleChangeEvent> TYPE = new Type<>(References.fromPath("rule_change_v1"));
     public static final StreamCodec<RegistryFriendlyByteBuf, RuleChangeEvent> CODEC = new StreamCodec<>() {

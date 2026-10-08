@@ -1,6 +1,7 @@
 package io.github.piscescup.fabricmc.carpetgui.network;
 
 import carpet.api.settings.InvalidRuleValueException;
+import io.github.piscescup.fabricmc.carpetgui.References;
 import io.github.piscescup.fabricmc.carpetgui.integration.carpet.CarpetManagerBinding;
 import io.github.piscescup.fabricmc.carpetgui.integration.carpet.CarpetRuleSource;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
@@ -19,7 +20,15 @@ public final class ClientRuleChanges {
     private ClientRuleChanges() {}
 
     public static void initialize() {
-        ClientPlayNetworking.registerGlobalReceiver(RuleChangeEvent.TYPE, (event, context) -> receive(event));
+        References.LOGGER.info(
+            "Initializing client rule changes of {} ver {}",
+            References.MOD_NAME, References.MOD_VERSION
+        );
+        ClientPlayNetworking.registerGlobalReceiver(
+            RuleChangeEvent.TYPE,
+            (event, context) -> receive(event)
+        );
+
         ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
             LATEST.clear();
             REVISION.incrementAndGet();
@@ -47,8 +56,7 @@ public final class ClientRuleChanges {
             try {
                 rule.set(null, value);
                 CarpetRuleSource.RULE_REVISION.incrementAndGet();
-            } catch (InvalidRuleValueException ignored) {
-            }
+            } catch (InvalidRuleValueException ignored) {}
             return;
         }
     }

@@ -48,6 +48,7 @@ public final class CarpetWorkspaceScreen
     private final RuleSource source;
     private final List<? extends RulePage> sourcePages;
     private final List<? extends RulePage> pages;
+    private final AllRulesPage allRules;
     private final RuleGroupWorkspace ruleGroups;
     private final Set<String> openedTabs = new LinkedHashSet<>();
     private final ModIconStore icons = new ModIconStore();
@@ -72,7 +73,7 @@ public final class CarpetWorkspaceScreen
         this.parent = parent;
         this.source = source;
         sourcePages = List.copyOf(source.pages());
-        var allRules = new AllRulesPage(sourcePages);
+        allRules = new AllRulesPage(sourcePages);
         var navigationPages = new ArrayList<RulePage>(sourcePages.size() + 1);
         navigationPages.add(allRules);
         navigationPages.addAll(sourcePages);
@@ -676,10 +677,14 @@ public final class CarpetWorkspaceScreen
 
     @Override
     protected void tickCallback() {
+        boolean poll = false;
         if (++refreshTicks >= 20) {
             refreshTicks = 0;
             source.refresh();
+            poll = true;
         }
+        boolean sourceChanged = observedRevision != source.revision();
+        if (poll || sourceChanged) allRules.refreshIndex();
         RulePage page = page();
         if (ruleList != null) {
             // Live refresh is independent of the backend's observer support.
@@ -690,26 +695,19 @@ public final class CarpetWorkspaceScreen
                     .getZ(), true
             ).isPresent();
             boolean textFocused = focusedElementProperty().get() instanceof NativeTextInput;
-            if (page != null && !observedCategories.equals(RuleBrowserModel.forPage(page.id()).categories(page))
+            if ((poll || sourceChanged) && page != null && !observedCategories.equals(RuleBrowserModel.forPage(page.id()).categories(page))
                 && !ruleList.interacting() && !textFocused && !overlay && !dragging) {
                 rebuildWorkspace();
                 return;
             }
-            if ((listDirty || observedRevision != source.revision() || ruleList.changed()) && !ruleList.interacting() && !overlay && !dragging) {
+            if ((listDirty || sourceChanged || refreshTicks % 5 == 0 && ruleList.changed()) && !ruleList.interacting() && !overlay && !dragging) {
                 ruleList.rebuild(resetScroll);
                 listDirty = false;
                 resetScroll = false;
                 observedRevision = source.revision();
             }
             if (counts != null && page != null) {
-                RuleBrowserModel model = RuleBrowserModel.forPage(page.id());
-                counts.setText(Component.translatable(
-                    "carpet-gui.counts",
-                    model.rules(page)
-                        .size(),
-                    model.groups(page)
-                        .size()
-                ));
+                counts.setText(ruleList.countsText());
             }
         }
         if (RuleGroupWorkspace.ID.equals(selectedId)) ruleGroups.tick();

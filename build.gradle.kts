@@ -1,7 +1,14 @@
 plugins {
+	base
 	id("net.fabricmc.fabric-loom")
 	`maven-publish`
 }
+
+val projectName = project.name
+val modVersion = providers.gradleProperty("version").get()
+val loaderName = providers.gradleProperty("loader_name").get()
+val fabricApiVersion = providers.gradleProperty("fabric_api_version").get()
+
 repositories {
 	// Add repositories to retrieve artifacts from in here.
 	// You should only use this when depending on other mods because
@@ -69,7 +76,7 @@ java {
 }
 
 tasks.jar {
-	val projectName = project.name
+	archiveFileName.set("$projectName-ver$modVersion-$loaderName-${fabricApiVersion}mc.jar")
 	inputs.property("projectName", projectName)
 
 	from("LICENSE") {

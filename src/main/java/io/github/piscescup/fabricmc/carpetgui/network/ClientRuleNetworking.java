@@ -1,5 +1,6 @@
 package io.github.piscescup.fabricmc.carpetgui.network;
 
+import io.github.piscescup.fabricmc.carpetgui.References;
 import io.github.piscescup.fabricmc.carpetgui.gui.model.RuleEditResult;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
@@ -9,6 +10,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.function.Consumer;
 
+import static com.mojang.text2speech.Narrator.LOGGER;
+
 /** Client-thread request tracking. Timeout is uncertain, so it never retries through the command fallback. */
 public final class ClientRuleNetworking {
     private static final LinkedHashMap<Long, Pending> PENDING = new LinkedHashMap<>();
@@ -17,6 +20,10 @@ public final class ClientRuleNetworking {
     private static RuleEditResponse lastResponse;
     private ClientRuleNetworking() {}
     public static void initialize() {
+        References.LOGGER.info(
+            "Initializing client rule networking of {} ver {}",
+            References.MOD_NAME, References.MOD_VERSION
+        );
         ClientPlayNetworking.registerGlobalReceiver(RuleEditResponse.TYPE, (response, context) -> receive(response));
         ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> clear());
     }

@@ -152,30 +152,33 @@ public final class WorkspaceStyle {
         }
     }
 
-    /** Font-independent pixel heart: an outline when inactive and a red fill when favorited. */
+    /** Image-backed actions keep the same hit boxes, tooltips and enabled behavior. */
+    public static final class RuleActionIcon extends TButtonWidget.Transparent {
+        private final boolean lock;
+        private final BooleanSupplier saved;
+
+        public RuleActionIcon(boolean lock, BooleanSupplier saved, Runnable action) {
+            this.lock = lock;
+            this.saved = saved;
+            getLabel().setText(Component.empty());
+            getLabel().hoverableProperty().set(false, RuleActionIcon.class);
+            eClicked.addListener(ignored -> { if (enabledProperty().getZ()) action.run(); });
+        }
+
+        @Override public void renderCallback(TGuiGraphics graphics) {
+            var bounds = getBounds();
+            boolean closed = lock && saved.getAsBoolean();
+            var icon = lock ? closed ? WorkspaceActionTextures.Icon.LOCK_CLOSED : WorkspaceActionTextures.Icon.LOCK_OPEN
+                : WorkspaceActionTextures.Icon.RESET;
+            WorkspaceActionTextures.draw(graphics, bounds, icon, lock || enabledProperty().getZ() ? TEXT : MUTED);
+            if (enabledProperty().getZ() && isHoveredOrFocused()) {
+                graphics.drawOutlineIn(bounds.x, bounds.y, bounds.width, bounds.height, FOCUS);
+            }
+        }
+    }
+
+    /** Outline and filled heart textures switch with the favorite state. */
     public static final class FavoriteButton extends TButtonWidget.Transparent {
-        private static final String[] OUTLINE = {
-            "  ##   ##  ",
-            " #  # #  # ",
-            "#    #    #",
-            "#         #",
-            " #       # ",
-            "  #     #  ",
-            "   #   #   ",
-            "    # #    ",
-            "     #     "
-        };
-        private static final String[] FILLED = {
-            "  ##   ##  ",
-            " ######### ",
-            "###########",
-            "###########",
-            " ######### ",
-            "  #######  ",
-            "   #####   ",
-            "    ###    ",
-            "     #     "
-        };
         private final BooleanSupplier favorite;
 
         public FavoriteButton(BooleanSupplier favorite, Runnable action) {
@@ -190,15 +193,8 @@ public final class WorkspaceStyle {
                 graphics.fillColor(bounds.x, bounds.y, bounds.width, bounds.height, 0x50393939);
                 graphics.drawOutlineIn(bounds.x, bounds.y, bounds.width, bounds.height, FOCUS);
             }
-            String[] pixels = favorite.getAsBoolean() ? FILLED : OUTLINE;
-            int color = favorite.getAsBoolean() ? 0xFFFF5555 : 0xFFE0E0E0;
-            int x = bounds.x + (bounds.width - pixels[0].length()) / 2;
-            int y = bounds.y + (bounds.height - pixels.length) / 2;
-            for (int row = 0; row < pixels.length; row++) {
-                for (int column = 0; column < pixels[row].length(); column++) {
-                    if (pixels[row].charAt(column) == '#') graphics.fillColor(x + column, y + row, 1, 1, color);
-                }
-            }
+            WorkspaceActionTextures.draw(graphics, bounds, favorite.getAsBoolean()
+                ? WorkspaceActionTextures.Icon.FAVORITE_ON : WorkspaceActionTextures.Icon.FAVORITE_OFF, TEXT);
         }
     }
 
