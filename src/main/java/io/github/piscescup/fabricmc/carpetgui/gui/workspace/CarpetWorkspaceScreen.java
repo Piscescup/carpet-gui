@@ -1914,7 +1914,7 @@ public final class CarpetWorkspaceScreen
 //$$
 //$$     private static UITexture texture(String path) {
 //$$         return new UITexture(ResourceLocation.fromNamespaceAndPath(
-//$$             "carpet-gui", "textures/gui/icons/" + path + ".png"), 16, 16);
+//$$             "carpet-gui", "textures/gui/icons/" + path + ".png"));
 //$$     }
 //$$
 //$$     private static UITexture rootTexture(String path) {
