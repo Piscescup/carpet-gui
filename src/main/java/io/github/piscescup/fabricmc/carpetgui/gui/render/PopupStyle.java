@@ -18,6 +18,7 @@
  * along with Carpet GUI.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+//#if MC >= 12111
 package io.github.piscescup.fabricmc.carpetgui.gui.render;
 
 import com.thecsdev.commonmc.api.client.gui.render.TGuiGraphics;
@@ -67,3 +68,4 @@ public final class PopupStyle {
         void draw(int x, int y, int width, int height, int color);
     }
 }
+//#endif

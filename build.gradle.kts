@@ -40,8 +40,10 @@ preprocessExtension.withGroovyBuilder {
     val mc2602 = node("26.2", 26_02_00, null)
     val mc2603 = node("26.3", 26_03_00, null)
 
-    fun link(source: Any, destination: Any) {
-        source.withGroovyBuilder { "link"(destination, null) }
+    fun link(source: Any, destination: Any, extraMappings: String? = null) {
+        source.withGroovyBuilder {
+            "link"(destination, extraMappings?.let(rootProject::file))
+        }
     }
 
     link(mc115, mc114)
@@ -54,15 +56,16 @@ preprocessExtension.withGroovyBuilder {
     link(mc1202, mc1204)
     link(mc1204, mc1206)
     link(mc1206, mc1211)
+    // Empty mapping files in tweakermore are intentionally represented by null.
     link(mc1211, mc1213)
     link(mc1213, mc1214)
-    link(mc1214, mc1215)
+    link(mc1214, mc1215, "versions/mapping-1.21.4-1.21.5.txt")
     link(mc1215, mc1218)
-    link(mc1218, mc12110)
-    link(mc12110, mc12111)
-    link(mc12111, mc2601)
-    link(mc2601, mc2602)
-    link(mc2602, mc2603)
+    link(mc1218, mc12110, "versions/mapping-1.21.8-1.21.10.txt")
+    link(mc12110, mc12111, "versions/mapping-1.21.10-1.21.11.txt")
+    link(mc12111, mc2601, "versions/mapping-1.21.11-26.1.2.txt")
+    link(mc2601, mc2602, "versions/mapping-26.1.2-26.2.txt")
+    link(mc2602, mc2603, "versions/mapping-26.2-26.3.txt")
 
     val nodes = "getNodes"() as Iterable<*>
     for (entry in nodes) {
@@ -84,12 +87,16 @@ tasks.register("buildAndGather") {
     doLast {
         println("Gathering builds")
         val destination = rootProject.layout.buildDirectory.dir("release").get().asFile
-        rootProject.delete(rootProject.fileTree(destination) { include("*") })
+        // Recreate the collection directory so jars left by a previous
+        // SNAPSHOT/release mode cannot leak into the current result.
+        rootProject.delete(destination)
 
         for (subproject in projectsToGather) {
             rootProject.copy {
                 from(subproject.layout.buildDirectory.dir("libs")) {
-                    include("*.jar")
+                    // Each libs directory can contain artifacts from older
+                    // invocations. Select only this invocation's version.
+                    include("*-${subproject.version}.jar")
                     exclude("*-dev.jar", "*-sources.jar", "*-shadow.jar")
                 }
                 into(destination)

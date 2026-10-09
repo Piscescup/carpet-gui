@@ -24,7 +24,9 @@ import com.mojang.blaze3d.platform.InputConstants;
 import io.github.piscescup.fabricmc.carpetgui.References;
 import io.github.piscescup.fabricmc.carpetgui.api.CarpetGuiScreens;
 import io.github.piscescup.fabricmc.carpetgui.integration.carpet.CarpetRuleSource;
+//#if MC >= 260000
 import io.github.piscescup.fabricmc.carpetgui.integration.vanilla.VanillaRuleStore;
+//#endif
 import io.github.piscescup.fabricmc.carpetgui.network.ClientRuleNetworking;
 import io.github.piscescup.fabricmc.carpetgui.network.ClientRuleChanges;
 import io.github.piscescup.fabricmc.carpetgui.network.ClientRuleConfigurations;
@@ -47,7 +49,9 @@ public final class CarpetGUIClient implements ClientModInitializer {
         ClientRuleChanges.initialize();
         ClientRuleConfigurations.initialize();
         SettingsManager.registerGlobalRuleObserver((source, rule, value) -> CarpetRuleSource.RULE_REVISION.incrementAndGet());
+        //#if MC >= 260000
         ClientPlayConnectionEvents.DISCONNECT.register((connection, client) -> VanillaRuleStore.clear());
+        //#endif
         //#if MC >= 260000
         KeyMapping openRules = KeyMappingHelper.registerKeyMapping(new KeyMapping(
         //#else
@@ -60,7 +64,11 @@ public final class CarpetGUIClient implements ClientModInitializer {
                 //$$ InputConstants.Type.KEYSYM,
                 //#endif
                 InputConstants.KEY_F9,
+                //#if MC >= 12109
                 KeyMapping.Category.register(References.fromPath("main")))
+                //#else
+                //$$ "key.categories.carpet-gui")
+                //#endif
         );
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {

@@ -199,22 +199,31 @@ Carpet GUI 还通过 `getProvidedConfigScreenFactories()` 给识别的 Carpet / 
 
 当前启用的目标版本由根目录 `settings.json` 控制，主源码版本由 `versions/mainProject` 控制。现在的主版本是 26.3，启用的构建目标为：
 
-| Minecraft | Java | Fabric API | Mod Menu | TCDCommons | Carpet |
-|---|---:|---|---|---|---|
-| 1.21.11 | 21 | 0.141.6+1.21.11 | 17.0.1 | 5.1.0 | 1.4.194 |
-| 26.1.2 | 25 | 0.155.3+26.1.2 | 18.0.2 | 5.5.6 | 26.1 |
-| 26.2 | 25 | 0.161.0+26.2 | 20.0.3 | 5.5.6 | 26.2 |
-| 26.3 | 25 | 0.162.0+26.3 | 21.0.0 | 5.6.0-beta.2 | 26.3 |
+| Minecraft | Java | Fabric API      | Mod Menu | TCDCommons   | Carpet  |
+|-----------|-----:|-----------------|----------|--------------|---------|
+| 1.21.1    |   21 | 0.116.17+1.21.1 | 11.0.5   | 3.12.7       | 1.4.147 |
+| 1.21.3    |   21 | 0.114.1+1.21.3  | 12.0.1   | 3.12.7       | 1.4.158 |
+| 1.21.4    |   21 | 0.119.4+1.21.4  | 13.0.4   | 3.12.7       | 1.4.161 |
+| 1.21.5    |   21 | 0.128.2+1.21.5  | 14.0.2   | 3.12.7       | 1.4.169 |
+| 1.21.8    |   21 | 0.136.1+1.21.8  | 15.0.2   | 4.0.1        | 1.4.177 |
+| 1.21.10   |   21 | 0.138.4+1.21.10 | 16.0.1   | 4.0.1        | 1.4.188 |
+| 1.21.11   |   21 | 0.141.6+1.21.11 | 17.0.1   | 5.1.0        | 1.4.194 |
+| 26.1.2    |   25 | 0.155.3+26.1.2  | 18.0.2   | 5.5.6        | 26.1    |
+| 26.2      |   25 | 0.161.0+26.2    | 20.0.3   | 5.5.6        | 26.2    |
+| 26.3      |   25 | 0.162.0+26.3    | 21.0.0   | 5.6.0-beta.2 | 26.3    |
 
 公共源码只修改 `src/main`。`//#if MC ...` 分支由 ReplayMod preprocessor 为其他版本生成到 `versions/<版本>/build/preprocessed`，不要直接修改生成目录。每个版本自己的 Minecraft、映射和 Mod 依赖版本位于 `versions/<版本>/gradle.properties`。
 
+1.21.1 到 26.3 的节点顺序与 tweakermore 的版本图一致。非空的额外映射保存在 `versions/mapping-<源版本>-<目标版本>.txt`；tweakermore 中内容为空的 1.21.1→1.21.3、1.21.3→1.21.4、1.21.5→1.21.8 映射边在构建脚本中直接传 `null`，不额外保留空文件。所有版本的正式页面都使用 TCDCommons：1.21.1～1.21.10 使用 TCDCommons 3.x/4.x API 的兼容规则页，从 1.21.11 起使用 TCDCommons 5 工作区，因为 v5 对旧版 GUI API 做了不兼容重构。
+
 ```text
 gradlew.bat :26.3:build
+gradlew.bat :1.21.1:build
 gradlew.bat :1.21.11:build
 gradlew.bat buildAndGather
 ```
 
-`buildAndGather` 构建所有启用版本，并把正式 jar 汇总到 `build/release`。1.21.11 没有 26.x 的原版 gamerule 查询数据包，因此该构建不显示 Minecraft 原版规则页；Carpet 规则工作区仍可用。仅为 26.x 保留的旧原生 GUI 兼容类也不会进入 1.21.11 jar。
+`buildAndGather` 构建所有启用版本，并把正式 jar 汇总到 `build/release`。1.21.x 没有 26.x 的原版 gamerule 查询数据包，因此这些构建不显示 Minecraft 原版规则页；Carpet 规则页仍可用。仅为 26.x 保留的原生 GUI 兼容类不会进入 1.21.11 jar，TCDCommons 5 工作区也不会进入 1.21.1～1.21.10 jar。
 
 ### 版本号与 SNAPSHOT
 
@@ -234,9 +243,9 @@ gradlew.bat runClientGameTest
 gradlew.bat -PserverGameTests=true build
 ```
 
-`runClientGameTest` 是显式启动的图形 / 网络测试，不包含在普通构建中。使用 `build/run/clientGameTest` 中新建的隔离世界，验证真实规则发现、Mod Menu 工厂、折叠、行内布尔值 / 下拉框 / 文本框、Enter / 失焦提交、Esc 撤销、草稿保留、数据包修改 / 默认保存 / 拒绝回包 / 权限 / 限流，以及关闭数据包通道后的命令回退和原版规则响应，并保存截图。测试 mod 不打包到正式 jar。
+`runClientGameTest` 是显式启动的图形 / 网络测试，不包含在普通构建中。每个版本使用自己的 `versions/<版本>/run`，在对应目录中新建隔离世界，验证真实规则发现、Mod Menu 工厂、折叠、行内布尔值 / 下拉框 / 文本框、Enter / 失焦提交、Esc 撤销、草稿保留、数据包修改 / 默认保存 / 拒绝回包 / 权限 / 限流，以及关闭数据包通道后的命令回退和原版规则响应，并保存截图。测试 mod 不打包到正式 jar。
 
-`-PserverGameTests=true build` 额外启动 `build/run/gameTest` 中的独立无界面测试服务端，确认没有客户端类加载错误，并验证规则 API 修改、权限、锁定、校验和配置保存。
+`-PserverGameTests=true build` 在对应版本的 `versions/<版本>/run` 中额外启动独立无界面测试服务端，确认没有客户端类加载错误，并验证规则 API 修改、权限、锁定、校验和配置保存。
 
 Windows 部分 JDK 若报 `Unable to establish loopback connection`，可临时设置（目标路径保持不存在）：
 

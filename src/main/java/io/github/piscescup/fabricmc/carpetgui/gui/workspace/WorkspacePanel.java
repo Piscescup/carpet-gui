@@ -18,6 +18,7 @@
  * along with Carpet GUI.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+//#if MC >= 12111
 package io.github.piscescup.fabricmc.carpetgui.gui.workspace;
 
 import com.thecsdev.common.math.Point2d;
@@ -83,3 +84,4 @@ final class WorkspaceStaticPanel extends TPanelElement.Paintable {
         return false;
     }
 }
+//#endif

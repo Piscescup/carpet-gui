@@ -22,16 +22,22 @@ package io.github.piscescup.fabricmc.carpetgui.integration.carpet;
 
 import io.github.piscescup.fabricmc.carpetgui.gui.model.*;
 import io.github.piscescup.fabricmc.carpetgui.integration.MinecraftCommandGateway;
+//#if MC >= 260000
 import io.github.piscescup.fabricmc.carpetgui.integration.vanilla.VanillaRuleStore;
 import io.github.piscescup.fabricmc.carpetgui.integration.vanilla.VanillaRuleView;
 import io.github.piscescup.fabricmc.carpetgui.integration.vanilla.VanillaRulePage;
+//#endif
 import io.github.piscescup.fabricmc.carpetgui.network.ClientRuleNetworking;
 import io.github.piscescup.fabricmc.carpetgui.network.ClientRuleConfigurations;
 import net.minecraft.client.Minecraft;
+//#if MC >= 260000
 import net.minecraft.core.registries.BuiltInRegistries;
+//#endif
 import net.minecraft.network.chat.Component;
 
+//#if MC >= 260000
 import java.util.Comparator;
+//#endif
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
@@ -75,6 +81,7 @@ public final class CarpetRuleSource
 
     @Override
     public List<? extends RuleView> vanillaRules() {
+        //#if MC >= 260000
         return VanillaRuleStore.values()
             .keySet()
             .stream()
@@ -82,25 +89,38 @@ public final class CarpetRuleSource
             .map(key -> new VanillaRuleView(key, BuiltInRegistries.GAME_RULE.getValue(key), gateway))
             .sorted(Comparator.comparing(VanillaRuleView::id))
             .toList();
+        //#else
+        //$$ return List.of();
+        //#endif
     }
 
     @Override
     public void refresh() {
+        //#if MC >= 260000
         VanillaRuleStore.request(client);
+        //#endif
     }
 
     @Override
     public long revision() {
+        //#if MC >= 260000
         return RULE_REVISION.get() + VanillaRuleStore.revision() + ClientRuleConfigurations.revision();
+        //#else
+        //$$ return RULE_REVISION.get() + ClientRuleConfigurations.revision();
+        //#endif
     }
 
     @Override
     public Component notice(boolean vanilla) {
         if (vanilla) {
+            //#if MC >= 260000
             if (client.getConnection() == null) return Component.translatable("carpet-gui.live.join_world");
             if (!VanillaRuleStore.permitted(client)) return Component.translatable("carpet-gui.live.vanilla_permission");
             if (!VanillaRuleStore.received()) return Component.translatable("carpet-gui.live.loading");
             return Component.translatable("carpet-gui.live.vanilla");
+            //#else
+            //$$ return Component.empty();
+            //#endif
         }
         return Component.translatable(gateway.carpetServer()
             ? (ClientRuleNetworking.supported() ? "carpet-gui.live.packet" : "carpet-gui.live.carpet") : "carpet-gui.live.local");
