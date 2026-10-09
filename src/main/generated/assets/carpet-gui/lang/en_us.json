@@ -108,6 +108,7 @@
   "carpet-gui.workspace.push": "Push",
   "carpet-gui.workspace.select_or_create_group": "Select a group on the left, or create a new one.",
   "carpet-gui.workspace.no_rules": "No rules are available from the current source.",
+  "carpet-gui.workspace.no_matching_rules": "No rules match the search.",
   "carpet-gui.workspace.unstage": "Undo",
   "carpet-gui.workspace.stage": "Stage",
   "carpet-gui.workspace.remove": "Remove",

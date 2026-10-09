@@ -1,7 +1,29 @@
+/*
+ * This file is part of the Carpet GUI project, licensed under the
+ * GNU Lesser General Public License v3.0
+ *
+ * Copyright (C) 2026  Fallen_Breath and contributors
+ *
+ * Carpet GUI is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * Carpet GUI is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with Carpet GUI.  If not, see <https://www.gnu.org/licenses/>.
+ */
+
 package io.github.piscescup.fabricmc.carpetgui.gui.render;
 
 import com.thecsdev.commonmc.api.client.gui.render.TGuiGraphics;
+//#if MC >= 260000
 import net.minecraft.client.gui.GuiGraphicsExtractor;
+//#endif
 
 /** Shared pixel-edged popup appearance for both GUI implementations. */
 public final class PopupStyle {
@@ -17,9 +39,11 @@ public final class PopupStyle {
         background(graphics::fillColor, x, y, width, height);
     }
 
+    //#if MC >= 260000
     public static void background(GuiGraphicsExtractor graphics, int x, int y, int width, int height) {
         background((left, top, w, h, color) -> graphics.fill(left, top, left + w, top + h, color), x, y, width, height);
     }
+    //#endif
 
     private static void background(Fill fill, int x, int y, int width, int height) {
         if (width < 5 || height < 5) {

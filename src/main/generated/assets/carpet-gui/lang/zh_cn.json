@@ -108,6 +108,7 @@
   "carpet-gui.workspace.push": "push",
   "carpet-gui.workspace.select_or_create_group": "请在左侧选择分组，或创建一个新分组。",
   "carpet-gui.workspace.no_rules": "当前来源没有可用规则。",
+  "carpet-gui.workspace.no_matching_rules": "没有符合搜索条件的规则。",
   "carpet-gui.workspace.unstage": "撤销",
   "carpet-gui.workspace.stage": "暂存",
   "carpet-gui.workspace.remove": "移除",

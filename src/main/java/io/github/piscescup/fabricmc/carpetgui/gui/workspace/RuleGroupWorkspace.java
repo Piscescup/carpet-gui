@@ -1,8 +1,30 @@
+/*
+ * This file is part of the Carpet GUI project, licensed under the
+ * GNU Lesser General Public License v3.0
+ *
+ * Copyright (C) 2026  Fallen_Breath and contributors
+ *
+ * Carpet GUI is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * Carpet GUI is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with Carpet GUI.  If not, see <https://www.gnu.org/licenses/>.
+ */
+
 package io.github.piscescup.fabricmc.carpetgui.gui.workspace;
 
 import com.thecsdev.commonmc.api.client.gui.TElement;
+import com.thecsdev.commonmc.api.client.gui.label.TLabelElement;
 import com.thecsdev.commonmc.api.client.gui.panel.TPanelElement;
 import com.thecsdev.commonmc.api.client.gui.render.TGuiGraphics;
+import com.thecsdev.commonmc.api.client.gui.tooltip.TTooltip;
 import io.github.piscescup.fabricmc.carpetgui.gui.model.EditableRuleView;
 import io.github.piscescup.fabricmc.carpetgui.gui.model.PersistentRuleEditor;
 import io.github.piscescup.fabricmc.carpetgui.gui.model.RuleEditResult;
@@ -12,6 +34,7 @@ import io.github.piscescup.fabricmc.carpetgui.network.ClientRuleChanges;
 import io.github.piscescup.fabricmc.carpetgui.network.RuleChangeEvent;
 import net.minecraft.network.chat.Component;
 
+import java.text.Normalizer;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
@@ -19,6 +42,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 /** Group page first; Git-like status/stage/commit/push is a separate workflow over its member rules. */
@@ -40,9 +64,14 @@ final class RuleGroupWorkspace {
     private boolean creating;
     private String nameDraft = "";
     private String tagDraft = "";
+    private String manageSearchDraft = "";
     private String commitMessageDraft = "";
     private long observedRemoteRevision;
     private List<WorkspacePanel> panels = List.of();
+    private WorkspacePanel managePanel;
+    private List<MembershipRow> membershipRows = List.of();
+    private TLabelElement manageEmpty;
+    private int manageRowsY;
     private int[] pendingScrollOffsets;
 
     RuleGroupWorkspace(CarpetWorkspaceScreen screen, List<? extends RulePage> pages) {
@@ -54,6 +83,9 @@ final class RuleGroupWorkspace {
         observedRemoteRevision = ClientRuleChanges.revision();
         activeRows.clear();
         activeRowKeys.clear();
+        managePanel = null;
+        membershipRows = List.of();
+        manageEmpty = null;
         List<RuleGroupStore.Group> groups = RuleGroupStore.groups();
         if (selectedGroupId == null || RuleGroupStore.find(selectedGroupId) == null) {
             selectedGroupId = groups.isEmpty() ? null : groups.getFirst().id();
@@ -217,9 +249,19 @@ final class RuleGroupWorkspace {
     private void initManageRules(WorkspacePanel panel, RuleGroupStore.Group group) {
         var bounds = panel.getBounds();
         int x = bounds.x + 9, y = bounds.y + 8, width = Math.max(1, bounds.width - 18);
-        WorkspaceStyle.label(panel, tr("manage_group_rules"), x, y, Math.max(1, width - 70), 16, WorkspaceStyle.ACCENT);
+        int doneWidth = Math.min(64, width);
+        int searchWidth = Math.min(Math.max(1, width - doneWidth - 8), Math.clamp(width / 3, 70, 150));
+        int searchX = x + width - doneWidth - 6 - searchWidth;
+        WorkspaceStyle.label(panel, tr("manage_group_rules"), x, y, Math.max(1, searchX - x - 5), 16, WorkspaceStyle.ACCENT);
+        var search = new NativeTextInput(tr("search"), manageSearchDraft, value -> {
+            manageSearchDraft = value;
+            filterMembershipRows();
+        }, () -> {}, () -> screen.focusedElementProperty().set(null, RuleGroupWorkspace.class));
+        search.setBounds(searchX, y - 3, searchWidth, WorkspaceStyle.CONTROL_HEIGHT);
+        search.tooltipProperty().set(ignored -> TTooltip.of(tr("search_hint")), RuleGroupWorkspace.class);
+        panel.add(search);
         var done = new WorkspaceStyle.ControlButton(tr("done"), () -> setMode(Mode.VIEW));
-        done.setBounds(x + width - 64, y - 3, 64, WorkspaceStyle.CONTROL_HEIGHT);
+        done.setBounds(x + width - doneWidth, y - 3, doneWidth, WorkspaceStyle.CONTROL_HEIGHT);
         panel.add(done);
         y += 25;
         if (group == null) {
@@ -227,15 +269,22 @@ final class RuleGroupWorkspace {
             return;
         }
         List<RuleRef> rules = rules();
+        List<MembershipRow> rows = new ArrayList<>(rules.size());
+        managePanel = panel;
+        manageRowsY = y;
         for (RuleRef ref : rules) {
-            addMembershipRow(panel, ref, ref.key(), group.members().contains(ref.key()), group, x, y, width);
+            WorkspaceStaticPanel row = addMembershipRow(panel, ref, ref.key(), group.members().contains(ref.key()), group, x, y, width);
+            rows.add(new MembershipRow(ref, row));
             y += 29;
         }
-        if (rules.isEmpty()) paragraph(panel, tr("no_rules"), x, y, width, WorkspaceStyle.MUTED);
+        membershipRows = List.copyOf(rows);
+        manageEmpty = WorkspaceStyle.label(panel, Component.empty(), x, manageRowsY, width, 15, WorkspaceStyle.MUTED);
+        manageEmpty.wrapTextProperty().set(true, RuleGroupWorkspace.class);
+        filterMembershipRows();
     }
 
-    private void addMembershipRow(TElement parent, RuleRef ref, String key, boolean member, RuleGroupStore.Group group,
-                                  int x, int y, int width) {
+    private WorkspaceStaticPanel addMembershipRow(TElement parent, RuleRef ref, String key, boolean member,
+                                                   RuleGroupStore.Group group, int x, int y, int width) {
         var row = new WorkspaceStaticPanel(WorkspaceStyle.RULE_BACKGROUND, WorkspaceStyle.BORDER, WorkspaceStyle.BORDER);
         row.setBounds(x, y, width, 26);
         parent.add(row);
@@ -257,6 +306,52 @@ final class RuleGroupWorkspace {
         var button = new WorkspaceStyle.Button(tr(member ? "remove" : "add_rule"), action);
         button.setBounds(x + width - actionWidth - 3, y + 3, actionWidth, 20);
         row.add(button);
+        return row;
+    }
+
+    private void filterMembershipRows() {
+        if (managePanel == null) return;
+        managePanel.scrollToTop();
+        int y = manageRowsY;
+        int visibleRows = 0;
+        for (MembershipRow entry : membershipRows) {
+            boolean visible = matchesManageSearch(entry.ref());
+            entry.row().visibleProperty().set(visible, RuleGroupWorkspace.class);
+            int targetY = visible ? y : manageRowsY;
+            int deltaY = targetY - entry.row().getBounds().y;
+            entry.row().move(0, deltaY);
+            if (!visible) continue;
+            y += 29;
+            visibleRows++;
+        }
+        if (manageEmpty != null) {
+            manageEmpty.setText(tr(membershipRows.isEmpty() ? "no_rules" : "no_matching_rules"));
+            manageEmpty.setBounds(manageEmpty.getBounds().x, manageRowsY, manageEmpty.getBounds().width, 15);
+            manageEmpty.visibleProperty().set(visibleRows == 0, RuleGroupWorkspace.class);
+        }
+        managePanel.refreshScrollExtent();
+    }
+
+    private boolean matchesManageSearch(RuleRef ref) {
+        String query = normalizeSearch(manageSearchDraft);
+        if (query.isEmpty()) return true;
+        StringBuilder text = new StringBuilder(ref.owner().getString())
+            .append(' ').append(ref.ownerId())
+            .append(' ').append(ref.key())
+            .append(' ').append(ref.rule().value());
+        ref.rule().searchTerms().forEach(term -> text.append(' ').append(term));
+        String searchable = normalizeSearch(text.toString());
+        for (String token : query.split("\\s+")) {
+            if (!searchable.contains(token)) return false;
+        }
+        return true;
+    }
+
+    private static String normalizeSearch(String value) {
+        return Normalizer.normalize(value, Normalizer.Form.NFKD)
+            .replaceAll("\\p{M}+", "")
+            .toLowerCase(Locale.ROOT)
+            .strip();
     }
 
     /** Status GUI: staged and unstaged are deliberately distinct. */
@@ -655,6 +750,9 @@ final class RuleGroupWorkspace {
     private enum Mode { VIEW, MANAGE, STATUS, COMMIT }
 
     private record RuleRef(Component owner, String ownerId, String key, RuleView rule) {
+    }
+
+    private record MembershipRow(RuleRef ref, WorkspaceStaticPanel row) {
     }
 
     private record RuleChange(String key, String value, String detail, RuleRef ref, String marker, int color) {

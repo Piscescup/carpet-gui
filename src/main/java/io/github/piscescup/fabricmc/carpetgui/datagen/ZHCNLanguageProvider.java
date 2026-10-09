@@ -1,6 +1,30 @@
+/*
+ * This file is part of the Carpet GUI project, licensed under the
+ * GNU Lesser General Public License v3.0
+ *
+ * Copyright (C) 2026  Fallen_Breath and contributors
+ *
+ * Carpet GUI is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * Carpet GUI is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with Carpet GUI.  If not, see <https://www.gnu.org/licenses/>.
+ */
+
 package io.github.piscescup.fabricmc.carpetgui.datagen;
 
+//#if MC >= 260000
 import net.fabricmc.fabric.api.datagen.v1.FabricPackOutput;
+//#else
+//$$ import net.fabricmc.fabric.api.datagen.v1.FabricDataOutput;
+//#endif
 import net.fabricmc.fabric.api.datagen.v1.provider.FabricLanguageProvider;
 import net.minecraft.core.HolderLookup;
 import org.jspecify.annotations.NonNull;
@@ -17,7 +41,11 @@ public class ZHCNLanguageProvider
 {
 
     public ZHCNLanguageProvider(
+        //#if MC >= 260000
         FabricPackOutput packOutput,
+        //#else
+        //$$ FabricDataOutput packOutput,
+        //#endif
         CompletableFuture<HolderLookup.Provider> registryLookup
     ) {
         super(packOutput, "zh_cn", registryLookup);
@@ -166,6 +194,7 @@ public class ZHCNLanguageProvider
         builder.add("carpet-gui.workspace.push", "push");
         builder.add("carpet-gui.workspace.select_or_create_group", "请在左侧选择分组，或创建一个新分组。");
         builder.add("carpet-gui.workspace.no_rules", "当前来源没有可用规则。");
+        builder.add("carpet-gui.workspace.no_matching_rules", "没有符合搜索条件的规则。");
         builder.add("carpet-gui.workspace.unstage", "撤销");
         builder.add("carpet-gui.workspace.stage", "暂存");
         builder.add("carpet-gui.workspace.remove", "移除");

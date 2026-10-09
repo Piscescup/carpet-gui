@@ -9,12 +9,22 @@ import org.gradle.api.publish.maven.MavenPublication
 import org.gradle.api.tasks.SourceSetContainer
 import org.gradle.api.tasks.bundling.Jar
 import org.gradle.api.tasks.compile.JavaCompile
+import org.gradle.api.tasks.testing.Test
 import org.gradle.language.jvm.tasks.ProcessResources
 import org.gradle.kotlin.dsl.*
 import java.util.Calendar
 
-// Plugin versions and the mcVersion project property must be supplied by the root build.
-val mcVersion = project.property("mcVersion").toString().toInt()
+// Convert Minecraft's dotted version to the integer format used by the
+// preprocessor conditionals, e.g. 1.21.10 -> 12110 and 26.3 -> 260300.
+fun minecraftVersionCode(version: String): Int {
+    val parts = version.substringBefore('-').split('.')
+    require(parts.size in 2..3) { "Unsupported Minecraft version: $version" }
+    return parts[0].toInt() * 10_000 +
+        parts[1].toInt() * 100 +
+        parts.getOrElse(2) { "0" }.toInt()
+}
+
+val mcVersion = minecraftVersionCode(project.property("minecraft_version").toString())
 val unobfuscated = mcVersion >= 26_00_00
 
 apply(plugin = "maven-publish")
@@ -37,6 +47,17 @@ repositories {
     maven {
         url = uri("https://maven.fallenbreath.me/releases")
         content { includeGroup("me.fallenbreath") }
+    }
+    exclusiveContent {
+        forRepository {
+            maven {
+                name = "Modrinth"
+                url = uri("https://api.modrinth.com/maven")
+            }
+        }
+        filter {
+            includeGroup("maven.modrinth")
+        }
     }
 }
 
@@ -79,31 +100,40 @@ dependencies {
         }
         add("mappings", requireNotNull(layeredMappings))
     }
+    autoImplementation("net.fabricmc.fabric-api:fabric-api:${modProperty("fabric_api_version")}")
     autoImplementation("net.fabricmc:fabric-loader:${modProperty("loader_version")}")
 
+    autoImplementation("maven.modrinth:modmenu:${modProperty("modmenu_version")}")
+    autoImplementation("maven.modrinth:tcdcommons:${modProperty("tcdcommons_version")}")
+    autoImplementation("maven.modrinth:carpet:${modProperty("carpet_version")}")
+
+    add("testImplementation", platform("org.junit:junit-bom:${modProperty("junit_version")}"))
+    add("testImplementation", "org.junit.jupiter:junit-jupiter")
+    add("testRuntimeOnly", "org.junit.platform:junit-platform-launcher")
+
     // Optional runtime mods:
-    // if (mcVersion < 11904) {
-    //     autoRuntimeOnly(if (mcVersion < 11900) "com.github.astei:lazydfu:0.1.2"
-    //         else "com.github.Fallen-Breath:lazydfu:a7cfc44c0c")
-    // }
-    // autoLocalRuntime("me.fallenbreath:mixin-auditor:0.3.0-${if (unobfuscated) "u" else "o"}")
+//     if (mcVersion < 11904) {
+//         autoRuntimeOnly(if (mcVersion < 11900) "com.github.astei:lazydfu:0.1.2"
+//             else "com.github.Fallen-Breath:lazydfu:a7cfc44c0c")
+//     }
+//     autoLocalRuntime("me.fallenbreath:mixin-auditor:0.3.0-${if (unobfuscated) "u" else "o"}")
 
     // Optional dependencies:
-    // val fabricApiModules = mutableListOf<String>()
-    // if (mcVersion >= 12105) fabricApiModules.add("fabric-api-base")
-    // if (mcVersion < 12111) fabricApiModules.add("fabric-resource-loader-v0")
-    // if (mcVersion >= 12109) fabricApiModules.add("fabric-resource-loader-v1")
-    // val fabricApiExtension = extensions.getByName("fabricApi")
-    // fabricApiModules.forEach { module ->
-    //     val notation = fabricApiExtension.withGroovyBuilder {
-    //         "module"(module, modProperty("fabric_api_version"))
-    //     }
-    //     add("include", autoImplementation(requireNotNull(notation)))
-    // }
-    // add("include", autoImplementation("me.fallenbreath:conditional-mixin-fabric:${modProperty("conditionalmixin_version")}"))
-    // if (mcVersion < 12005) {
-    //     add("include", "io.github.llamalad7:mixinextras-fabric:${modProperty("mixinextras_version")}")
-    // }
+//     val fabricApiModules = mutableListOf<String>()
+//     if (mcVersion >= 12105) fabricApiModules.add("fabric-api-base")
+//     if (mcVersion < 12111) fabricApiModules.add("fabric-resource-loader-v0")
+//     if (mcVersion >= 12109) fabricApiModules.add("fabric-resource-loader-v1")
+//     val fabricApiExtension = extensions.getByName("fabricApi")
+//     fabricApiModules.forEach { module ->
+//         val notation = fabricApiExtension.withGroovyBuilder {
+//             "module"(module, modProperty("fabric_api_version"))
+//         }
+//         add("include", autoImplementation(requireNotNull(notation)))
+//     }
+//     add("include", autoImplementation("me.fallenbreath:conditional-mixin-fabric:${modProperty("conditionalmixin_version")}"))
+//     if (mcVersion < 12005) {
+//         add("include", "io.github.llamalad7:mixinextras-fabric:${modProperty("mixinextras_version")}")
+//     }
 }
 
 val mixinConfigPath = "carpet-gui.mixins.json"
@@ -119,7 +149,7 @@ val javaCompatibility = when {
 }
 val mixinCompatibilityLevel = javaCompatibility
 
-val commonVmArgs = listOf("-Dmixin.debug.export=true", "-Dmixin.debug.countInjections=true")
+val commonVmArgs = listOf("-Dmixin.debug.export=true")
 
 @Suppress("UNCHECKED_CAST")
 val runConfigs = loomExtension.withGroovyBuilder { getProperty("runConfigs") }
@@ -157,7 +187,14 @@ afterEvaluate {
 
 val modVersion = providers.gradleProperty("version").get()
 
-val releaseBuild = System.getenv("BUILD_RELEASE") == "true"
+// Local builds are snapshots by default.  Use -Prelease=true (or the legacy
+// BUILD_RELEASE=true environment variable) to produce release jar names and
+// release metadata without the -SNAPSHOT suffix.
+val releaseBuild = providers.gradleProperty("release")
+    .map { it.toBoolean() }
+    .orElse(providers.environmentVariable("BUILD_RELEASE").map { it.toBoolean() })
+    .orElse(false)
+    .get()
 
 val modVersionSuffix = if (releaseBuild) "" else
     System.getenv("BUILD_ID")?.let { "+build.$it" } ?: "-SNAPSHOT"
@@ -199,13 +236,24 @@ tasks.named<ProcessResources>("processResources") {
         "id" to modProperty("mod_id"),
         "name" to modProperty("mod_name"),
         "version" to fullModVersion,
-        "minecraft_dependency" to modProperty("minecraft_dependency")
+        "minecraft_dependency" to modProperty("minecraft_dependency"),
+        "java_dependency" to modProperty("java_dependency"),
+        "carpet_dependency" to modProperty("carpet_dependency"),
+        "tcdcommons_dependency" to modProperty("tcdcommons_dependency"),
+        "modmenu_dependency" to modProperty("modmenu_dependency")
     )
     inputs.properties(modProperties)
     filesMatching("fabric.mod.json") { expand(modProperties) }
     filesMatching(mixinConfigPath) {
         filter { line: String ->
-            line.replace("{{COMPATIBILITY_LEVEL}}", "JAVA_${mixinCompatibilityLevel.ordinal + 1}")
+            val compatibilityLine = line.replace(
+                "{{COMPATIBILITY_LEVEL}}",
+                "JAVA_${mixinCompatibilityLevel.ordinal + 1}"
+            )
+            if (mcVersion < 260000 && (
+                    compatibilityLine.contains("ClientPacketListenerMixin") ||
+                    compatibilityLine.contains("GameRendererMixin")
+                )) "" else compatibilityLine
         }
     }
 }
@@ -215,10 +263,30 @@ extensions.getByName("yamlang").withGroovyBuilder {
     setProperty("inputDir", langDir)
 }
 
+extensions.configure<SourceSetContainer> {
+    named("main") {
+        // The main preprocess node owns generated resources. Other nodes receive
+        // them through preprocessResources, so adding the root directory again
+        // would create duplicate lang entries.
+        val mainProjectName = rootProject.file("versions/mainProject").readText().trim()
+        if (project.name == mainProjectName) {
+            resources.srcDir(rootProject.file("src/main/generated"))
+        }
+        resources.exclude(".cache/**")
+    }
+}
+
 tasks.withType<JavaCompile>().configureEach {
     options.encoding = "UTF-8"
     options.compilerArgs.addAll(listOf("-Xlint:deprecation", "-Xlint:unchecked"))
     if (javaCompatibility <= JavaVersion.VERSION_1_8) options.compilerArgs.add("-Xlint:-options")
+}
+
+tasks.withType<Test>().configureEach {
+    // The template currently contains a compile-only smoke-test class rather
+    // than a JUnit test case. Gradle 9 otherwise fails the whole multi-version
+    // build when no test methods are discovered.
+    failOnNoDiscoveredTests.set(false)
 }
 
 extensions.configure<JavaPluginExtension> {
@@ -262,6 +330,8 @@ licenseExtension.withGroovyBuilder {
 }
 tasks.named("classes") { dependsOn("licenseFormatMain") }
 tasks.named("testClasses") { dependsOn("licenseFormatTest") }
+tasks.named("licenseMain") { dependsOn("licenseFormatMain") }
+tasks.named("licenseTest") { dependsOn("licenseFormatTest") }
 
 extensions.configure<PublishingExtension> {
     publications {

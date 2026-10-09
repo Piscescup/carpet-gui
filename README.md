@@ -195,6 +195,38 @@ Carpet GUI 还通过 `getProvidedConfigScreenFactories()` 给识别的 Carpet / 
 
 ## 构建与测试
 
+### 多版本 preprocess
+
+当前启用的目标版本由根目录 `settings.json` 控制，主源码版本由 `versions/mainProject` 控制。现在的主版本是 26.3，启用的构建目标为：
+
+| Minecraft | Java | Fabric API | Mod Menu | TCDCommons | Carpet |
+|---|---:|---|---|---|---|
+| 1.21.11 | 21 | 0.141.6+1.21.11 | 17.0.1 | 5.1.0 | 1.4.194 |
+| 26.1.2 | 25 | 0.155.3+26.1.2 | 18.0.2 | 5.5.6 | 26.1 |
+| 26.2 | 25 | 0.161.0+26.2 | 20.0.3 | 5.5.6 | 26.2 |
+| 26.3 | 25 | 0.162.0+26.3 | 21.0.0 | 5.6.0-beta.2 | 26.3 |
+
+公共源码只修改 `src/main`。`//#if MC ...` 分支由 ReplayMod preprocessor 为其他版本生成到 `versions/<版本>/build/preprocessed`，不要直接修改生成目录。每个版本自己的 Minecraft、映射和 Mod 依赖版本位于 `versions/<版本>/gradle.properties`。
+
+```text
+gradlew.bat :26.3:build
+gradlew.bat :1.21.11:build
+gradlew.bat buildAndGather
+```
+
+`buildAndGather` 构建所有启用版本，并把正式 jar 汇总到 `build/release`。1.21.11 没有 26.x 的原版 gamerule 查询数据包，因此该构建不显示 Minecraft 原版规则页；Carpet 规则工作区仍可用。仅为 26.x 保留的旧原生 GUI 兼容类也不会进入 1.21.11 jar。
+
+### 版本号与 SNAPSHOT
+
+基础 Mod 版本在根目录 `gradle.properties` 的 `version` 属性中设置。默认本地构建会在 Mod 版本和 jar 名中加入 `-SNAPSHOT`。发布时传入 `-Prelease=true` 即可去掉：
+
+```text
+gradlew.bat :26.3:build -Prelease=true
+gradlew.bat buildAndGather -Prelease=true
+```
+
+旧的环境变量方式 `BUILD_RELEASE=true` 仍然兼容；若两者同时存在，以 `-Prelease` 为准。
+
 ```text
 gradlew.bat build
 gradlew.bat runClient

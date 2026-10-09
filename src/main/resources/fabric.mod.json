@@ -33,13 +33,13 @@
 	],
 	"depends": {
 		"fabricloader": ">=0.19.5",
-		"minecraft": "~26.3",
-		"java": ">=25",
+		"minecraft": "${minecraft_dependency}",
+		"java": "${java_dependency}",
 		"fabric-api": "*",
-		"carpet": ">=26.3",
-		"tcdcommons": ">=5.6.0-beta.2"
+		"carpet": "${carpet_dependency}",
+		"tcdcommons": "${tcdcommons_dependency}"
 	},
 	"suggests": {
-		"modmenu": ">=21.0.0"
+		"modmenu": "${modmenu_dependency}"
 	}
 }

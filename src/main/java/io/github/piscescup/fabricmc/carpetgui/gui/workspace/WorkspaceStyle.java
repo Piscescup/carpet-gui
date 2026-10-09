@@ -1,3 +1,23 @@
+/*
+ * This file is part of the Carpet GUI project, licensed under the
+ * GNU Lesser General Public License v3.0
+ *
+ * Copyright (C) 2026  Fallen_Breath and contributors
+ *
+ * Carpet GUI is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * Carpet GUI is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with Carpet GUI.  If not, see <https://www.gnu.org/licenses/>.
+ */
+
 package io.github.piscescup.fabricmc.carpetgui.gui.workspace;
 
 import com.thecsdev.common.util.enumerations.CompassDirection;
@@ -42,7 +62,9 @@ public final class WorkspaceStyle {
         label.setBounds(x, y, Math.max(1, width), Math.max(1, height));
         label.textColorProperty().set(color, WorkspaceStyle.class);
         label.textScaleProperty().set(TEXT_SCALE, WorkspaceStyle.class);
+        //#if MC >= 260000
         label.dropShadowProperty().set(false, WorkspaceStyle.class);
+        //#endif
         label.textAlignmentProperty().set(CompassDirection.NORTH_WEST, WorkspaceStyle.class);
         label.hoverableProperty().set(false, WorkspaceStyle.class);
         parent.add(label);
@@ -55,7 +77,9 @@ public final class WorkspaceStyle {
             getLabel().setText(text);
             getLabel().hoverableProperty().set(false, Button.class);
             getLabel().textScaleProperty().set(TEXT_SCALE, Button.class);
+            //#if MC >= 260000
             getLabel().dropShadowProperty().set(false, Button.class);
+            //#endif
             eClicked.addListener(ignored -> action.run());
         }
         public void setSelected(boolean value) {
@@ -124,7 +148,9 @@ public final class WorkspaceStyle {
             getLabel().hoverableProperty().set(false, CategoryHeader.class);
             getLabel().textColorProperty().set(ACCENT, CategoryHeader.class);
             getLabel().textScaleProperty().set(TEXT_SCALE, CategoryHeader.class);
+            //#if MC >= 260000
             getLabel().dropShadowProperty().set(false, CategoryHeader.class);
+            //#endif
             getLabel().textAlignmentProperty().set(CompassDirection.WEST, CategoryHeader.class);
             getLabel().wrapTextProperty().set(false, CategoryHeader.class);
             eClicked.addListener(ignored -> action.run());
@@ -210,7 +236,9 @@ public final class WorkspaceStyle {
                 getLabel().setText(current == null ? Component.empty() : current.label()));
             getLabel().hoverableProperty().set(false, Dropdown.class);
             getLabel().textScaleProperty().set(TEXT_SCALE, Dropdown.class);
+            //#if MC >= 260000
             getLabel().dropShadowProperty().set(false, Dropdown.class);
+            //#endif
             getLabel().textAlignmentProperty().set(CompassDirection.WEST, Dropdown.class);
             getLabel().wrapTextProperty().set(false, Dropdown.class);
             eClicked.addListener(ignored -> openMenu());

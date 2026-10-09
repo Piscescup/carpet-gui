@@ -2,6 +2,7 @@ import org.gradle.api.file.DuplicatesStrategy
 import org.gradle.kotlin.dsl.withGroovyBuilder
 
 plugins {
+    base
     `maven-publish`
     id("com.github.hierynomus.license") version "0.16.1" apply false
     id("net.fabricmc.fabric-loom") version "1.18-SNAPSHOT" apply false
@@ -75,12 +76,14 @@ preprocessExtension.withGroovyBuilder {
 }
 
 tasks.register("buildAndGather") {
+    group = "build"
+    description = "Build jars, and collect to ./build/release"
     val projectsToGather = project.subprojects.toList()
     dependsOn(projectsToGather.map { "${it.path}:build" })
 
     doLast {
         println("Gathering builds")
-        val destination = rootProject.layout.buildDirectory.dir("libs").get().asFile
+        val destination = rootProject.layout.buildDirectory.dir("release").get().asFile
         rootProject.delete(rootProject.fileTree(destination) { include("*") })
 
         for (subproject in projectsToGather) {
@@ -92,6 +95,17 @@ tasks.register("buildAndGather") {
                 into(destination)
                 duplicatesStrategy = DuplicatesStrategy.INCLUDE
             }
+        }
+    }
+}
+
+tasks.register("cleanPreprocessSources") {
+    group = "build"
+    description = "Delete generated preprocess source trees for every enabled Minecraft version"
+    doLast {
+        subprojects.forEach { subproject ->
+            val generated = subproject.layout.buildDirectory.dir("preprocessed").get().asFile
+            if (generated.isDirectory) delete(generated)
         }
     }
 }

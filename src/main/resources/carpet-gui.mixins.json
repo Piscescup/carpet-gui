@@ -6,7 +6,8 @@
 		"ExampleMixin"
 	],
 	"client": [
-		"ClientPacketListenerMixin"
+		"ClientPacketListenerMixin",
+		"GameRendererMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

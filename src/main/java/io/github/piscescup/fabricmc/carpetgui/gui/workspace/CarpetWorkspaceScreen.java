@@ -1,3 +1,23 @@
+/*
+ * This file is part of the Carpet GUI project, licensed under the
+ * GNU Lesser General Public License v3.0
+ *
+ * Copyright (C) 2026  Fallen_Breath and contributors
+ *
+ * Carpet GUI is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * Carpet GUI is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with Carpet GUI.  If not, see <https://www.gnu.org/licenses/>.
+ */
+
 package io.github.piscescup.fabricmc.carpetgui.gui.workspace;
 
 import com.thecsdev.common.util.enumerations.CompassDirection;
@@ -22,8 +42,10 @@ import io.github.piscescup.fabricmc.carpetgui.network.ClientRuleConfigurations;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.gui.screens.Screen;
+//#if MC >= 260300
 import net.minecraft.client.input.CharacterEvent;
 import net.minecraft.client.input.PreeditEvent;
+//#endif
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import org.jspecify.annotations.NonNull;
@@ -37,7 +59,11 @@ import java.util.Set;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
+//#if MC >= 260300
 import static org.lwjgl.sdl.SDLMouse.SDL_BUTTON_LEFT;
+//#else
+//$$ import static org.lwjgl.glfw.GLFW.GLFW_MOUSE_BUTTON_LEFT;
+//#endif
 
 /**
  * TCDCommons-powered Home/mod workspace. Editing and networking remain backend capabilities.
@@ -784,12 +810,20 @@ public final class CarpetWorkspaceScreen
     @Override
     public boolean inputCallback(TInputContext.InputDiscoveryPhase phase, TInputContext context) {
         if (phase == TInputContext.InputDiscoveryPhase.BROADCAST && context.getInputType() == TInputContext.InputType.MOUSE_PRESS &&
+            //#if MC >= 260300
             context.getMouseButton() == SDL_BUTTON_LEFT && ruleList != null &&
+            //#else
+            //$$ context.getMouseButton() == GLFW_MOUSE_BUTTON_LEFT && ruleList != null &&
+            //#endif
             findChild(element -> element instanceof TContextMenu, false).isEmpty()) {
             ruleList.beforeMousePress(context.getMouseX(), context.getMouseY());
         }
         if (phase == TInputContext.InputDiscoveryPhase.BROADCAST && context.getInputType() == TInputContext.InputType.MOUSE_PRESS &&
+            //#if MC >= 260300
             context.getMouseButton() == SDL_BUTTON_LEFT && RuleGroupWorkspace.ID.equals(selectedId) &&
+            //#else
+            //$$ context.getMouseButton() == GLFW_MOUSE_BUTTON_LEFT && RuleGroupWorkspace.ID.equals(selectedId) &&
+            //#endif
             findChild(element -> element instanceof TContextMenu, false).isEmpty()) {
             ruleGroups.beforeMousePress(context.getMouseX(), context.getMouseY());
         }
@@ -874,6 +908,7 @@ public final class CarpetWorkspaceScreen
             super(target);
         }
 
+        //#if MC >= 260300
         @Override
         public boolean charTyped(CharacterEvent event) {
             TElement focused = getTargetTScreen().focusedElementProperty()
@@ -893,5 +928,6 @@ public final class CarpetWorkspaceScreen
             return getTargetTScreen().focusedElementProperty()
                        .get() instanceof NativeTextInput || super.isInputCaptured();
         }
+        //#endif
     }
 }
