@@ -18,6 +18,7 @@
  * along with Carpet GUI.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+//#if MC >= 12111
 package io.github.piscescup.fabricmc.carpetgui.gui.workspace;
 
 import com.thecsdev.commonmc.api.client.gui.TElement;
@@ -162,3 +163,4 @@ public final class NativeTextInput extends TElement {
             //#endif
     }
 }
+//#endif

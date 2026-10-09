@@ -18,6 +18,7 @@
  * along with Carpet GUI.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+//#if MC >= 12111
 package io.github.piscescup.fabricmc.carpetgui.gui.workspace;
 
 import com.thecsdev.common.util.enumerations.CompassDirection;
@@ -125,3 +126,4 @@ final class WorkspaceNavigationMenu extends TContextMenu {
         }
     }
 }
+//#endif

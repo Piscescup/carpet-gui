@@ -1,18 +1,4 @@
-import org.gradle.api.NamedDomainObjectContainer
-import org.gradle.api.artifacts.Dependency
-import org.gradle.api.artifacts.ModuleDependency
-import org.gradle.api.plugins.BasePluginExtension
-import org.gradle.api.plugins.ExtensionAware
-import org.gradle.api.plugins.JavaPluginExtension
-import org.gradle.api.publish.PublishingExtension
-import org.gradle.api.publish.maven.MavenPublication
-import org.gradle.api.tasks.SourceSetContainer
-import org.gradle.api.tasks.bundling.Jar
-import org.gradle.api.tasks.compile.JavaCompile
-import org.gradle.api.tasks.testing.Test
-import org.gradle.language.jvm.tasks.ProcessResources
-import org.gradle.kotlin.dsl.*
-import java.util.Calendar
+import java.util.*
 
 // Convert Minecraft's dotted version to the integer format used by the
 // preprocessor conditionals, e.g. 1.21.10 -> 12110 and 26.3 -> 260300.
@@ -107,6 +93,11 @@ dependencies {
     autoImplementation("maven.modrinth:tcdcommons:${modProperty("tcdcommons_version")}")
     autoImplementation("maven.modrinth:carpet:${modProperty("carpet_version")}")
 
+    // TCDCommons 5 exports JSpecify annotations transitively, while the
+    // legacy 3.x/4.x line does not.  Keep source annotations available on
+    // every preprocess node without adding anything to the runtime jar.
+    autoCompileOnly("org.jspecify:jspecify:1.0.0")
+
     add("testImplementation", platform("org.junit:junit-bom:${modProperty("junit_version")}"))
     add("testImplementation", "org.junit.jupiter:junit-jupiter")
     add("testRuntimeOnly", "org.junit.platform:junit-platform-launcher")
@@ -157,7 +148,9 @@ val runConfigs = loomExtension.withGroovyBuilder { getProperty("runConfigs") }
 runConfigs.configureEach {
     withGroovyBuilder {
         setProperty("ideConfigGenerated", true)
-        "runDir"("../../run")
+        // Keep worlds, configs and logs isolated per Minecraft version:
+        // versions/<version>/run instead of the root project's shared run/.
+        "runDir"(layout.projectDirectory.dir("run").asFile.absolutePath)
         "vmArgs"(commonVmArgs)
     }
 }
@@ -265,6 +258,11 @@ extensions.getByName("yamlang").withGroovyBuilder {
 
 extensions.configure<SourceSetContainer> {
     named("main") {
+        // Workspace source selection is handled in-place by ReplayMod //#if blocks.
+        if (mcVersion < 260000) {
+            java.exclude("io/github/piscescup/fabricmc/carpetgui/integration/vanilla/VanillaRuleStore.java")
+            java.exclude("io/github/piscescup/fabricmc/carpetgui/integration/vanilla/VanillaRuleView.java")
+        }
         // The main preprocess node owns generated resources. Other nodes receive
         // them through preprocessResources, so adding the root directory again
         // would create duplicate lang entries.

@@ -18,6 +18,7 @@
  * along with Carpet GUI.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+//#if MC >= 12111
 package io.github.piscescup.fabricmc.carpetgui.gui.workspace;
 
 import com.mojang.blaze3d.platform.NativeImage;
@@ -98,3 +99,4 @@ final class ModIconStore
         textures.clear();
     }
 }
+//#endif
