@@ -1,6 +1,7 @@
 package io.github.piscescup.fabricmc.carpetgui;
 
 import net.fabricmc.api.ModInitializer;
+import io.github.piscescup.fabricmc.carpetgui.integration.carpet.CarpetSeriesMods;
 
 import io.github.piscescup.fabricmc.carpetgui.network.RuleNetworking;
 
@@ -20,6 +21,7 @@ public class CarpetGUI implements ModInitializer {
 			MOD_NAME, MOD_VERSION
 		);
 
+		CarpetSeriesMods.initialize();
 		RuleNetworking.initialize();
 	}
 }

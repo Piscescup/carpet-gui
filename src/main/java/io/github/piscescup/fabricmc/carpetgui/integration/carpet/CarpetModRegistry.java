@@ -2,12 +2,11 @@ package io.github.piscescup.fabricmc.carpetgui.integration.carpet;
 
 import carpet.CarpetExtension;
 import carpet.CarpetServer;
-import carpet.api.settings.CarpetRule;
 import io.github.piscescup.fabricmc.carpetgui.adapter.CarpetAddonAdapter;
+import carpet.api.settings.CarpetRule;
 import io.github.piscescup.fabricmc.carpetgui.api.CarpetModInfoApi;
 import io.github.piscescup.fabricmc.carpetgui.api.CarpetModRulesApi;
 import net.fabricmc.loader.api.FabricLoader;
-import net.fabricmc.loader.api.ModContainer;
 
 import java.util.*;
 
@@ -49,7 +48,6 @@ public final class CarpetModRegistry {
         }
 
         List<CarpetExtension> extensions = List.copyOf(CarpetServer.extensions);
-        discoverExtensionInfos(loader, translations, infos, extensions);
 
         Map<String, CarpetModInfoApi> declared =
             declaredProviders(loader, extensions);
@@ -68,7 +66,7 @@ public final class CarpetModRegistry {
             }
 
             infos.put(id, info);
-            translations.registerMod(id);
+            translations.registerProviderIfAbsent(info);
 
             if (info instanceof CarpetModRulesApi provider) {
                 rules.put(id, provider);
@@ -85,34 +83,6 @@ public final class CarpetModRegistry {
             declared
         );
         return new Providers(infos, rules);
-    }
-
-    private static void discoverExtensionInfos(
-        FabricLoader loader,
-        CarpetTranslationRegistry translations,
-        Map<String, CarpetModInfoApi> infos,
-        List<CarpetExtension> extensions
-    ) {
-        Collection<ModContainer> mods = loader.getAllMods();
-        for (CarpetExtension extension : extensions) {
-            String managerId = "";
-            try {
-                var manager = extension.extensionSettingsManager();
-
-                if (manager != null && manager != CarpetServer.settingsManager)
-                    managerId = manager.identifier();
-
-            } catch (RuntimeException | LinkageError failure) {
-                LOGGER.warn("Cannot inspect the settings manager for Carpet extension {}", extension.getClass().getName(), failure);
-            }
-            CarpetModLookup.find(mods, extension.getClass(), managerId)
-                .ifPresent(mod -> {
-                        String id = mod.getMetadata().getId();
-                        translations.registerMod(id);
-                        translations.findProvider(id).ifPresent(info -> infos.put(id, info));
-                    }
-                );
-        }
     }
 
     private static Map<String, CarpetModInfoApi> declaredProviders(
@@ -139,7 +109,7 @@ public final class CarpetModRegistry {
         Map<String, CarpetModRulesApi> rules,
         Map<String, CarpetModInfoApi> declared
     ) {
-        for (CarpetAddonAdapter carpet : CARPET_SERIES) {
+        for (CarpetModRulesApi carpet : CARPET_SERIES) {
             String id = carpet.carpetModId();
             if (!loader.isModLoaded(id) || rules.containsKey(id)) continue;
             try {

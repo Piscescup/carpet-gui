@@ -20,8 +20,8 @@ public interface CarpetModInfoApi {
     }
 
     /**
-     * Optional explicit ownership for managers whose owner cannot be found automatically.
-     * Values must match SettingsManager.identifier(); empty keeps automatic discovery.
+     * Explicit ownership of an entire settings manager. Shared managers should use individual rule ownership instead.
+     * Values must match SettingsManager.identifier(); empty declares no manager ownership; rule providers can claim individual rules.
      */
     default Set<String> getSettingsManagerIds() {
         return Set.of();

@@ -1,103 +1,124 @@
 package io.github.piscescup.fabricmc.carpetgui.adapter;
 
-import java.lang.reflect.Constructor;
-import java.lang.reflect.Field;
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
-import java.lang.reflect.Modifier;
-import java.util.ArrayList;
-import java.util.Arrays;
+
 import java.util.Collection;
+import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.function.Function;
+import java.util.Objects;
 
 /** Discovers rule names from objects held in a settings collection. */
-public class RuleClassCarpetAddonAdapter<T> extends CarpetAddonAdapter {
-    protected String listSettingsFieldName;
-    private final String ruleClassName;
-    private final String stringMethodName;
-    private final Class<?>[] parameterTypes;
-    private final Function<T, String> mapper;
+public class RuleClassCarpetAddonAdapter extends CarpetAddonAdapter {
+    private final PackageRef ruleClassRef;
+    private final String carpetRuleCanonicalClassName;
+    private final Accessor<?> rulesAccessor;
+    private final Accessor<?> ruleNameAccessor;
 
     RuleClassCarpetAddonAdapter(
-        String modId,
-        String modFancyName,
-        String extensionCanonicalName,
-        String extensionFieldName,
-        String settingsCanonicalName,
-        String listSettingsFieldName,
-        String ruleClassName,
-        String stringMethodName,
-        Function<T, String> mapper,
-        Class<?>... parameterTypes
+        RuleBuilder builder
     ) {
-        super(modId, modFancyName, extensionCanonicalName, extensionFieldName, settingsCanonicalName);
-        if (listSettingsFieldName == null || listSettingsFieldName.isBlank()) {
-            throw new IllegalArgumentException("Rules collection field must not be blank");
+        super(builder);
+        this.ruleClassRef = builder.ruleClassRef;
+        this.carpetRuleCanonicalClassName = builder.ruleClassCanonicalName;
+        this.rulesAccessor = builder.rulesAccessor;
+        this.ruleNameAccessor = builder.ruleNameAccessor;
+    }
+
+    public PackageRef ruleClassRef() { return ruleClassRef; }
+    public Accessor<?> rulesAccessor() { return rulesAccessor; }
+    public Accessor<?> ruleNameAccessor() { return ruleNameAccessor; }
+
+    @Override
+    protected Collection<String> getRuleNames(Object... args) throws ClassNotFoundException {
+        if (args != null && args.length != 0) {
+            throw new IllegalArgumentException("Rule-name arguments must be configured in the Accessor");
         }
-        if (ruleClassName == null || ruleClassName.isBlank()) {
-            throw new IllegalArgumentException("Rule class must not be blank");
+        Object target = rulesAccessor.isStaticAccess() ? getSettingsClass() : getSettingsInstance();
+        if (target == null) return List.of();
+
+        Object value = rulesAccessor.get(target);
+
+        if (value == null) return List.of();
+
+        if (!(value instanceof Collection<?> rules)) {
+            throw new IllegalArgumentException("Rules accessor for " + modId
+                + " must return a Collection, got " + value.getClass().getName());
         }
-        if (stringMethodName == null || stringMethodName.isBlank()) {
-            throw new IllegalArgumentException("Rule name method must not be blank");
+
+        Class<?> ruleClass = load(carpetRuleCanonicalClassName);
+        var names = new LinkedHashSet<String>();
+
+        for (Object rule : rules) {
+            if (rule == null) continue;
+            if (!ruleClass.isInstance(rule)) {
+                throw new IllegalArgumentException("Rules for " + modId + " must be instances of "
+                    + ruleClass.getName() + ", got " + rule.getClass().getName());
+            }
+            Object name = ruleNameAccessor.get(ruleNameAccessor.isStaticAccess() ? ruleClass : rule);
+            if (name == null) continue;
+            if (!(name instanceof String text)) {
+                throw new IllegalArgumentException("Rule-name accessor for " + modId
+                    + " must return a String, got " + name.getClass().getName());
+            }
+            if (!text.isBlank()) names.add(text);
         }
-        this.listSettingsFieldName = listSettingsFieldName;
-        this.ruleClassName = ruleClassName;
-        this.stringMethodName = stringMethodName;
-        this.mapper = mapper;
-        this.parameterTypes = parameterTypes == null ? new Class<?>[0] : parameterTypes.clone();
+
+        return List.copyOf(names);
+    }
+
+}
+
+class RuleBuilder
+    extends Builder<RuleAdapterBuilder>
+    implements RuleAdapterBuilder
+{
+    PackageRef ruleClassRef;
+    String ruleClassCanonicalName;
+
+    Accessor<?> rulesAccessor;
+
+    Accessor<?> ruleNameAccessor;
+
+    protected RuleBuilder(String modId, String packageName) {
+        super(modId, packageName);
     }
 
     @Override
-    protected Collection<String> getRuleNames(Object... args)
-        throws InvocationTargetException, IllegalAccessException, ClassNotFoundException, NoSuchFieldException,
-               NoSuchMethodException, InstantiationException
-    {
-        Object[] invocationArguments = args == null ? new Object[0] : args;
-        if (invocationArguments.length != parameterTypes.length) {
-            throw new IllegalArgumentException(
-                "Expected " + parameterTypes.length + " rule-name arguments, got " + invocationArguments.length);
-        }
-
-        Field rulesField = listSettingsField();
-        rulesField.setAccessible(true);
-        Object settingsInstance = getSettingsInstance();
-        Object fieldValue = rulesField.get(settingsInstance);
-        if (!(fieldValue instanceof Collection<?> settings)) {
-            throw new IllegalStateException(
-                "Field " + listSettingsFieldName + " must be a Collection, got "
-                + (fieldValue == null ? "null" : fieldValue.getClass().getName()));
-        }
-
-        Class<?> ruleClass = load(ruleClassName);
-        Method nameMethod = ruleClass.getDeclaredMethod(stringMethodName, parameterTypes);
-        nameMethod.setAccessible(true);
-        boolean staticMethod = Modifier.isStatic(nameMethod.getModifiers());
-
-        List<String> names = new ArrayList<>(settings.size());
-        for (Object setting : settings) {
-            if (!staticMethod && !ruleClass.isInstance(setting)) {
-                throw new IllegalStateException("Rules must be instances of " + ruleClass.getName());
-            }
-            @SuppressWarnings("unchecked")
-            T value = (T) nameMethod.invoke(staticMethod ? null : setting, invocationArguments);
-            names.add(mapper.apply(value));
-        }
-        return names;
+    public RuleAdapterBuilder carpetRuleClassName(PackageRef packageRef) {
+        this.ruleClassRef = Objects.requireNonNull(packageRef, "Class reference");
+        this.ruleClassCanonicalName =
+            packageRef.toCanonicalPackage(this.packageName);
+        return this;
     }
 
-    protected Field listSettingsField() throws ClassNotFoundException, NoSuchFieldException {
-        return getSettingsClass().getDeclaredField(listSettingsFieldName);
+    @Override
+    public RuleAdapterBuilder rulesAccessor(Accessor<?> accessor) {
+        this.rulesAccessor = Objects.requireNonNull(accessor, "Rules accessor");
+        return this;
     }
 
-    protected Object getSettingsInstance()
-        throws NoSuchMethodException, InvocationTargetException, InstantiationException, IllegalAccessException,
-               ClassNotFoundException, NoSuchFieldException {
-        Field field = listSettingsField();
-        if (Modifier.isStatic(field.getModifiers())) return null;
-        Class<?> settingsClass = getSettingsClass();
-        Constructor<?> constructor = settingsClass.getDeclaredConstructor();
-        constructor.setAccessible(true);
-        return constructor.newInstance();
+    @Override
+    public RuleAdapterBuilder ruleNameAccessor(Accessor<String> accessor) {
+        this.ruleNameAccessor = Objects.requireNonNull(accessor, "Rule-name accessor");
+        return this;
     }
+
+    @Override
+    public RuleClassCarpetAddonAdapter build() {
+        requireText(modId, "Mod ID");
+        requireText(carpetSettingsClassCanonicalName, "Settings class");
+        requireText(ruleClassCanonicalName, "Rule class");
+        Objects.requireNonNull(rulesAccessor, "Rules accessor");
+        Objects.requireNonNull(ruleNameAccessor, "Rule-name accessor");
+        if (!rulesAccessor.isStaticAccess()) {
+            Objects.requireNonNull(settingsAccessor, "Settings accessor");
+        }
+        if (carpetExtensionClassCanonicalName != null) {
+            Objects.requireNonNull(extensionAccessor, "Extension accessor");
+        }
+        return new RuleClassCarpetAddonAdapter(this);
+    }
+    private static void requireText(String value, String label) {
+        if (value == null || value.isBlank()) throw new IllegalArgumentException(label + " must not be blank");
+    }
+
 }

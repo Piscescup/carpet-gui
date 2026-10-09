@@ -12,6 +12,7 @@ import java.util.Optional;
 
 /**
  * Manager IDs (command roots) and Fabric mod IDs are intentionally kept distinct.
+ * A null mod ID means no API or adapter declared ownership; rule providers can still claim its rules.
  */
 public record CarpetManagerBinding(
     SettingsManager manager,
@@ -24,23 +25,23 @@ public record CarpetManagerBinding(
 
     public static List<CarpetManagerBinding> discover(CarpetTranslationRegistry translations) {
         var bindings = new LinkedHashMap<String, CarpetManagerBinding>();
-        if (CarpetServer.settingsManager != null) add(bindings, CarpetServer.settingsManager, CarpetServer.class, translations);
+        if (CarpetServer.settingsManager != null) add(bindings, CarpetServer.settingsManager, translations);
         for (CarpetExtension extension : List.copyOf(CarpetServer.extensions)) {
             SettingsManager manager = extension.extensionSettingsManager();
-            if (manager != null) add(bindings, manager, extension.getClass(), translations);
+            if (manager != null) add(bindings, manager, translations);
         }
         return List.copyOf(bindings.values());
     }
 
     private static void add(
-        LinkedHashMap<String, CarpetManagerBinding> bindings, SettingsManager manager, Class<?> owner,
+        LinkedHashMap<String, CarpetManagerBinding> bindings, SettingsManager manager,
         CarpetTranslationRegistry translations
     ) {
-        Optional<ModContainer> mod = translations.findMod(owner, manager.identifier());
+        Optional<ModContainer> mod = translations.findMod(manager.identifier());
         String modId = mod.map(container -> container.getMetadata()
                 .getId()
             )
-            .orElse(manager.identifier());
+            .orElse(null);
         String name = mod.map(container -> container.getMetadata()
                 .getName())
             .orElse(manager.identifier());

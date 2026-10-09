@@ -3,15 +3,11 @@ package io.github.piscescup.fabricmc.carpetgui.adapter;
 import carpet.CarpetExtension;
 import carpet.CarpetServer;
 import carpet.api.settings.CarpetRule;
-import carpet.api.settings.Rule;
 import carpet.api.settings.SettingsManager;
 import io.github.piscescup.fabricmc.carpetgui.api.CarpetModRulesApi;
-import io.github.piscescup.fabricmc.carpetgui.integration.carpet.CarpetModLookup;
-import org.lwjgl.system.ffm.FFMReturn;
+import io.github.piscescup.fabricmc.carpetgui.integration.carpet.CarpetTranslationResources;
 
-import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Modifier;
 import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -19,8 +15,8 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.Function;
 
+import static io.github.piscescup.fabricmc.carpetgui.References.FABRIC_LOADER;
 import static io.github.piscescup.fabricmc.carpetgui.References.LOGGER;
 
 /**
@@ -29,32 +25,41 @@ import static io.github.piscescup.fabricmc.carpetgui.References.LOGGER;
 public abstract class CarpetAddonAdapter
     implements CarpetModRulesApi
 {
-    public static final String DOT = ".";
+    protected final String modId;
+    protected final String parentPackage;
+    protected PackageRef extensionClassRef;
+    protected PackageRef settingsClassRef;
 
-    private final String modId;
-    private final String modFancyName;
-    protected String extensionClassName;
-    protected String extensionFieldName;
-    protected String settingsClassName;
-    private final Set<String> warnings = ConcurrentHashMap.newKeySet();
+    protected String carpetExtensionClassCanonicalName;
+    protected String carpetSettingsClassCanonicalName;
+
+    protected Accessor<?> settingsAccessor;
+    protected Accessor<?> extensionAccessor;
+
+    protected final Set<String> warnings = ConcurrentHashMap.newKeySet();
 
     protected volatile CarpetExtension extension;
     protected volatile SettingsManager manager;
-    protected String packageName;
 
-    CarpetAddonAdapter(
-        String modId,
-        String modFancyName,
-        String extensionClassName,
-        String extensionFieldName,
-        String settingsClassName
+    /** Identity-only constructor for adapters that resolve a manager directly. */
+    protected CarpetAddonAdapter(
+        Builder<?> builder
     ) {
-        this.modId = requireText(modId, "Mod ID");
-        this.modFancyName = requireText(modFancyName, "Mod fancy name");
-        this.extensionClassName = requireText(extensionClassName, "Extension class");
-        this.extensionFieldName = extensionFieldName;
-        this.settingsClassName = requireText(settingsClassName, "Settings class");
+        this.modId = builder.modId;
+        this.parentPackage = builder.packageName;
+        this.extensionClassRef = builder.extensionClassRef;
+        this.settingsClassRef = builder.settingsClassRef;
+        this.carpetExtensionClassCanonicalName = builder.carpetExtensionClassCanonicalName;
+        this.carpetSettingsClassCanonicalName = builder.carpetSettingsClassCanonicalName;
+        this.settingsAccessor = builder.settingsAccessor;
+        this.extensionAccessor = builder.extensionAccessor;
     }
+
+    public String parentPackage() { return parentPackage; }
+    public PackageRef extensionClassRef() { return extensionClassRef; }
+    public PackageRef settingsClassRef() { return settingsClassRef; }
+    public Accessor<?> extensionAccessor() { return extensionAccessor; }
+    public Accessor<?> settingsAccessor() { return settingsAccessor; }
 
     @Override
     public String carpetModId() {
@@ -63,15 +68,25 @@ public abstract class CarpetAddonAdapter
 
     @Override
     public String carpetFancyName() {
-        CarpetExtension value = extension();
-        return value == null ? modFancyName : CarpetModLookup.displayName(value, modFancyName);
+        return FABRIC_LOADER.getModContainer(modId)
+            .orElseThrow()
+            .getMetadata()
+            .getName();
+    }
+
+    @Override
+    public Set<String> getSettingsManagerIds() {
+        SettingsManager value = settingsManager();
+        return value == null || value == CarpetServer.settingsManager ?
+            Set.of() :
+            Set.of(value.identifier());
     }
 
     /**
      * Empty while the extension or manager is not ready.
      */
     public String carpetManagerId() {
-        SettingsManager value = manager(extension());
+        SettingsManager value = settingsManager();
         return value == null ? "" : value.identifier();
     }
 
@@ -79,10 +94,10 @@ public abstract class CarpetAddonAdapter
      * Resolves the reflected names to the same live rule instances registered in the real manager.
      */
     public final Collection<CarpetRule<?>> asCarpetRules() {
-        SettingsManager value = manager(extension());
+        SettingsManager value = settingsManager();
         if (value == null) return List.of();
         try {
-            Collection<String> names = getRuleNames();
+            Collection<String> names = resolveRuleNames(value);
             if (names == null) return List.of();
             Map<String, CarpetRule<?>> resolved = new LinkedHashMap<>();
             for (String name : names) {
@@ -97,6 +112,13 @@ public abstract class CarpetAddonAdapter
         }
     }
 
+    /** Manager context is separate from arguments passed to reflected rule-name methods. */
+    protected Collection<String> resolveRuleNames(SettingsManager manager)
+        throws ReflectiveOperationException
+    {
+        return getRuleNames();
+    }
+
     /**
      * Returns rule names discovered from the addon's own settings representation.
      */
@@ -108,7 +130,7 @@ public abstract class CarpetAddonAdapter
     public Map<String, String> getTranslations(String language) {
         try {
             CarpetExtension value = extension();
-            if (value == null) return Map.of();
+            if (value == null) return CarpetTranslationResources.read(carpetModId(), language);
             Map<String, String> translations = value.canHasTranslations(language);
             return translations == null ? Map.of() : Map.copyOf(translations);
         } catch (RuntimeException | LinkageError failure) {
@@ -118,27 +140,40 @@ public abstract class CarpetAddonAdapter
     }
 
     protected Class<?> getSettingsClass() throws ClassNotFoundException {
-        return load(settingsClassName);
+        return load(this.carpetSettingsClassCanonicalName);
+    }
+
+    /**
+     * Reads a settings object without constructing a new instance.
+     * Static access uses the configured settings class; instance access uses the live extension.
+     * Null means that the extension or settings object is not ready and will be retried later.
+     */
+    protected Object getSettingsInstance() throws ClassNotFoundException {
+        Accessor<?> accessor = Objects.requireNonNull(settingsAccessor, "Settings accessor");
+        Class<?> settingsClass = getSettingsClass();
+        Object target = accessor.isStaticAccess() ? settingsClass : extension();
+        if (target == null) return null;
+        return settingsClass.cast(accessor.get(target));
     }
 
     protected CarpetExtension extension() {
+        if (this.carpetExtensionClassCanonicalName == null) return null;
         CarpetExtension current = extension;
-        if (current != null) return current;
-        try {
-            Class<? extends CarpetExtension> extensionClass = load(extensionClassName)
-                .asSubclass(CarpetExtension.class);
 
-            if (extensionFieldName == null) {
-                current = extensionClass.getDeclaredConstructor()
-                    .newInstance();
-            } else {
-                Field field = extensionClass.getDeclaredField(extensionFieldName);
-                if (!Modifier.isStatic(field.getModifiers())) {
-                    throw new IllegalArgumentException(extensionFieldName + " must be a static extension field");
-                }
-                field.setAccessible(true);
-                Object value = field.get(null);
-                if (value != null) extension = current = extensionClass.cast(value);
+        if (current != null) return current;
+
+        try {
+            Class<? extends CarpetExtension> extensionClass =
+                load(this.carpetExtensionClassCanonicalName)
+                    .asSubclass(CarpetExtension.class);
+
+            Object target = this.extensionAccessor.isStaticAccess()
+                ? extensionClass
+                : extensionClass.getDeclaredConstructor().newInstance();
+
+            Object value = this.extensionAccessor.get(target);
+            if (value != null) {
+                extension = current = extensionClass.cast(value);
             }
 
             return current;
@@ -146,6 +181,11 @@ public abstract class CarpetAddonAdapter
             warn("extension", failure);
             return null;
         }
+    }
+
+    /** Override to resolve a manager without a Carpet extension. */
+    protected SettingsManager settingsManager() {
+        return manager(extension());
     }
 
     protected SettingsManager manager(CarpetExtension extension) {
@@ -162,159 +202,75 @@ public abstract class CarpetAddonAdapter
         }
     }
 
-    public CarpetAddonAdapter withPackage(String packageName) {
-        this.packageName = packageName;
-        return this;
-    }
-
     protected void warn(String source, Throwable failure) {
         if (warnings.add(source)) LOGGER.warn("Cannot read {} for addon {}", source, modId, failure);
     }
 
-    protected Class<?> load(String className) throws ClassNotFoundException {
-        return Class.forName(this.packageName + DOT + className, false, CarpetAddonAdapter.class.getClassLoader());
+    protected static Class<?> load(String classCanonicalName) throws ClassNotFoundException {
+        return Class.forName(classCanonicalName, false, CarpetAddonAdapter.class.getClassLoader());
     }
 
-    private static String requireText(String value, String label) {
-        if (value == null || value.isBlank()) throw new IllegalArgumentException(label + " must not be blank");
-        return value;
+    public static RuleAdapterBuilder ruleBuilder(String modId, String parentPackage) {
+        return new RuleBuilder(modId, parentPackage);
     }
 
-    public static <T> RuleClassCarpetAddonAdapter<T> fromMethod(
-        String modId,
-        String modFancyName,
-        String extensionClassName,
-        String extensionFieldName,
-        String settingsClassName,
-        String listSettingsFieldName,
-        String ruleClassClassName,
-        String stringMethodName,
-        Function<T, String> mapper,
-        Class<?>... parameterTypes
-    ) {
-        return new RuleClassCarpetAddonAdapter<>(
-            modId,
-            modFancyName,
-            extensionClassName,
-            extensionFieldName,
-            settingsClassName,
-            listSettingsFieldName,
-            ruleClassClassName,
-            stringMethodName,
-            Objects.requireNonNull(mapper, "mapper"),
-            parameterTypes
-        );
+    public static ManagerAdapterBuilder managerBuilder(String modId, String parentPackage) {
+        return new ManagerBuilder(modId, parentPackage);
     }
 
-    public static <T> RuleClassCarpetAddonAdapter<T> fromMethod(
-        String modId,
-        String modFancyName,
-        String extensionClassName,
-        String settingsClassName,
-        String ruleClassClassName,
-        String stringMethodName,
-        Function<T, String> mapper,
-        Class<?>... parameterTypes
-    ) {
-        return fromMethod(
-            modId, modFancyName, extensionClassName, "INSTANCE", settingsClassName, "RULES",
-            ruleClassClassName, stringMethodName, mapper, parameterTypes
-        );
+    public static AnnotationAdapterBuilder annotationBuilder(String modId, String parentPackage) {
+        return new AnnotationBuilder(modId, parentPackage);
+    }
+}
+
+abstract class Builder<AB extends AdapterBuilder<AB>>
+    implements AdapterBuilder<AB>
+{
+    protected final String modId;
+    protected String packageName;
+    protected PackageRef extensionClassRef;
+    protected PackageRef settingsClassRef;
+
+    protected String carpetExtensionClassCanonicalName;
+    protected String carpetSettingsClassCanonicalName;
+
+    protected Accessor<?> settingsAccessor = Accessor.ofStaticField("SETTINGS");
+
+    protected Accessor<?> extensionAccessor = Accessor.ofStaticField("INSTANCE");
+
+    protected Builder(String modId, String packageName) {
+        this.modId = modId;
+        this.packageName = packageName;
     }
 
-    public static <T> RuleClassCarpetAddonAdapter<T> fromMethod(
-        String modId,
-        String modFancyName,
-        String extensionClassName,
-        String settingsClassName,
-        String ruleClassClassName,
-        String stringMethodName,
-        Class<?>... parameterTypes
-    ) {
-        return fromMethod(
-            modId, modFancyName, extensionClassName, settingsClassName, ruleClassClassName,
-            stringMethodName, String::valueOf, parameterTypes
-        );
+    @Override
+    @SuppressWarnings("unchecked")
+    public AB carpetExtensionClassName(PackageRef packageRef) {
+        this.extensionClassRef = Objects.requireNonNull(packageRef, "Extension class");
+        this.carpetExtensionClassCanonicalName = packageRef.toCanonicalPackage(this.packageName);
+        return (AB) this;
     }
 
-    public static AnnotationCarpetAddonAdapter fromAnnotation(
-        String modId,
-        String modFancyName,
-        String extensionClassName,
-        String extensionFieldName,
-        String settingsClassName,
-        String annotationClassName
-    ) {
-        return new AnnotationCarpetAddonAdapter(
-            modId, modFancyName, extensionClassName, extensionFieldName, settingsClassName,
-            annotationClassName
-        );
+    @Override
+    @SuppressWarnings("unchecked")
+    public AB settingsClassName(PackageRef packageRef) {
+        this.settingsClassRef = Objects.requireNonNull(packageRef, "Settings class");
+        this.carpetSettingsClassCanonicalName =
+            packageRef.toCanonicalPackage(this.packageName);
+        return (AB) this;
     }
 
-    public static AnnotationCarpetAddonAdapter fromAnnotationOnCarpetRule(
-        String modId,
-        String modFancyName,
-        String extensionClassName,
-        String extensionFieldName,
-        String settingsClassName
-    ) {
-        return new AnnotationCarpetAddonAdapter(modId, modFancyName, extensionClassName, extensionFieldName, settingsClassName, Rule.class);
+    @Override
+    @SuppressWarnings("unchecked")
+    public AB extensionAccessor(Accessor<?> extensionAccessor) {
+        this.extensionAccessor = extensionAccessor;
+        return (AB) this;
     }
 
-    public static AnnotationCarpetAddonAdapter fromAnnotation(
-        String modId,
-        String modFancyName,
-        String extensionClassName,
-        String settingsClassName,
-        String annotationClassName
-    ) {
-        return fromAnnotation(
-            modId, modFancyName, extensionClassName, "INSTANCE", settingsClassName, annotationClassName
-        );
-    }
-
-    public static AnnotationCarpetAddonAdapter fromAnnotation(
-        String modId,
-        String modFancyName,
-        String extensionClassName,
-        String settingsClassName
-    ) {
-        return new AnnotationCarpetAddonAdapter(
-            modId, modFancyName, extensionClassName, "INSTANCE", settingsClassName, Rule.class
-        );
-    }
-
-    public static CarpetAddonAdapter rof() {
-        return new CarpetAddonAdapter(
-            "carpet-rof-addition", "Carpet ROF Addition",
-            "ROFCarpetServer", null, "ROFSettings"
-        ) {
-            @Override
-            protected Collection<String> getRuleNames(Object... args)
-                throws IllegalAccessException, ClassNotFoundException, NoSuchFieldException
-            {
-                Class<?> settingsIndex = load(this.settingsClassName);
-                Field ruleClassesField = settingsIndex.getDeclaredField("ruleClasses");
-                ruleClassesField.setAccessible(true);
-                Object value = ruleClassesField.get(null);
-                if (!(value instanceof Collection<?> ruleClasses)) {
-                    throw new IllegalStateException("ROFSettings.ruleClasses must be a Collection");
-                }
-
-                return ruleClasses
-                    .stream()
-                    .map(candidate -> {
-                        if (!(candidate instanceof Class<?> ruleClass)) {
-                            throw new IllegalStateException("ROFSettings.ruleClasses contains a non-Class value");
-                        }
-                        return ruleClass;
-                    })
-                    .flatMap(ruleClass -> java.util.Arrays.stream(ruleClass.getDeclaredFields()))
-                    .filter(field -> field.isAnnotationPresent(Rule.class))
-                    .map(Field::getName)
-                    .distinct()
-                    .toList();
-            }
-        };
+    @Override
+    @SuppressWarnings("unchecked")
+    public AB settingsAccessor(Accessor<?> settingsAccessor) {
+        this.settingsAccessor = settingsAccessor;
+        return (AB) this;
     }
 }
