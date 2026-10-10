@@ -18,7 +18,7 @@
  * along with Carpet GUI.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-package io.github.piscescup.fabricmc.carpetgui.gui.model;
+package io.github.piscescup.fabricmc.carpetgui.api;
 
 import net.minecraft.network.chat.Component;
 

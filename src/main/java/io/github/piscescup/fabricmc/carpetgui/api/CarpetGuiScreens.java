@@ -20,8 +20,7 @@
 
 package io.github.piscescup.fabricmc.carpetgui.api;
 
-import io.github.piscescup.fabricmc.carpetgui.gui.workspace.CarpetWorkspaceScreen;
-import io.github.piscescup.fabricmc.carpetgui.gui.model.RuleSource;
+import io.github.piscescup.fabricmc.carpetgui.gui.CarpetWorkspaceScreen;
 import io.github.piscescup.fabricmc.carpetgui.integration.carpet.CarpetRuleSource;
 import net.minecraft.client.gui.screens.Screen;
 

@@ -25,6 +25,7 @@ import com.thecsdev.common.math.Point2d;
 import com.thecsdev.commonmc.api.client.gui.TElement;
 import com.thecsdev.commonmc.api.client.gui.panel.TPanelElement;
 import com.thecsdev.commonmc.api.client.gui.util.TInputContext;
+import io.github.piscescup.fabricmc.carpetgui.gui.GUIStyle;
 
 /** Scroll by wheel, keyboard or scrollbar, not by dragging blank panel space. */
 class WorkspacePanel extends TPanelElement.Paintable {
@@ -32,7 +33,7 @@ class WorkspacePanel extends TPanelElement.Paintable {
     private TElement scrollExtent;
 
     WorkspacePanel(int padding) {
-        super(WorkspaceStyle.PANEL_COLOR, WorkspaceStyle.BORDER_COLOR, WorkspaceStyle.BORDER_COLOR);
+        super(GUIStyle.PANEL_COLOR, GUIStyle.BORDER_COLOR, GUIStyle.BORDER_COLOR);
         this.padding = padding;
         // Layouts already include their own insets. TPanelElement otherwise snaps the
         // children's bounding box to scrollPadding on the first wheel event, moving

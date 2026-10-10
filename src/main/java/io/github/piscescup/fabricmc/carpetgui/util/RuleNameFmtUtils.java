@@ -18,23 +18,29 @@
  * along with Carpet GUI.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-package io.github.piscescup.fabricmc.carpetgui.gui.model;
+package io.github.piscescup.fabricmc.carpetgui.util;
 
 import java.util.regex.Pattern;
 
 /** Human-readable English titles without changing the stable rule/command identifier. */
-public final class RuleNames {
+public final class RuleNameFmtUtils {
     private static final Pattern WORD_BOUNDARY = Pattern.compile(
         "(?<=\\p{Lu})(?=\\p{Lu}\\p{Ll})|(?<=[\\p{Ll}\\p{Nd}])(?=\\p{Lu})"
     );
     private static final Pattern SEPARATOR = Pattern.compile("[_\\-\\s]+");
 
-    private RuleNames() {}
+    private RuleNameFmtUtils() {}
 
     public static String displayName(String ruleId) {
-        String words = SEPARATOR.matcher(WORD_BOUNDARY.matcher(ruleId).replaceAll(" ")).replaceAll(" ").trim();
+        String words = SEPARATOR.matcher(WORD_BOUNDARY.matcher(ruleId)
+                .replaceAll(" ")
+            )
+            .replaceAll(" ")
+            .trim();
         if (words.isEmpty()) return words;
+
         StringBuilder title = new StringBuilder();
+
         for (String word : words.split(" ")) {
             if (!title.isEmpty()) title.append(' ');
             int first = word.codePointAt(0);

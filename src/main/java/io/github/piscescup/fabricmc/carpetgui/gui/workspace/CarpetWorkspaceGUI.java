@@ -23,10 +23,12 @@ package io.github.piscescup.fabricmc.carpetgui.gui.workspace;
 
 import com.thecsdev.commonmc.api.client.gui.TElement;
 import com.thecsdev.commonmc.api.client.gui.panel.TPanelElement;
+import io.github.piscescup.fabricmc.carpetgui.gui.CarpetWorkspaceScreen;
 import io.github.piscescup.fabricmc.carpetgui.gui.menubar.MenubarPanel;
 import io.github.piscescup.fabricmc.carpetgui.gui.model.RuleEditResult;
-import io.github.piscescup.fabricmc.carpetgui.gui.model.RulePage;
-import io.github.piscescup.fabricmc.carpetgui.gui.model.RuleView;
+import io.github.piscescup.fabricmc.carpetgui.gui.pages.RulePage;
+import io.github.piscescup.fabricmc.carpetgui.api.RuleView;
+import io.github.piscescup.fabricmc.carpetgui.gui.GUIStyle;
 import net.minecraft.network.chat.Component;
 
 import java.util.Objects;
@@ -53,49 +55,49 @@ public final class CarpetWorkspaceGUI extends TElement {
         add(document);
 
         var menubar = new MenubarPanel(editor);
-        menubar.setBounds(x, bounds.y, width, WorkspaceStyle.MENU_HEIGHT);
+        menubar.setBounds(x, bounds.y, width, GUIStyle.MENU_HEIGHT);
         add(menubar);
     }
 
-    void cancelDrafts() {
+    public void cancelDrafts() {
         if (document != null) document.cancelDrafts();
     }
 
-    void closeResources() {
+    public void closeResources() {
         if (document != null) document.closeResources();
     }
 
-    Component categoryLabel(RulePage page, String category) {
+    public Component categoryLabel(RulePage page, String category) {
         return document.categoryLabel(page, category);
     }
 
-    void rebuildWorkspace() {
+    public void rebuildWorkspace() {
         if (document != null) document.rebuildWorkspace();
     }
 
-    void requestListRefresh() {
+    public void requestListRefresh() {
         if (document != null) document.requestListRefresh();
     }
 
-    void feedback(RuleView rule, RuleEditResult result) {
+    public void feedback(RuleView rule, RuleEditResult result) {
         if (document != null) document.feedback(rule, result);
     }
 
-    void showFeedback(Component message) {
+    public void showFeedback(Component message) {
         if (document != null) document.showFeedback(message);
     }
 
-    int textWidth(String text) {
+    public int textWidth(String text) {
         return document != null
             ? document.textWidth(text)
-            : (int) Math.ceil(getClient().font.width(text) * WorkspaceStyle.TEXT_SCALE);
+            : (int) Math.ceil(getClient().font.width(text) * GUIStyle.TEXT_SCALE);
     }
 
-    void addWorkspacePane(TPanelElement panel, int x, int y, int width, int height) {
+    public void addWorkspacePane(TPanelElement panel, int x, int y, int width, int height) {
         document.addWorkspacePane(panel, x, y, width, height);
     }
 
-    void addWorkspaceElement(TElement element) {
+    public void addWorkspaceElement(TElement element) {
         document.addWorkspaceElement(element);
     }
 }

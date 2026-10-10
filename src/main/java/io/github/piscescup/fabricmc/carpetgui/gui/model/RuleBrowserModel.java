@@ -20,6 +20,8 @@
 
 package io.github.piscescup.fabricmc.carpetgui.gui.model;
 
+import io.github.piscescup.fabricmc.carpetgui.api.RuleView;
+import io.github.piscescup.fabricmc.carpetgui.gui.pages.RulePage;
 import io.github.piscescup.fabricmc.carpetgui.store.FavoriteRules;
 
 import java.math.BigDecimal;

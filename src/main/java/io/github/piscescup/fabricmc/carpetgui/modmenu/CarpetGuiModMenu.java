@@ -18,7 +18,7 @@
  * along with Carpet GUI.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-package io.github.piscescup.fabricmc.carpetgui.integration.modmenu;
+package io.github.piscescup.fabricmc.carpetgui.modmenu;
 
 import com.terraformersmc.modmenu.api.ConfigScreenFactory;
 import io.github.piscescup.fabricmc.carpetgui.api.CarpetModMenuApi;

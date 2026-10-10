@@ -19,7 +19,7 @@
  */
 
 //#if MC >= 12111
-package io.github.piscescup.fabricmc.carpetgui.gui.render;
+package io.github.piscescup.fabricmc.carpetgui.gui;
 
 import com.thecsdev.commonmc.api.client.gui.render.TGuiGraphics;
 //#if MC >= 260000
@@ -27,14 +27,36 @@ import net.minecraft.client.gui.GuiGraphicsExtractor;
 //#endif
 
 /** Shared pixel-rounded popup appearance for both GUI implementations. */
-public final class PopupStyle {
+public final class GUIStyle {
     public static final int BACKGROUND = 0xFF383838;
     public static final int BORDER = 0xFF707070;
     public static final int HOVER = 0xFF505050;
     public static final int SEPARATOR = 0xFF606060;
     public static final int SELECTED_TEXT = 0xFFFFFF55;
+    public static final double TEXT_SCALE = 0.85;
+    public static final double SMALL_TEXT_SCALE = 0.65;
+    public static final int MENU_HEIGHT = 17;
+    public static final int TAB_Y = 20;
+    public static final int TAB_HEIGHT = 18;
+    public static final int BODY_Y = TAB_Y + TAB_HEIGHT;
+    public static final int CONTROL_HEIGHT = 20;
+    public static final int RULE_HEIGHT = 25;
+    public static final int TEXT_COLOR = 0xFFFFFFFF;
+    public static final int MUTED_COLOR = 0xFF999999;
+    public static final int ACCENT_COLOR = 0xFFFFFF55;
+    public static final int FOCUS_COLOR = 0xFFAAFFFF;
+    public static final int PANEL_COLOR = 0x18000000;
+    public static final int BACKDROP_COLOR = 0x14000000;
+    public static final int FRAME_COLOR = 0x10000000;
+    public static final int CARD_COLOR = 0x20000000;
+    public static final int RULE_BACKGROUND_COLOR = 0x28000000;
+    public static final int BORDER_COLOR = 0xAA151515;
+    public static final int NEW_RULE_COLOR = 0xFFFF5555;
+    public static final int MODIFIED_RULE_COLOR = 0xFF55AAFF;
+    public static final int STAGED_RULE_COLOR = 0xFF55FF55;
+    public static final int REMOTE_RULE_COLOR = 0xFFFFAA00;
 
-    private PopupStyle() {}
+    private GUIStyle() {}
 
     public static void background(TGuiGraphics graphics, int x, int y, int width, int height) {
         background(graphics::fillColor, x, y, width, height);

@@ -23,7 +23,7 @@ package io.github.piscescup.fabricmc.carpetgui.gui.widget.icons;
 
 import com.thecsdev.commonmc.api.client.gui.render.TGuiGraphics;
 import com.thecsdev.commonmc.api.client.gui.widget.TButtonWidget;
-import io.github.piscescup.fabricmc.carpetgui.gui.workspace.WorkspaceStyle;
+import io.github.piscescup.fabricmc.carpetgui.gui.GUIStyle;
 import io.github.piscescup.fabricmc.carpetgui.resources.WorkspaceActionTextures;
 import net.minecraft.network.chat.Component;
 
@@ -55,10 +55,10 @@ public final class RuleActionIcon extends TButtonWidget.Transparent {
             : WorkspaceActionTextures.Icon.RESET;
         WorkspaceActionTextures.draw(
             graphics, bounds, icon,
-            lock || enabledProperty().getZ() ? WorkspaceStyle.TEXT_COLOR : WorkspaceStyle.MUTED_COLOR
+            lock || enabledProperty().getZ() ? GUIStyle.TEXT_COLOR : GUIStyle.MUTED_COLOR
         );
         if (enabledProperty().getZ() && isHoveredOrFocused()) {
-            graphics.drawOutlineIn(bounds.x, bounds.y, bounds.width, bounds.height, WorkspaceStyle.FOCUS_COLOR);
+            graphics.drawOutlineIn(bounds.x, bounds.y, bounds.width, bounds.height, GUIStyle.FOCUS_COLOR);
         }
     }
 }

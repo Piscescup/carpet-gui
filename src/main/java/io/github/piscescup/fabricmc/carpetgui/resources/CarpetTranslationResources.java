@@ -18,7 +18,7 @@
  * along with Carpet GUI.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-package io.github.piscescup.fabricmc.carpetgui.integration.carpet;
+package io.github.piscescup.fabricmc.carpetgui.resources;
 
 import carpet.utils.Translations;
 import net.fabricmc.loader.api.FabricLoader;
@@ -72,7 +72,7 @@ public final class CarpetTranslationResources {
         }
     }
 
-    static void merge(Map<String, String> target, Map<String, String> source) {
+    public static void merge(Map<String, String> target, Map<String, String> source) {
         if (source == null) return;
         source.forEach((key, value) -> {
             if (key == null || key.startsWith("//") || value == null || value.isBlank()) return;

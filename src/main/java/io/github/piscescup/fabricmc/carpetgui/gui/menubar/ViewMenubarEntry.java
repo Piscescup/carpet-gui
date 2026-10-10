@@ -21,19 +21,26 @@
 //#if MC >= 12111
 package io.github.piscescup.fabricmc.carpetgui.gui.menubar;
 
+import com.thecsdev.common.scene.Node;
 import com.thecsdev.commonmc.api.client.gui.ctxmenu.TContextMenu;
-import io.github.piscescup.fabricmc.carpetgui.gui.model.RulePage;
+import com.thecsdev.commonmc.api.client.gui.misc.TTextureElement;
+import com.thecsdev.commonmc.api.client.gui.render.TGuiGraphics;
+import com.thecsdev.commonmc.api.client.gui.widget.TButtonWidget;
+import com.thecsdev.common.util.enumerations.CompassDirection;
+import io.github.piscescup.fabricmc.carpetgui.gui.pages.RulePage;
 import io.github.piscescup.fabricmc.carpetgui.gui.pages.AllRulesPage;
+import io.github.piscescup.fabricmc.carpetgui.gui.GUIStyle;
 import io.github.piscescup.fabricmc.carpetgui.gui.workspace.CarpetWorkspaceEditor;
+import io.github.piscescup.fabricmc.carpetgui.gui.workspace.WorkspaceStyle;
 import io.github.piscescup.fabricmc.carpetgui.store.ModIconStore;
-import io.github.piscescup.fabricmc.carpetgui.util.Msg;
-import net.minecraft.ChatFormatting;
+import io.github.piscescup.fabricmc.carpetgui.util.MsgUtils;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
 import org.jetbrains.annotations.NotNull;
 import org.jspecify.annotations.NonNull;
 
-import static com.thecsdev.commonmc.resource.TComponent.gui;
+import java.util.ArrayList;
 
 /**
  * Navigation entries exposed by the current Carpet workspace.
@@ -49,32 +56,104 @@ public final class ViewMenubarEntry
 
     @Override
     public @NonNull Component getDisplayName() {
-        return Msg.tr("view");
+        return MsgUtils.tr("view");
     }
 
     @Override
     public @NonNull TContextMenu createContextMenu(@NotNull Minecraft client, @NotNull CarpetWorkspaceEditor editor) {
-        var builder = new TContextMenu.Builder(client);
-        builder.addButton(label("carpet-gui", Msg.tr("home"), editor.isSelected(null)),
-            ignored -> editor.selectPage(null));
-        builder.addSeparator();
-        builder.addButton(label("carpet-gui", Msg.tr("rule_groups"),
-                editor.isSelected(CarpetWorkspaceEditor.RULE_GROUPS_PAGE_ID)),
-            ignored -> editor.selectPage(CarpetWorkspaceEditor.RULE_GROUPS_PAGE_ID));
-        builder.addSeparator();
+        var entries = new ArrayList<MenuEntry>();
+        entries.add(new MenuEntry("carpet-gui", MsgUtils.tr("home"), editor.isSelected(null),
+            true, () -> editor.selectPage(null)));
+        entries.add(new MenuEntry("carpet-gui", MsgUtils.tr("rule_groups"),
+            editor.isSelected(CarpetWorkspaceEditor.RULE_GROUPS_PAGE_ID), true,
+            () -> editor.selectPage(CarpetWorkspaceEditor.RULE_GROUPS_PAGE_ID)));
         for (RulePage page : editor.pages()) {
             String iconId = page instanceof AllRulesPage ? "carpet-gui" : page.id();
-            builder.addButton(label(iconId, page.title(), editor.isSelected(page.id())),
-                ignored -> editor.selectPage(page.id()));
+            entries.add(new MenuEntry(iconId, page.title(), editor.isSelected(page.id()), false,
+                () -> editor.selectPage(page.id())));
+        }
+
+        int width = entries.stream()
+            .mapToInt(entry -> client.font.width(entry.title()) + 32)
+            .max()
+            .orElse(100);
+        width = Math.max(100, width);
+
+        var builder = new TContextMenu.Builder(client);
+        for (MenuEntry entry : entries) {
+            builder.addElement(new MenuButton(entry, width));
+            if (entry.separatorAfter()) builder.addSeparator();
         }
         return builder.build();
     }
 
-    private Component label(String iconId, Component title, boolean selected) {
-        var label = ModIconStore.INSTANCE.icon(iconId)
-            .map(icon -> gui(icon).append(" ").append(title.copy()))
-            .orElseGet(title::copy);
-        return selected ? label.withStyle(ChatFormatting.YELLOW) : label;
+    private record MenuEntry(
+        String iconId,
+        Component title,
+        boolean selected,
+        boolean separatorAfter,
+        Runnable action
+    ) {}
+
+    private static final class MenuButton extends TButtonWidget.Transparent {
+        private static final int HEIGHT = 22;
+        private final MenuEntry entry;
+
+        private MenuButton(MenuEntry entry, int width) {
+            this.entry = entry;
+            setBounds(0, 0, width, HEIGHT);
+            getLabel().setText(entry.title());
+            getLabel().textAlignmentProperty().set(CompassDirection.WEST, MenuButton.class);
+            getLabel().textColorProperty().set(
+                entry.selected() ? GUIStyle.SELECTED_TEXT : GUIStyle.TEXT_COLOR,
+                MenuButton.class
+            );
+            eClicked.addListener(ignored -> {
+                entry.action().run();
+                findParent(element -> element instanceof TContextMenu)
+                    .ifPresent(Node::remove);
+            });
+        }
+
+        @Override
+        protected void initCallback() {
+            super.initCallback();
+            var bounds = getBounds();
+            getLabel().setBounds(bounds.x + 22, bounds.y, Math.max(1, bounds.width - 27), bounds.height);
+            getLabel().wrapTextProperty().set(false, MenuButton.class);
+            addIcon(bounds.x + 4, bounds.y + 4, 14);
+        }
+
+        private void addIcon(int x, int y, int size) {
+            Identifier icon = "minecraft".equals(entry.iconId())
+                ? Identifier.withDefaultNamespace("textures/block/grass_block_side.png")
+                : ModIconStore.INSTANCE.icon(entry.iconId()).orElse(null);
+            if (icon != null) {
+                var texture = new TTextureElement(icon);
+                texture.modeProperty().set(TTextureElement.Mode.TEXTURE, MenuButton.class);
+                texture.hoverableProperty().set(false, MenuButton.class);
+                texture.focusableProperty().set(false, MenuButton.class);
+                texture.setBounds(x, y, size, size);
+                add(texture);
+                return;
+            }
+
+            String iconId = entry.iconId();
+            String fallbackText = iconId == null || iconId.isBlank()
+                ? "?"
+                : iconId.substring(0, 1).toUpperCase();
+            var fallback = WorkspaceStyle.label(
+                this, Component.literal(fallbackText), x, y, size, size, GUIStyle.ACCENT_COLOR
+            );
+            fallback.textAlignmentProperty().set(CompassDirection.CENTER, MenuButton.class);
+        }
+
+        @Override
+        public void renderCallback(@NotNull TGuiGraphics graphics) {
+            if (!isHoveredOrFocused()) return;
+            var bounds = getBounds();
+            graphics.fillColor(bounds.x, bounds.y, bounds.width, bounds.height, GUIStyle.HOVER);
+        }
     }
 }
 //#endif

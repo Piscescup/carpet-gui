@@ -19,7 +19,7 @@
  */
 
 //#if MC >= 12111
-package io.github.piscescup.fabricmc.carpetgui.gui.tabstrip;
+package io.github.piscescup.fabricmc.carpetgui.gui.workspace;
 
 import com.thecsdev.common.util.enumerations.CompassDirection;
 import com.thecsdev.commonmc.api.client.gui.TElement;
@@ -27,13 +27,12 @@ import com.thecsdev.commonmc.api.client.gui.misc.TTextureElement;
 import com.thecsdev.commonmc.api.client.gui.panel.TPanelElement;
 import com.thecsdev.commonmc.api.client.gui.tooltip.TTooltip;
 import com.thecsdev.commonmc.api.client.gui.util.TInputContext;
-import io.github.piscescup.fabricmc.carpetgui.gui.model.RulePage;
+import io.github.piscescup.fabricmc.carpetgui.gui.pages.RulePage;
 import io.github.piscescup.fabricmc.carpetgui.gui.pages.AllRulesPage;
+import io.github.piscescup.fabricmc.carpetgui.gui.GUIStyle;
 import io.github.piscescup.fabricmc.carpetgui.gui.widget.button.ChromeButton;
-import io.github.piscescup.fabricmc.carpetgui.gui.workspace.CarpetWorkspaceEditor;
-import io.github.piscescup.fabricmc.carpetgui.gui.workspace.WorkspaceStyle;
 import io.github.piscescup.fabricmc.carpetgui.store.ModIconStore;
-import io.github.piscescup.fabricmc.carpetgui.util.Msg;
+import io.github.piscescup.fabricmc.carpetgui.util.MsgUtils;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 
@@ -68,9 +67,9 @@ public final class WorkspaceTabStripPanel extends TElement {
         add(panel);
 
         int x = bounds.x;
-        x += addEntry(panel, x, null, "carpet-gui", Msg.tr("home"), 56, false);
+        x += addEntry(panel, x, null, "carpet-gui", MsgUtils.tr("home"), 56, false);
         if (editor.isPageOpen(CarpetWorkspaceEditor.RULE_GROUPS_PAGE_ID)) {
-            Component title = Msg.tr("rule_groups");
+            Component title = MsgUtils.tr("rule_groups");
             int width = tabWidth(title, 90);
             x += addEntry(panel, x, CarpetWorkspaceEditor.RULE_GROUPS_PAGE_ID,
                 "carpet-gui", title, width, true);
@@ -110,7 +109,7 @@ public final class WorkspaceTabStripPanel extends TElement {
 
     private int tabWidth(Component title, int minimum) {
         return Math.clamp(
-            (int) Math.ceil(getClient().font.width(title) * WorkspaceStyle.TEXT_SCALE) + 35,
+            (int) Math.ceil(getClient().font.width(title) * GUIStyle.TEXT_SCALE) + 35,
             minimum,
             190
         );
@@ -129,7 +128,7 @@ public final class WorkspaceTabStripPanel extends TElement {
         }
         var fallback = WorkspaceStyle.label(
             parent, Component.literal(modId.substring(0, 1).toUpperCase()),
-            x, y, size, size, WorkspaceStyle.ACCENT_COLOR
+            x, y, size, size, GUIStyle.ACCENT_COLOR
         );
         fallback.textAlignmentProperty().set(CompassDirection.CENTER, WorkspaceTabStripPanel.class);
         fallback.textScaleProperty().set(Math.max(1.0, size / 15.0), WorkspaceTabStripPanel.class);
@@ -163,7 +162,7 @@ public final class WorkspaceTabStripPanel extends TElement {
             if (closable) {
                 var close = new ChromeButton(Component.literal("×"), () -> editor.closePage(id));
                 close.setBounds(bounds.endX - 15, bounds.y + 2, 13, bounds.height - 4);
-                close.tooltipProperty().set(ignored -> TTooltip.of(Msg.tr("close_tab")), EntryElement.class);
+                close.tooltipProperty().set(ignored -> TTooltip.of(MsgUtils.tr("close_tab")), EntryElement.class);
                 add(close);
             }
             tooltipProperty().set(ignored -> TTooltip.of(getLabel().getText()), EntryElement.class);

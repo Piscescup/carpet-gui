@@ -22,10 +22,11 @@ package io.github.piscescup.fabricmc.carpetgui.integration.carpet;
 
 import carpet.CarpetExtension;
 import carpet.CarpetServer;
-import io.github.piscescup.fabricmc.carpetgui.adapter.CarpetAddonAdapter;
 import carpet.api.settings.CarpetRule;
 import io.github.piscescup.fabricmc.carpetgui.api.CarpetModInfoApi;
 import io.github.piscescup.fabricmc.carpetgui.api.CarpetModRulesApi;
+import io.github.piscescup.fabricmc.carpetgui.store.CarpetManagerBinding;
+import io.github.piscescup.fabricmc.carpetgui.store.CarpetModBinding;
 import net.fabricmc.loader.api.FabricLoader;
 
 import java.util.*;

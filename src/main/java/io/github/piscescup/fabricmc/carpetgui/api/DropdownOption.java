@@ -18,16 +18,15 @@
  * along with Carpet GUI.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-package io.github.piscescup.fabricmc.carpetgui.integration.carpet;
+package io.github.piscescup.fabricmc.carpetgui.api;
 
-import carpet.api.settings.CarpetRule;
-import io.github.piscescup.fabricmc.carpetgui.api.CarpetModInfoApi;
+import net.minecraft.network.chat.Component;
 
-import java.util.List;
+/**
+ * A selectable GUI entry, not necessarily a mod. IDs must be stable and unique.
+ */
+public interface DropdownOption {
+    String id();
 
-/** A mod page can contain rules from one or more real SettingsManagers. */
-public record CarpetModBinding(CarpetModInfoApi info, List<CarpetRule<?>> rules) {
-    public CarpetModBinding {
-        rules = List.copyOf(rules);
-    }
+    Component label();
 }

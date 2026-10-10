@@ -24,9 +24,12 @@ package io.github.piscescup.fabricmc.carpetgui.gui.workspace;
 import com.thecsdev.common.math.Point2d;
 import com.thecsdev.commonmc.api.client.gui.TElement;
 import com.thecsdev.commonmc.api.client.gui.tooltip.TTooltip;
+import io.github.piscescup.fabricmc.carpetgui.gui.CarpetWorkspaceScreen;
 import io.github.piscescup.fabricmc.carpetgui.gui.model.RuleBrowserModel;
-import io.github.piscescup.fabricmc.carpetgui.gui.model.RulePage;
+import io.github.piscescup.fabricmc.carpetgui.gui.pages.RulePage;
 import io.github.piscescup.fabricmc.carpetgui.gui.pages.AllRulesPage;
+import io.github.piscescup.fabricmc.carpetgui.gui.GUIStyle;
+import io.github.piscescup.fabricmc.carpetgui.gui.widget.CategoryHeader;
 import net.minecraft.network.chat.Component;
 
 import java.util.ArrayList;
@@ -67,7 +70,7 @@ final class RuleListPanel
         if (groups.isEmpty()) {
             WorkspaceStyle.label(
                 this, Component.translatable("carpet-gui.empty"), bounds.x + 10, y + 16,
-                Math.max(1, bounds.width - 20), 30, WorkspaceStyle.MUTED_COLOR
+                Math.max(1, bounds.width - 20), 30, GUIStyle.MUTED_COLOR
             );
         }
         for (var group : groups) {
@@ -85,10 +88,10 @@ final class RuleListPanel
                     String ownerId = page instanceof AllRulesPage allRules ? allRules.ownerId(rule) : page.id();
                     var row = new WorkspaceRuleRow(ownerId, rule, result -> screen.feedback(rule, result), this::cancelDrafts);
                     row.deferOffscreenControls();
-                    row.setBounds(bounds.x + 10, y, rowWidth, WorkspaceStyle.RULE_HEIGHT);
+                    row.setBounds(bounds.x + 10, y, rowWidth, GUIStyle.RULE_HEIGHT);
                     add(row);
                     rows.add(row);
-                    y += WorkspaceStyle.RULE_HEIGHT + 3;
+                    y += GUIStyle.RULE_HEIGHT + 3;
                 }
             }
             y += 7;

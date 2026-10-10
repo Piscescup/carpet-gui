@@ -18,7 +18,7 @@
  * along with Carpet GUI.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-package io.github.piscescup.fabricmc.carpetgui.integration.vanilla;
+package io.github.piscescup.fabricmc.carpetgui.store;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.commands.Commands;

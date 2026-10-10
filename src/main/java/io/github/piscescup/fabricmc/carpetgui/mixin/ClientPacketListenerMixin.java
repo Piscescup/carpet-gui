@@ -21,7 +21,7 @@
 //#if MC >= 260000
 package io.github.piscescup.fabricmc.carpetgui.mixin;
 
-import io.github.piscescup.fabricmc.carpetgui.integration.vanilla.VanillaRuleStore;
+import io.github.piscescup.fabricmc.carpetgui.store.VanillaRuleStore;
 import net.minecraft.client.multiplayer.ClientPacketListener;
 import net.minecraft.network.protocol.game.ClientboundGameRuleValuesPacket;
 import org.spongepowered.asm.mixin.Mixin;

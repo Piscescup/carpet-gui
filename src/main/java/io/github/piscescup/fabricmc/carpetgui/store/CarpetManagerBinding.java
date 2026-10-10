@@ -18,11 +18,12 @@
  * along with Carpet GUI.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-package io.github.piscescup.fabricmc.carpetgui.integration.carpet;
+package io.github.piscescup.fabricmc.carpetgui.store;
 
 import carpet.CarpetExtension;
 import carpet.CarpetServer;
 import carpet.api.settings.SettingsManager;
+import io.github.piscescup.fabricmc.carpetgui.integration.carpet.CarpetTranslationRegistry;
 import net.fabricmc.loader.api.ModContainer;
 import net.minecraft.network.chat.Component;
 

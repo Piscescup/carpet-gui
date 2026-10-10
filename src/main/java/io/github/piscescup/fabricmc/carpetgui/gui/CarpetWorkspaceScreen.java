@@ -19,7 +19,7 @@
  */
 
 //#if MC >= 12111
-package io.github.piscescup.fabricmc.carpetgui.gui.workspace;
+package io.github.piscescup.fabricmc.carpetgui.gui;
 
 import com.thecsdev.commonmc.api.client.gui.TElement;
 import com.thecsdev.commonmc.api.client.gui.panel.TPanelElement;
@@ -27,10 +27,12 @@ import com.thecsdev.commonmc.api.client.gui.screen.ILastScreenProvider;
 import com.thecsdev.commonmc.api.client.gui.screen.TScreenPlus;
 import com.thecsdev.commonmc.api.client.gui.screen.TScreenWrapper;
 import io.github.piscescup.fabricmc.carpetgui.gui.model.RuleEditResult;
-import io.github.piscescup.fabricmc.carpetgui.gui.model.RulePage;
-import io.github.piscescup.fabricmc.carpetgui.gui.model.RuleSource;
-import io.github.piscescup.fabricmc.carpetgui.gui.model.RuleView;
+import io.github.piscescup.fabricmc.carpetgui.gui.pages.RulePage;
+import io.github.piscescup.fabricmc.carpetgui.api.RuleSource;
+import io.github.piscescup.fabricmc.carpetgui.api.RuleView;
 import io.github.piscescup.fabricmc.carpetgui.gui.widget.NativeTextInput;
+import io.github.piscescup.fabricmc.carpetgui.gui.workspace.CarpetWorkspaceEditor;
+import io.github.piscescup.fabricmc.carpetgui.gui.workspace.CarpetWorkspaceGUI;
 import net.minecraft.client.gui.screens.Screen;
 //#if MC >= 260300
 import net.minecraft.client.input.CharacterEvent;
@@ -111,41 +113,41 @@ public final class CarpetWorkspaceScreen
         add(workspace);
     }
 
-    Component categoryLabel(RulePage page, String category) {
+    public Component categoryLabel(RulePage page, String category) {
         return workspace.categoryLabel(page, category);
     }
 
-    void rebuildWorkspace() {
+    public void rebuildWorkspace() {
         if (workspace != null) workspace.rebuildWorkspace();
     }
 
-    void requestListRefresh() {
+    public void requestListRefresh() {
         if (workspace != null) workspace.requestListRefresh();
     }
 
-    void feedback(RuleView rule, RuleEditResult result) {
+    public void feedback(RuleView rule, RuleEditResult result) {
         if (workspace != null) workspace.feedback(rule, result);
     }
 
-    void showFeedback(Component message) {
+    public void showFeedback(Component message) {
         if (workspace != null) workspace.showFeedback(message);
     }
 
-    void refreshRules() {
+    public void refreshRules() {
         editor.refresh();
     }
 
     int textWidth(String text) {
         return workspace != null
             ? workspace.textWidth(text)
-            : (int) Math.ceil(getClient().font.width(text) * WorkspaceStyle.TEXT_SCALE);
+            : (int) Math.ceil(getClient().font.width(text) * GUIStyle.TEXT_SCALE);
     }
 
-    void addWorkspacePane(TPanelElement panel, int x, int y, int width, int height) {
+    public void addWorkspacePane(TPanelElement panel, int x, int y, int width, int height) {
         workspace.addWorkspacePane(panel, x, y, width, height);
     }
 
-    void addWorkspaceElement(TElement element) {
+    public void addWorkspaceElement(TElement element) {
         workspace.addWorkspaceElement(element);
     }
     /**
@@ -185,14 +187,14 @@ public final class CarpetWorkspaceScreen
 //#if MC <= 12110
 //$$ package io.github.piscescup.fabricmc.carpetgui.gui.workspace;
 //$$
-//$$ import io.github.piscescup.fabricmc.carpetgui.gui.model.EditableRuleView;
-//$$ import io.github.piscescup.fabricmc.carpetgui.gui.model.PersistentRuleEditor;
+//$$ import io.github.piscescup.fabricmc.carpetgui.api.EditableRuleView;
+//$$ import io.github.piscescup.fabricmc.carpetgui.api.PersistentRuleEditor;
 //$$ import io.github.piscescup.fabricmc.carpetgui.gui.model.RuleEditResult;
-//$$ import io.github.piscescup.fabricmc.carpetgui.gui.model.RuleEditor;
-//$$ import io.github.piscescup.fabricmc.carpetgui.gui.model.RulePage;
+//$$ import io.github.piscescup.fabricmc.carpetgui.api.RuleEditor;
+//$$ import io.github.piscescup.fabricmc.carpetgui.gui.pages.RulePage;
 //$$ import io.github.piscescup.fabricmc.carpetgui.gui.model.RuleBrowserModel;
-//$$ import io.github.piscescup.fabricmc.carpetgui.gui.model.RuleSource;
-//$$ import io.github.piscescup.fabricmc.carpetgui.gui.model.RuleView;
+//$$ import io.github.piscescup.fabricmc.carpetgui.api.RuleSource;
+//$$ import io.github.piscescup.fabricmc.carpetgui.api.RuleView;
 //$$ import io.github.piscescup.fabricmc.carpetgui.store.FavoriteRules;
 //$$ import io.github.piscescup.fabricmc.carpetgui.store.RuleGroupStore;
 //$$ import io.github.thecsdev.tcdcommons.api.client.gui.TElement;
