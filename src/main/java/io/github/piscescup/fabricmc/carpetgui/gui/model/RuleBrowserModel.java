@@ -18,10 +18,9 @@
  * along with Carpet GUI.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-package io.github.piscescup.fabricmc.carpetgui.gui.workspace;
+package io.github.piscescup.fabricmc.carpetgui.gui.model;
 
-import io.github.piscescup.fabricmc.carpetgui.gui.model.RulePage;
-import io.github.piscescup.fabricmc.carpetgui.gui.model.RuleView;
+import io.github.piscescup.fabricmc.carpetgui.store.FavoriteRules;
 
 import java.math.BigDecimal;
 import java.text.Normalizer;
@@ -107,12 +106,10 @@ public final class RuleBrowserModel {
     public List<String> categories(RulePage page) {
         return page.rules()
             .stream()
-            .flatMap(rule -> rule.categories()
-                .isEmpty()
-                ? List.of(UNCATEGORIZED)
-                .stream()
-                : rule.categories()
-                    .stream())
+            .flatMap(rule -> rule.categories().isEmpty()
+                ? List.of(UNCATEGORIZED).stream()
+                : rule.categories().stream()
+            )
             .distinct()
             .sorted()
             .toList();
@@ -140,7 +137,7 @@ public final class RuleBrowserModel {
         return groups(rules(page));
     }
 
-    List<Group> groups(List<RuleView> filteredRules) {
+    public List<Group> groups(List<RuleView> filteredRules) {
         if (category.equals(FAVORITES)) {
             List<RuleView> rules = filteredRules;
             return rules.isEmpty() ? List.of() : List.of(new Group(FAVORITES, rules));

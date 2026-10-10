@@ -19,7 +19,7 @@
  */
 
 //#if MC >= 12111
-package io.github.piscescup.fabricmc.carpetgui.gui.workspace;
+package io.github.piscescup.fabricmc.carpetgui.store;
 
 import com.mojang.blaze3d.platform.NativeImage;
 import io.github.piscescup.fabricmc.carpetgui.References;
@@ -41,14 +41,16 @@ import static io.github.piscescup.fabricmc.carpetgui.References.LOGGER;
 /**
  * Loads original installed-mod icons, with per-screen ownership and explicit GPU cleanup.
  */
-final class ModIconStore
+public final class ModIconStore
     implements AutoCloseable
 {
     private static final AtomicLong NEXT_ID = new AtomicLong();
+    public static final ModIconStore INSTANCE = new ModIconStore();
+
     private final long storeId = NEXT_ID.incrementAndGet();
     private final Map<String, Optional<Identifier>> textures = new LinkedHashMap<>();
 
-    Optional<Identifier> icon(String modId) {
+    public Optional<Identifier> icon(String modId) {
         return textures.computeIfAbsent(modId, this::load);
     }
 

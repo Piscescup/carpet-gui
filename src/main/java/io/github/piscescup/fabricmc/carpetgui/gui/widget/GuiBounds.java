@@ -18,7 +18,7 @@
  * along with Carpet GUI.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-package io.github.piscescup.fabricmc.carpetgui.gui.layout;
+package io.github.piscescup.fabricmc.carpetgui.gui.widget;
 
 /**
  * Explicit x/y/width/height geometry, rather than Minecraft's ambiguous four-int overload.

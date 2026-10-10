@@ -34,9 +34,11 @@ public final class WorkspaceIcon extends TTextureElement {
         TIME("filter_unit_time.png");
 
         private final Identifier texture;
+
         Kind(String filename) {
             texture = References.fromPath("textures/gui/icons/" + filename);
         }
+
         public Identifier texture() { return texture; }
     }
 

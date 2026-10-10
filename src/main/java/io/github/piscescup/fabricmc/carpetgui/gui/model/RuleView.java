@@ -43,7 +43,9 @@ public interface RuleView {
     String defaultValue();
 
     /** Effective startup value supplied by the current server configuration, when available. */
-    default Optional<String> configuredValue() { return Optional.empty(); }
+    default Optional<String> configuredValue() {
+        return Optional.empty();
+    }
 
     /** Whether this rule is explicitly present in the current world's Carpet configuration. */
     default boolean explicitlyConfigured() { return false; }

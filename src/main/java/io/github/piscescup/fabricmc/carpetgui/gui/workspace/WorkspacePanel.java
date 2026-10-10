@@ -32,7 +32,7 @@ class WorkspacePanel extends TPanelElement.Paintable {
     private TElement scrollExtent;
 
     WorkspacePanel(int padding) {
-        super(WorkspaceStyle.PANEL, WorkspaceStyle.BORDER, WorkspaceStyle.BORDER);
+        super(WorkspaceStyle.PANEL_COLOR, WorkspaceStyle.BORDER_COLOR, WorkspaceStyle.BORDER_COLOR);
         this.padding = padding;
         // Layouts already include their own insets. TPanelElement otherwise snaps the
         // children's bounding box to scrollPadding on the first wheel event, moving

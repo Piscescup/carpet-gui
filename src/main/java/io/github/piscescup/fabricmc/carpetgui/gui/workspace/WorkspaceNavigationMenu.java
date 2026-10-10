@@ -27,6 +27,7 @@ import com.thecsdev.commonmc.api.client.gui.ctxmenu.TContextMenu;
 import com.thecsdev.commonmc.api.client.gui.render.TGuiGraphics;
 import com.thecsdev.commonmc.api.client.gui.widget.TScrollBarWidget;
 import io.github.piscescup.fabricmc.carpetgui.gui.render.PopupStyle;
+import io.github.piscescup.fabricmc.carpetgui.gui.widget.button.Button;
 import net.minecraft.network.chat.Component;
 
 import java.util.List;
@@ -96,7 +97,7 @@ final class WorkspaceNavigationMenu extends TContextMenu {
         PopupStyle.background(graphics, bounds.x, bounds.y, bounds.width, bounds.height);
     }
 
-    private final class NavigationItem extends WorkspaceStyle.Button {
+    private final class NavigationItem extends Button {
         NavigationItem(Entry entry) {
             super(entry.title(), () -> {
                 WorkspaceNavigationMenu.this.remove();

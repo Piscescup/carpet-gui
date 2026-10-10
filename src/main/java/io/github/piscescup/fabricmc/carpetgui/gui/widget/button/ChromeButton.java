@@ -18,27 +18,37 @@
  * along with Carpet GUI.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-package io.github.piscescup.fabricmc.carpetgui.gui.model;
+//#if MC >= 12111
+package io.github.piscescup.fabricmc.carpetgui.gui.widget.button;
 
+import com.thecsdev.commonmc.api.client.gui.render.TGuiGraphics;
 import net.minecraft.network.chat.Component;
 
 /**
- * Queued is explicitly not an acknowledgement that the server accepted the change.
+ *
+ * @author REN YuanTong
+ * @since 1.0.0
  */
-public record RuleEditResult(boolean accepted, boolean queued, Component message) {
-    public static RuleEditResult queuedRequest() {
-        return new RuleEditResult(true, true, Component.translatable("carpet-gui.edit.queued"));
+public class ChromeButton extends Button {
+    private boolean selected;
+
+    public ChromeButton(Component text, Runnable action) {
+        super(text, action);
     }
 
-    public static RuleEditResult queuedRequest(Component message) {
-        return new RuleEditResult(true, true, message);
+    @Override
+    public void setSelected(boolean value) {
+        super.setSelected(value);
+        selected = value;
     }
 
-    public static RuleEditResult applied() {
-        return new RuleEditResult(true, false, Component.translatable("carpet-gui.edit.applied"));
-    }
-
-    public static RuleEditResult rejected(Component message) {
-        return new RuleEditResult(false, false, message);
+    @Override
+    public void renderCallback(TGuiGraphics graphics) {
+        var bounds = getBounds();
+        if (selected || isHoveredOrFocused()) {
+            graphics.fillColor(bounds.x, bounds.y, bounds.width, bounds.height, selected ? 0xFF414345 : 0xA0454545);
+        }
+        if (selected) graphics.fillColor(bounds.x, bounds.endY - 1, bounds.width, 1, 0xFF4288B8);
     }
 }
+//#endif

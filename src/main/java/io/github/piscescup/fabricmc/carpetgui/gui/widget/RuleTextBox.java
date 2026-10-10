@@ -24,7 +24,6 @@ package io.github.piscescup.fabricmc.carpetgui.gui.widget;
 import com.mojang.blaze3d.platform.InputConstants;
 import io.github.piscescup.fabricmc.carpetgui.gui.model.EditableRuleView;
 import io.github.piscescup.fabricmc.carpetgui.gui.model.RuleEditResult;
-import io.github.piscescup.fabricmc.carpetgui.gui.layout.GuiBounds;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.input.KeyEvent;

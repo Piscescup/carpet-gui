@@ -30,6 +30,11 @@ import io.github.piscescup.fabricmc.carpetgui.gui.model.PersistentRuleEditor;
 import io.github.piscescup.fabricmc.carpetgui.gui.model.RuleEditResult;
 import io.github.piscescup.fabricmc.carpetgui.gui.model.RuleEditor;
 import io.github.piscescup.fabricmc.carpetgui.gui.model.RuleView;
+import io.github.piscescup.fabricmc.carpetgui.gui.widget.button.Button;
+import io.github.piscescup.fabricmc.carpetgui.gui.widget.NativeTextInput;
+import io.github.piscescup.fabricmc.carpetgui.gui.widget.button.FavoriteButton;
+import io.github.piscescup.fabricmc.carpetgui.gui.widget.icons.RuleActionIcon;
+import io.github.piscescup.fabricmc.carpetgui.store.FavoriteRules;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 
@@ -59,10 +64,10 @@ final class WorkspaceRuleRow
     private TElement valueControl;
     private NativeTextInput text;
     private WorkspaceStyle.Dropdown<String> choices;
-    private WorkspaceStyle.Button valueButton;
-    private WorkspaceStyle.RuleActionIcon reset;
-    private WorkspaceStyle.RuleActionIcon saveDefault;
-    private WorkspaceStyle.FavoriteButton favorite;
+    private Button valueButton;
+    private RuleActionIcon reset;
+    private RuleActionIcon saveDefault;
+    private FavoriteButton favorite;
     private String observed;
     private String lastAttempt;
     private boolean dirty;
@@ -85,7 +90,7 @@ final class WorkspaceRuleRow
     }
 
     WorkspaceRuleRow(String modId, RuleView rule, Consumer<RuleEditResult> feedback, Consumer<String> discardDrafts) {
-        this(modId, rule, feedback, discardDrafts, () -> WorkspaceStyle.TEXT, rule::description, false);
+        this(modId, rule, feedback, discardDrafts, () -> WorkspaceStyle.TEXT_COLOR, rule::description, false);
     }
 
     WorkspaceRuleRow(String modId, RuleView rule, Consumer<RuleEditResult> feedback, Consumer<String> discardDrafts,
@@ -130,7 +135,7 @@ final class WorkspaceRuleRow
             .set(false, WorkspaceRuleRow.class);
         description = WorkspaceStyle.label(
             this, detailText.get(), bounds.x + 5, bounds.y + 14,
-            valueX - bounds.x - 10, 9, WorkspaceStyle.MUTED
+            valueX - bounds.x - 10, 9, WorkspaceStyle.MUTED_COLOR
         );
         description.wrapTextProperty()
             .set(false, WorkspaceRuleRow.class);
@@ -138,7 +143,7 @@ final class WorkspaceRuleRow
             .set(WorkspaceStyle.SMALL_TEXT_SCALE, WorkspaceRuleRow.class);
 
         if (editor != null && editor.inputKind() == RuleEditor.InputKind.BOOLEAN) {
-            valueButton = new WorkspaceStyle.Button(
+            valueButton = new Button(
                 valueLabel(rule.value()),
                 () -> submit(Boolean.toString(!Boolean.parseBoolean(rule.value())))
             );
@@ -168,7 +173,7 @@ final class WorkspaceRuleRow
             );
             valueControl = text;
         } else {
-            valueButton = new WorkspaceStyle.Button(
+            valueButton = new Button(
                 valueLabel(rule.value()), () -> {
             }
             );
@@ -178,7 +183,7 @@ final class WorkspaceRuleRow
         valueControl.tooltipProperty()
             .set(ignored -> tooltip(), WorkspaceRuleRow.class);
         add(valueControl);
-        reset = new WorkspaceStyle.RuleActionIcon(false, () -> false, () -> {
+        reset = new RuleActionIcon(false, () -> false, () -> {
             discardDrafts.accept(rule.stateId());
             submit(rule.defaultValue());
         }
@@ -188,14 +193,14 @@ final class WorkspaceRuleRow
             .set(ignored -> tooltip(), WorkspaceRuleRow.class);
         add(reset);
         if (persistent) {
-            saveDefault = new WorkspaceStyle.RuleActionIcon(true,
+            saveDefault = new RuleActionIcon(true,
                 () -> ((PersistentRuleEditor) ((EditableRuleView) rule).editor()).isSavedDefault(draftValue()), this::saveDefault);
             saveDefault.setBounds(saveX, bounds.y + 2, saveWidth, WorkspaceStyle.CONTROL_HEIGHT);
             saveDefault.tooltipProperty()
                 .set(ignored -> TTooltip.of(Component.translatable("carpet-gui.set_default_hint")), WorkspaceRuleRow.class);
             add(saveDefault);
         }
-        favorite = new WorkspaceStyle.FavoriteButton(
+        favorite = new FavoriteButton(
             () -> FavoriteRules.contains(rule.stateId()),
             () -> {
                 FavoriteRules.toggle(rule.stateId());
@@ -417,8 +422,8 @@ final class WorkspaceRuleRow
     @Override
     public void renderCallback(TGuiGraphics graphics) {
         var bounds = getBounds();
-        graphics.fillColor(bounds.x, bounds.y, bounds.width, bounds.height, WorkspaceStyle.RULE_BACKGROUND);
-        graphics.drawOutlineIn(bounds.x, bounds.y, bounds.width, bounds.height, WorkspaceStyle.BORDER);
+        graphics.fillColor(bounds.x, bounds.y, bounds.width, bounds.height, WorkspaceStyle.RULE_BACKGROUND_COLOR);
+        graphics.drawOutlineIn(bounds.x, bounds.y, bounds.width, bounds.height, WorkspaceStyle.BORDER_COLOR);
         if (coloredStatus) graphics.fillColor(bounds.x + 1, bounds.y + 1, 3, Math.max(0, bounds.height - 2), statusColor.getAsInt());
     }
 
@@ -426,7 +431,7 @@ final class WorkspaceRuleRow
     public void postRenderCallback(TGuiGraphics graphics) {
         if (isHoveredOrFocused() || findChild(TElement::isHoveredOrFocused, true).isPresent()) {
             var bounds = getBounds();
-            graphics.drawOutlineIn(bounds.x, bounds.y, bounds.width, bounds.height, WorkspaceStyle.FOCUS);
+            graphics.drawOutlineIn(bounds.x, bounds.y, bounds.width, bounds.height, WorkspaceStyle.FOCUS_COLOR);
         }
     }
 }

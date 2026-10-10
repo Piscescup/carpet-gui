@@ -18,7 +18,7 @@
  * along with Carpet GUI.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-package io.github.piscescup.fabricmc.carpetgui.gui.workspace;
+package io.github.piscescup.fabricmc.carpetgui.store;
 
 import net.fabricmc.loader.api.FabricLoader;
 
@@ -34,19 +34,19 @@ import java.util.Set;
 import static io.github.piscescup.fabricmc.carpetgui.References.LOGGER;
 
 /** Client-local persistent favorites, keyed by a rule's stable state ID. */
-final class FavoriteRules {
+public final class FavoriteRules {
     private static final Set<String> RULE_IDS = new LinkedHashSet<>();
     private static boolean loaded;
 
     private FavoriteRules() {
     }
 
-    static synchronized boolean contains(String ruleId) {
+    public static synchronized boolean contains(String ruleId) {
         load();
         return RULE_IDS.contains(ruleId);
     }
 
-    static synchronized boolean toggle(String ruleId) {
+    public static synchronized boolean toggle(String ruleId) {
         load();
         boolean favorite;
         if (RULE_IDS.remove(ruleId)) {
@@ -59,7 +59,7 @@ final class FavoriteRules {
         return favorite;
     }
 
-    private static void load() {
+    public static void load() {
         if (loaded) return;
         loaded = true;
         Path file = file();
@@ -74,7 +74,7 @@ final class FavoriteRules {
         }
     }
 
-    private static void save() {
+    public static void save() {
         Path file = file();
         Path temporary = file.resolveSibling(file.getFileName() + ".tmp");
         try {
@@ -90,7 +90,7 @@ final class FavoriteRules {
         }
     }
 
-    private static Path file() {
+    public static Path file() {
         return FabricLoader.getInstance().getConfigDir().resolve("carpet-gui").resolve("favorites.txt");
     }
 }
