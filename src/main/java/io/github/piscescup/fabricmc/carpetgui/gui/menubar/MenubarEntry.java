@@ -18,43 +18,31 @@
  * along with Carpet GUI.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-//#if MC >= 260000
-package io.github.piscescup.fabricmc.carpetgui.gui;
+//#if MC >= 12111
+package io.github.piscescup.fabricmc.carpetgui.gui.menubar;
 
-import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.client.gui.screens.Screen;
+import com.thecsdev.commonmc.api.client.gui.ctxmenu.TContextMenu;
+import com.thecsdev.commonmc.api.client.gui.widget.TDropdownWidget;
+import io.github.piscescup.fabricmc.carpetgui.gui.workspace.CarpetWorkspaceEditor;
+import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
+import org.jetbrains.annotations.NotNull;
+import org.jspecify.annotations.NonNull;
 
 /**
- * Shared non-pausing, transparent-world configuration screen navigation.
+ *
+ * @author REN YuanTong
+ * @since 1.0.0
  */
-public abstract class AbstractConfigScreen
-    extends Screen
-{
-    private final Screen parent;
+public abstract class MenubarEntry implements TDropdownWidget.Entry {
 
-    protected AbstractConfigScreen(Screen parent, Component title) {
-        super(title);
-        this.parent = parent;
-    }
-
+    @NonNull
     @Override
-    public void extractBackground(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
-        graphics.fill(0, 0, width, height, 0xA0000000);
-    }
+    public abstract Component getDisplayName();
 
-    @Override
-    public void onClose() {
-        //#if MC >= 260200
-        minecraft.gui.setScreen(parent);
-        //#else
-        //$$ minecraft.setScreen(parent);
-        //#endif
-    }
-
-    @Override
-    public boolean isPauseScreen() {
-        return false;
-    }
+    @NonNull
+    public abstract TContextMenu createContextMenu(
+        @NotNull Minecraft client, @NotNull CarpetWorkspaceEditor editor
+    );
 }
 //#endif

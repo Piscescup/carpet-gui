@@ -18,21 +18,28 @@
  * along with Carpet GUI.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-package io.github.piscescup.fabricmc.carpetgui.gui.model;
+package io.github.piscescup.fabricmc.carpetgui.util;
+
+import net.minecraft.network.chat.Component;
+import org.jetbrains.annotations.Contract;
+import org.jspecify.annotations.NonNull;
+
 
 /**
- * Shared by an individual [+]/[-] toggle and bulk expansion actions.
+ *
+ * @author REN YuanTong
+ * @since
  */
-public interface Expandable {
-    boolean isExpanded();
+public final class Msg {
+    private Msg() {}
 
-    void setExpanded(boolean expanded);
-
-    default void toggle() {
-        setExpanded(!isExpanded());
+    @NonNull
+    @Contract(value = "_ -> new", pure = true)
+    public static Component tr(String key) {
+        return Component.translatable("carpet-gui.workspace." + key);
     }
 
-    static void setAll(Iterable<? extends Expandable> sections, boolean expanded) {
-        for (Expandable section : sections) section.setExpanded(expanded);
+    public static Component tr(String key, Object... args) {
+        return Component.translatable(key, args);
     }
 }

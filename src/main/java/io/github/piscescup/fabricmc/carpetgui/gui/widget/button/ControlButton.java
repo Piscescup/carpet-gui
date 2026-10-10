@@ -18,27 +18,33 @@
  * along with Carpet GUI.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-package io.github.piscescup.fabricmc.carpetgui.gui.model;
+//#if MC >= 12111
+package io.github.piscescup.fabricmc.carpetgui.gui.widget.button;
 
+import com.thecsdev.commonmc.api.client.gui.widget.TButtonWidget;
 import net.minecraft.network.chat.Component;
 
+import static io.github.piscescup.fabricmc.carpetgui.gui.workspace.WorkspaceStyle.TEXT_SCALE;
+
 /**
- * Queued is explicitly not an acknowledgement that the server accepted the change.
+ *
+ * @author REN YuanTong
+ * @since 1.0.0
  */
-public record RuleEditResult(boolean accepted, boolean queued, Component message) {
-    public static RuleEditResult queuedRequest() {
-        return new RuleEditResult(true, true, Component.translatable("carpet-gui.edit.queued"));
-    }
-
-    public static RuleEditResult queuedRequest(Component message) {
-        return new RuleEditResult(true, true, message);
-    }
-
-    public static RuleEditResult applied() {
-        return new RuleEditResult(true, false, Component.translatable("carpet-gui.edit.applied"));
-    }
-
-    public static RuleEditResult rejected(Component message) {
-        return new RuleEditResult(false, false, message);
+public final class ControlButton extends TButtonWidget {
+    public ControlButton(Component text, Runnable action) {
+        getLabel().setText(text);
+        getLabel().hoverableProperty()
+            .set(false, ControlButton.class);
+        getLabel().textScaleProperty()
+            .set(TEXT_SCALE, ControlButton.class);
+        //#if MC >= 260000
+        getLabel().dropShadowProperty()
+            .set(false, ControlButton.class);
+        //#endif
+        getLabel().wrapTextProperty()
+            .set(false, ControlButton.class);
+        eClicked.addListener(ignored -> action.run());
     }
 }
+//#endif

@@ -5,6 +5,8 @@ build/
 out/
 classes/
 
+lib
+
 # eclipse
 
 *.launch

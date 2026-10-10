@@ -18,15 +18,32 @@
  * along with Carpet GUI.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-package io.github.piscescup.fabricmc.carpetgui.gui.layout;
+//#if MC >= 12111
+package io.github.piscescup.fabricmc.carpetgui.gui.widget.button;
 
-import net.minecraft.client.gui.components.AbstractWidget;
+import com.thecsdev.commonmc.api.client.gui.render.TGuiGraphics;
+import net.minecraft.network.chat.Component;
 
-public final class GuiLayout {
-    private GuiLayout() {}
+import static io.github.piscescup.fabricmc.carpetgui.gui.workspace.WorkspaceStyle.FOCUS_COLOR;
 
-    public static void place(AbstractWidget widget, GuiBounds bounds) {
-        widget.setPosition(bounds.left(), bounds.top());
-        widget.setSize(bounds.width(), bounds.height());
+/**
+ *
+ * @author REN YuanTong
+ * @since 1.0.0
+ */
+public class IconButton extends Button {
+    public IconButton(Runnable action) {
+        super(Component.empty(), action);
+    }
+
+    @Override
+    public void renderCallback(TGuiGraphics graphics) {
+        super.renderCallback(graphics);
+        var bounds = getBounds();
+        graphics.drawOutlineIn(
+            bounds.x, bounds.y, bounds.width, bounds.height, isHoveredOrFocused() ?
+                FOCUS_COLOR : 0xFF707070
+        );
     }
 }
+//#endif

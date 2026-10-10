@@ -21,50 +21,25 @@
 //#if MC >= 12111
 package io.github.piscescup.fabricmc.carpetgui.gui.workspace;
 
-import com.thecsdev.common.util.enumerations.CompassDirection;
 import com.thecsdev.commonmc.api.client.gui.TElement;
-import com.thecsdev.commonmc.api.client.gui.ctxmenu.TContextMenu;
-import com.thecsdev.commonmc.api.client.gui.label.TLabelElement;
-import com.thecsdev.commonmc.api.client.gui.misc.TTextureElement;
 import com.thecsdev.commonmc.api.client.gui.panel.TPanelElement;
-import com.thecsdev.commonmc.api.client.gui.render.TGuiGraphics;
 import com.thecsdev.commonmc.api.client.gui.screen.ILastScreenProvider;
 import com.thecsdev.commonmc.api.client.gui.screen.TScreenPlus;
 import com.thecsdev.commonmc.api.client.gui.screen.TScreenWrapper;
-import com.thecsdev.commonmc.api.client.gui.tooltip.TTooltip;
-import com.thecsdev.commonmc.api.client.gui.util.TInputContext;
-import com.thecsdev.commonmc.api.client.gui.widget.TClickableWidget;
-import com.thecsdev.commonmc.api.client.gui.widget.TCheckboxWidget;
 import io.github.piscescup.fabricmc.carpetgui.gui.model.RuleEditResult;
 import io.github.piscescup.fabricmc.carpetgui.gui.model.RulePage;
 import io.github.piscescup.fabricmc.carpetgui.gui.model.RuleSource;
 import io.github.piscescup.fabricmc.carpetgui.gui.model.RuleView;
-import io.github.piscescup.fabricmc.carpetgui.network.ClientRuleConfigurations;
-import net.fabricmc.loader.api.FabricLoader;
-import net.minecraft.ChatFormatting;
+import io.github.piscescup.fabricmc.carpetgui.gui.widget.NativeTextInput;
 import net.minecraft.client.gui.screens.Screen;
 //#if MC >= 260300
 import net.minecraft.client.input.CharacterEvent;
 import net.minecraft.client.input.PreeditEvent;
 //#endif
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.Identifier;
 import org.jspecify.annotations.NonNull;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Locale;
-import java.util.Set;
-import java.util.function.Consumer;
-import java.util.function.Function;
-
-//#if MC >= 260300
-import static org.lwjgl.sdl.SDLMouse.SDL_BUTTON_LEFT;
-//#else
-//$$ import static org.lwjgl.glfw.GLFW.GLFW_MOUSE_BUTTON_LEFT;
-//#endif
+import java.util.Objects;
 
 /**
  * TCDCommons-powered Home/mod workspace. Editing and networking remain backend capabilities.
@@ -74,50 +49,21 @@ public final class CarpetWorkspaceScreen
     implements ILastScreenProvider
 {
     private final Screen parent;
-    private final RuleSource source;
-    private final List<? extends RulePage> sourcePages;
-    private final List<? extends RulePage> pages;
-    private final AllRulesPage allRules;
-    private final RuleGroupWorkspace ruleGroups;
-    private final Set<String> openedTabs = new LinkedHashSet<>();
-    private final ModIconStore icons = new ModIconStore();
-    private String selectedId;
-    private RuleListPanel ruleList;
-    private TLabelElement notice;
-    private TLabelElement counts;
-    private TLabelElement homeCounts;
-    private TLabelElement connectionStatus;
-    private TLabelElement homeHelpHeading;
-    private TLabelElement homeHelpBody;
-    private TPanelElement tabs;
-    private TCheckboxWidget modifiedFilter;
-    private TCheckboxWidget savedDefaultFilter;
-    private Component feedback = Component.empty();
-    private boolean listDirty;
-    private boolean resetScroll;
-    private int refreshTicks;
-    private long observedRevision;
-    private List<String> observedCategories = List.of();
+    private final CarpetWorkspaceEditor editor;
+    private CarpetWorkspaceGUI workspace;
 
     public CarpetWorkspaceScreen(Screen parent, RuleSource source, String initialPageId) {
+        this(parent, new CarpetWorkspaceEditor(source, initialPageId));
+    }
+
+    public CarpetWorkspaceScreen(Screen parent, CarpetWorkspaceEditor editor) {
         super(Component.translatable("carpet-gui.screen.title"));
         this.parent = parent;
-        this.source = source;
-        sourcePages = List.copyOf(source.pages());
-        allRules = new AllRulesPage(sourcePages);
-        var navigationPages = new ArrayList<RulePage>(sourcePages.size() + 1);
-        navigationPages.add(allRules);
-        navigationPages.addAll(sourcePages);
-        pages = List.copyOf(navigationPages);
-        ruleGroups = new RuleGroupWorkspace(this, sourcePages);
-        pages.forEach(page -> {
-            RuleBrowserModel.forPage(page.id())
-                .invalidateSearch();
-        });
-        openedTabs.add(AllRulesPage.ID);
-        selectedId = RuleGroupWorkspace.ID.equals(initialPageId) || pages.stream()
-            .anyMatch(page -> page.id().equals(initialPageId)) ? initialPageId : null;
-        if (selectedId != null) openedTabs.add(selectedId);
+        this.editor = Objects.requireNonNull(editor, "editor");
+    }
+
+    public CarpetWorkspaceEditor editor() {
+        return editor;
     }
 
     @Override
@@ -142,763 +88,66 @@ public final class CarpetWorkspaceScreen
 
     @Override
     protected void openCallback() {
-        source.refresh();
+        editor.refresh();
     }
 
     @Override
     protected void closeCallback() {
-        if (ruleList != null) ruleList.cancelDrafts();
-        ruleGroups.cancelDrafts();
-        icons.close();
+        if (workspace != null) workspace.closeResources();
     }
 
     @Override
     public void close() {
-        if (ruleList != null) ruleList.cancelDrafts();
-        ruleGroups.cancelDrafts();
+        if (workspace != null) workspace.cancelDrafts();
         focusedElementProperty().set(null, CarpetWorkspaceScreen.class);
         super.close();
     }
 
-    private RulePage page() {
-        return pages.stream()
-            .filter(page -> page.id()
-                .equals(selectedId))
-            .findFirst()
-            .orElse(null);
-    }
-
     @Override
     protected void initCallback() {
-        if (ruleList != null) ruleList.cancelDrafts();
-        ruleGroups.cancelDrafts();
-        ruleList = null;
-        notice = null;
-        counts = null;
-        homeCounts = null;
-        connectionStatus = null;
-        homeHelpHeading = null;
-        homeHelpBody = null;
-        modifiedFilter = null;
-        savedDefaultFilter = null;
-        var screen = getBounds();
-        int x = Math.max(4, screen.width / 40);
-        int width = Math.max(1, screen.width - 2 * x);
-        int bodyY = WorkspaceStyle.BODY_Y;
-        int bodyHeight = Math.max(1, screen.height - bodyY - 10);
-        var frame = new TPanelElement.Paintable(WorkspaceStyle.FRAME, WorkspaceStyle.BORDER, WorkspaceStyle.BORDER);
-        frame.setBounds(x, WorkspaceStyle.TAB_Y - 1, width, bodyY + bodyHeight - WorkspaceStyle.TAB_Y + 1);
-        frame.hoverableProperty().set(false, CarpetWorkspaceScreen.class);
-        frame.focusableProperty().set(false, CarpetWorkspaceScreen.class);
-        add(frame);
-        initMenus(x, width);
-        initTabs(x, width);
-        RulePage page = page();
-        if (RuleGroupWorkspace.ID.equals(selectedId)) {
-            ruleGroups.init(x, bodyY, width, bodyHeight);
-        } else if (page == null) {
-            initHome(x, bodyY, width, bodyHeight);
-        } else {
-            initRules(page, x, bodyY, width, bodyHeight);
-        }
-        notice = WorkspaceStyle.label(this, Component.empty(), x + 4, screen.height - 18, width - 8, 14, WorkspaceStyle.MUTED);
-        notice.wrapTextProperty()
-            .set(false, CarpetWorkspaceScreen.class);
-        observedRevision = source.revision();
-        listDirty = false;
-    }
-
-    private void initMenus(int x, int width) {
-        var bar = new WorkspaceStaticPanel(0x45000000, WorkspaceStyle.BORDER, WorkspaceStyle.BORDER);
-        bar.setBounds(x, 0, width, WorkspaceStyle.MENU_HEIGHT);
-        add(bar);
-        addMenu(
-            bar, x + 1, "file", List.of(
-                new MenuAction(tr("home"), () -> selectPage(null)),
-                new MenuAction(
-                    tr("refresh"), () -> {
-                    source.refresh();
-                    requestListRefresh();
-                }
-                )
-            )
-        );
-        var view = new WorkspaceStyle.ChromeButton(tr("view"), () -> showViewMenu(x + 37));
-        view.setBounds(x + 37, 1, 36, WorkspaceStyle.MENU_HEIGHT - 2);
-        bar.add(view);
-        addMenu(
-            bar, x + 73, "about", List.of(
-                new MenuAction(Component.literal("Carpet GUI " + version()), () -> selectPage(null)),
-                new MenuAction(tr("help"), () -> selectPage(null))
-            )
-        );
-    }
-
-    private void addMenu(TElement parent, int x, String name, List<MenuAction> actions) {
-        var button = new WorkspaceStyle.ChromeButton(tr(name), () -> showMenu(x, actions));
-        button.setBounds(x, 1, 36, WorkspaceStyle.MENU_HEIGHT - 2);
-        parent.add(button);
-    }
-
-    private void showViewMenu(int x) {
-        var entries = new ArrayList<WorkspaceNavigationMenu.Entry>();
-        entries.add(new WorkspaceNavigationMenu.Entry("carpet-gui", tr("home"), selectedId == null, !pages.isEmpty(), () -> selectPage(null)));
-        entries.add(new WorkspaceNavigationMenu.Entry("carpet-gui", tr("rule_groups"), RuleGroupWorkspace.ID.equals(selectedId), true,
-            () -> selectPage(RuleGroupWorkspace.ID)));
-        for (RulePage page : pages) {
-            entries.add(new WorkspaceNavigationMenu.Entry(iconId(page), page.title(), page.id().equals(selectedId), false, () -> selectPage(page.id())));
-        }
-        var menu = new WorkspaceNavigationMenu(entries, this::addIcon);
-        int widestTitle = entries.stream().mapToInt(entry -> (int) Math.ceil(getClient().font.width(entry.title()) * WorkspaceStyle.TEXT_SCALE)).max().orElse(0);
-        int width = Math.min(getBounds().width, Math.max(100, widestTitle + 38));
-        int height = Math.min(Math.max(1, getBounds().height - WorkspaceStyle.MENU_HEIGHT - 4), menu.contentHeight() + WorkspaceNavigationMenu.PADDING * 2);
-        menu.setBounds(Math.clamp(x, 0, Math.max(0, getBounds().width - width)), WorkspaceStyle.MENU_HEIGHT, width, height);
-        add(menu);
-        menu.clearAndInit();
-    }
-
-    private void showMenu(int x, List<MenuAction> actions) {
-        var entries = actions.stream().map(action -> new WorkspaceNavigationMenu.Entry(null, action.label(), false, false, action.action())).toList();
-        var menu = new WorkspaceNavigationMenu(entries, null);
-        int widestTitle = actions.stream().mapToInt(action -> (int) Math.ceil(getClient().font.width(action.label()) * WorkspaceStyle.TEXT_SCALE)).max().orElse(0);
-        int width = Math.min(getBounds().width, Math.max(100, widestTitle + 28));
-        int height = Math.min(Math.max(1, getBounds().height - WorkspaceStyle.MENU_HEIGHT - 4), menu.contentHeight() + WorkspaceNavigationMenu.PADDING * 2);
-        menu.setBounds(Math.clamp(x, 0, Math.max(0, getBounds().width - width)), WorkspaceStyle.MENU_HEIGHT, width, height);
-        add(menu);
-        menu.clearAndInit();
-    }
-
-    private void initTabs(int x, int width) {
-        tabs = new TPanelElement.Paintable(0x35000000, 0, 0) {
-            @Override
-            public boolean inputCallback(TInputContext.InputDiscoveryPhase phase, TInputContext context) {
-                if (phase == TInputContext.InputDiscoveryPhase.MAIN && context.getInputType() == TInputContext.InputType.MOUSE_SCROLL) {
-                    scroll((int) (context.getScrollY() * 35 - context.getScrollX() * 35), 0);
-                    return true;
-                }
-                return super.inputCallback(phase, context);
-            }
-        };
-        tabs.setBounds(x + 1, WorkspaceStyle.TAB_Y, Math.max(1, width - 2), WorkspaceStyle.TAB_HEIGHT);
-        add(tabs);
-        int tabX = x + 1;
-        tabX += addTab(tabX, null, "carpet-gui", tr("home"), 56, false);
-        if (openedTabs.contains(RuleGroupWorkspace.ID)) {
-            int featureWidth = Math.clamp((int) Math.ceil(getClient().font.width(tr("rule_groups")) * WorkspaceStyle.TEXT_SCALE) + 35, 90, 190);
-            tabX += addTab(tabX, RuleGroupWorkspace.ID, "carpet-gui", tr("rule_groups"), featureWidth, true);
-        }
-        for (RulePage page : pages) {
-            if (!openedTabs.contains(page.id())) continue;
-            int tabWidth = Math.clamp((int) Math.ceil(getClient().font.width(page.title()) * WorkspaceStyle.TEXT_SCALE) + 35, 80, 190);
-            tabX += addTab(tabX, page.id(), iconId(page), page.title(), tabWidth, true);
-        }
-        // Bring the selected tab into the viewport after resize/switch/reopening a closed tab.
-        for (TElement tab : tabs) {
-            if (tab instanceof WorkspaceTab workspaceTab && workspaceTab.selected) {
-                var bounds = tab.getBounds();
-                if (bounds.endX > x + width) {
-                    tabs.scroll(x + width - bounds.endX, 0);
-                } else if (bounds.x < x) tabs.scroll(x - bounds.x, 0);
-                break;
-            }
-        }
-    }
-
-    private int addTab(int x, String id, String iconId, Component title, int width, boolean closable) {
-        var tab = new WorkspaceTab(id, iconId, closable, title, () -> selectPage(id));
-        tab.setBounds(x, WorkspaceStyle.TAB_Y, width, WorkspaceStyle.TAB_HEIGHT);
-        tab.selected = id == null ? selectedId == null : id.equals(selectedId);
-        tab.setSelected(tab.selected);
-        tabs.add(tab);
-        return width;
-    }
-
-    private void initRules(RulePage page, int x, int y, int width, int height) {
-        RuleBrowserModel model = RuleBrowserModel.forPage(page.id());
-        observedCategories = model.categories(page);
-        if (!model.category.isEmpty() && !model.category.equals(RuleBrowserModel.FAVORITES)
-            && !model.categories(page).contains(model.category)) {
-            model.category = "";
-        }
-        int sidebarWidth = Math.clamp(width * 30 / 100, Math.min(120, width / 3), 235);
-        var sidebar = new WorkspacePanel(12);
-        addWorkspacePane(sidebar, x, y, sidebarWidth, height);
-        initSidebar(sidebar, page, model);
-        int listX = x + sidebarWidth;
-        int listWidth = Math.max(1, width - sidebarWidth);
-        counts = WorkspaceStyle.label(this, Component.empty(), listX + 10, y + 8, listWidth - 20, 18, WorkspaceStyle.MUTED);
-        ruleList = new RuleListPanel(this, page, model);
-        addWorkspacePane(ruleList, listX, y + 23, listWidth, Math.max(1, height - 23));
-    }
-
-    private void initSidebar(TPanelElement sidebar, RulePage page, RuleBrowserModel model) {
-        var bounds = sidebar.getBounds();
-        int x = bounds.x + 9, width = Math.max(1, bounds.width - 18), y = bounds.y + 9;
-        var filterTitle = WorkspaceStyle.label(sidebar, tr("filters"), x, y, width, 18, WorkspaceStyle.TEXT);
-        filterTitle.textAlignmentProperty().set(CompassDirection.CENTER, CarpetWorkspaceScreen.class);
-        y += 23;
-        List<WorkspaceStyle.Option<String>> categories = new ArrayList<>();
-        categories.add(new WorkspaceStyle.Option<>("", tr("all_categories")));
-        model.categories(page)
-            .forEach(category -> categories.add(new WorkspaceStyle.Option<>(category, categoryLabel(page, category))));
-        WorkspaceStyle.Option<String> lastCategory = categories.removeLast();
-        categories.add(new WorkspaceStyle.Option<>(lastCategory.value(), lastCategory.label(), true));
-        categories.add(new WorkspaceStyle.Option<>(RuleBrowserModel.FAVORITES, tr("favorites")));
-        addDropdown(
-            sidebar, x, y, width, categories, model.category, category -> {
-                model.category = category;
-                requestListRefresh(true);
-            }
-        );
-        y += 25;
-        var search = new NativeTextInput(
-            tr("search"), model.query, query -> {
-            model.query = query;
-            requestListRefresh(true);
-        },
-            () -> {
-            }, () -> focusedElementProperty().set(null, CarpetWorkspaceScreen.class)
-        );
-        search.setBounds(x, y, width, WorkspaceStyle.CONTROL_HEIGHT);
-        search.tooltipProperty()
-            .set(ignored -> TTooltip.of(tr("search_hint")), CarpetWorkspaceScreen.class);
-        sidebar.add(search);
-        y += 25;
-        if (!ClientRuleConfigurations.ready()) model.modifiedOnly = false;
-        modifiedFilter = new TCheckboxWidget(model.modifiedOnly);
-        modifiedFilter.setBounds(x, y, WorkspaceStyle.CONTROL_HEIGHT, WorkspaceStyle.CONTROL_HEIGHT);
-        modifiedFilter.enabledProperty().set(ClientRuleConfigurations.ready() && !page.isVanilla(), CarpetWorkspaceScreen.class);
-        modifiedFilter.checkedProperty().addChangeListener((property, previous, checked) -> {
-            model.modifiedOnly = checked;
-            requestListRefresh(true);
-        });
-        Component modifiedHint = tr("modified_only_hint").copy()
-            .append("\n")
-            .append(tr("modified_only_server_required").copy().withStyle(ChatFormatting.GOLD));
-        modifiedFilter.tooltipProperty().set(ignored -> TTooltip.of(modifiedHint), CarpetWorkspaceScreen.class);
-        sidebar.add(modifiedFilter);
-        var modifiedLabel = WorkspaceStyle.label(sidebar, tr("modified_only"), x + 27, y + 6, width - 27, 12, WorkspaceStyle.TEXT);
-        modifiedLabel.tooltipProperty().set(ignored -> TTooltip.of(modifiedHint), CarpetWorkspaceScreen.class);
-        y += 27;
-        var initialDifference = new TCheckboxWidget(model.initialDifferenceOnly);
-        initialDifference.setBounds(x, y, WorkspaceStyle.CONTROL_HEIGHT, WorkspaceStyle.CONTROL_HEIGHT);
-        initialDifference.checkedProperty().addChangeListener((property, previous, checked) -> {
-            model.initialDifferenceOnly = checked;
-            requestListRefresh(true);
-        });
-        initialDifference.tooltipProperty().set(
-            ignored -> TTooltip.of(tr("initial_difference_hint")), CarpetWorkspaceScreen.class
-        );
-        sidebar.add(initialDifference);
-        var initialDifferenceLabel = WorkspaceStyle.label(
-            sidebar, tr("initial_difference_only"), x + 27, y + 6, width - 27, 12, WorkspaceStyle.TEXT
-        );
-        initialDifferenceLabel.tooltipProperty().set(
-            ignored -> TTooltip.of(tr("initial_difference_hint")), CarpetWorkspaceScreen.class
-        );
-        y += 27;
-        if (!ClientRuleConfigurations.ready()) model.savedDefaultOnly = false;
-        savedDefaultFilter = new TCheckboxWidget(model.savedDefaultOnly);
-        savedDefaultFilter.setBounds(x, y, WorkspaceStyle.CONTROL_HEIGHT, WorkspaceStyle.CONTROL_HEIGHT);
-        savedDefaultFilter.enabledProperty().set(ClientRuleConfigurations.ready() && !page.isVanilla(), CarpetWorkspaceScreen.class);
-        savedDefaultFilter.checkedProperty().addChangeListener((property, previous, checked) -> {
-            model.savedDefaultOnly = checked;
-            requestListRefresh(true);
-        });
-        Component savedDefaultHint = tr("saved_default_only_hint").copy()
-            .append("\n")
-            .append(tr("modified_only_server_required").copy().withStyle(ChatFormatting.GOLD));
-        savedDefaultFilter.tooltipProperty().set(ignored -> TTooltip.of(savedDefaultHint), CarpetWorkspaceScreen.class);
-        sidebar.add(savedDefaultFilter);
-        var savedDefaultLabel = WorkspaceStyle.label(
-            sidebar, tr("saved_default_only"), x + 27, y + 6, width - 27, 12, WorkspaceStyle.TEXT
-        );
-        savedDefaultLabel.tooltipProperty().set(ignored -> TTooltip.of(savedDefaultHint), CarpetWorkspaceScreen.class);
-        y += 27;
-        addIconDropdown(
-            sidebar,
-            x,
-            y,
-            width,
-            WorkspaceIcon.Kind.SORT,
-            tr("sort"),
-            options(
-                RuleBrowserModel.Sort.values(),
-                value -> tr("sort." + value.name()
-                    .toLowerCase(Locale.ROOT))
-            ),
-            model.sort,
-            sort -> {
-                model.sort = sort;
-                requestListRefresh(true);
-            }
-        );
-        y += 27;
-        addIconDropdown(sidebar, x, y, width, WorkspaceIcon.Kind.GROUP, tr("grouping"),
-            options(RuleBrowserModel.Grouping.values(), value -> tr("grouping." + value.name().toLowerCase(Locale.ROOT))),
-            model.grouping, grouping -> {
-                model.grouping = grouping;
-                requestListRefresh(true);
-            });
-        y += 27;
-        addIconDropdown(
-            sidebar,
-            x,
-            y,
-            width,
-            WorkspaceIcon.Kind.DISTANCE,
-            tr("distance"),
-            options(
-                RuleBrowserModel.Distance.values(),
-                value -> tr("distance." + value.name()
-                    .toLowerCase(Locale.ROOT))
-            ),
-            model.distance,
-            value -> model.distance = value
-        );
-        y += 27;
-        addIconDropdown(
-            sidebar,
-            x,
-            y,
-            width,
-            WorkspaceIcon.Kind.TIME,
-            tr("time"),
-            options(
-                RuleBrowserModel.Time.values(),
-                value -> tr("time." + value.name()
-                    .toLowerCase(Locale.ROOT))
-            ),
-            model.time,
-            value -> model.time = value
-        );
-        y += 29;
-        int gap = 4;
-        int expandWidth = Math.max(1, (width - gap) / 2);
-        int collapseWidth = Math.max(1, width - gap - expandWidth);
-        var expand = new WorkspaceStyle.ControlButton(Component.translatable("carpet-gui.expand_all"), () -> expandAll(true));
-        expand.setBounds(x, y, expandWidth, WorkspaceStyle.CONTROL_HEIGHT);
-        expand.getLabel().textScaleProperty().set(Math.min(WorkspaceStyle.TEXT_SCALE,
-            Math.max(1, expandWidth - 8) / (double) Math.max(1, getClient().font.width(expand.getLabel().getText()))), CarpetWorkspaceScreen.class);
-        sidebar.add(expand);
-        var collapse = new WorkspaceStyle.ControlButton(Component.translatable("carpet-gui.collapse_all"), () -> expandAll(false));
-        collapse.setBounds(x + expandWidth + gap, y, collapseWidth, WorkspaceStyle.CONTROL_HEIGHT);
-        collapse.getLabel().textScaleProperty().set(Math.min(WorkspaceStyle.TEXT_SCALE,
-            Math.max(1, collapseWidth - 8) / (double) Math.max(1, getClient().font.width(collapse.getLabel().getText()))), CarpetWorkspaceScreen.class);
-        sidebar.add(collapse);
-    }
-
-    private void initHome(int x, int y, int width, int height) {
-        x += 12;
-        y += 12;
-        width = Math.max(1, width - 24);
-        height = Math.max(1, height - 24);
-        int leftWidth = Math.max(1, width * 2 / 3 - 5);
-        var left = new WorkspacePanel(8);
-        var right = new WorkspacePanel(12);
-        addWorkspacePane(left, x, y, leftWidth, height);
-        addWorkspacePane(right, x + leftWidth + 8, y, Math.max(1, width - leftWidth - 8), height);
-        int contentX = x + 12, contentWidth = Math.max(1, left.getBounds().width - 24), nextY = y + 12;
-        addHomeCard(left, contentX - 4, nextY - 4, contentWidth + 8, 40);
-        WorkspaceStyle.label(left, Component.literal("Carpet GUI"), contentX + 38, nextY + 1, contentWidth - 38, 13, WorkspaceStyle.ACCENT);
-        WorkspaceStyle.label(left, Component.literal(version()), contentX + 38, nextY + 18, contentWidth - 38, 13, WorkspaceStyle.MUTED);
-        addIcon(left, "carpet-gui", contentX, nextY, 30);
-        nextY += 51;
-        WorkspaceStyle.label(left, tr("quick_access"), contentX, nextY, contentWidth, 16, WorkspaceStyle.ACCENT);
-        nextY += 25;
-        int columns = Math.max(1, contentWidth / 42);
-        int quickAccessHeight = Math.max(1, (sourcePages.size() + columns - 1) / columns) * 42;
-        addHomeCard(left, contentX - 4, nextY - 4, contentWidth + 8, quickAccessHeight + 2);
-        for (int index = 0; index < sourcePages.size(); index++) {
-            RulePage page = sourcePages.get(index);
-            int tileX = contentX + (index % columns) * 42, tileY = nextY + (index / columns) * 42;
-            var tile = new WorkspaceStyle.IconButton(() -> selectPage(page.id())) {
-                @Override protected void initCallback() {
-                    super.initCallback();
-                    var bounds = getBounds();
-                    addIcon(this, page.id(), bounds.x + 5, bounds.y + 5, 26);
-                }
-            };
-            tile.setBounds(tileX, tileY, 36, 36);
-            tile.tooltipProperty()
-                .set(ignored -> TTooltip.of(page.title()), CarpetWorkspaceScreen.class);
-            left.add(tile);
-        }
-        nextY += quickAccessHeight + 16;
-        WorkspaceStyle.label(left, tr("features"), contentX, nextY, contentWidth, 16, WorkspaceStyle.ACCENT);
-        nextY += 22;
-        addHomeCard(left, contentX - 4, nextY - 4, contentWidth + 8, 46);
-        var groupsFeature = new WorkspaceStyle.Button(tr("rule_groups"), () -> selectPage(RuleGroupWorkspace.ID)) {
-            @Override protected void initCallback() {
-                super.initCallback();
-                var bounds = getBounds();
-                getLabel().setBounds(bounds.x + 39, bounds.y + 4, Math.max(1, bounds.width - 45), 14);
-                getLabel().textAlignmentProperty().set(CompassDirection.WEST, CarpetWorkspaceScreen.class);
-                var description = WorkspaceStyle.label(this, tr("rule_groups_home"), bounds.x + 39, bounds.y + 21,
-                    Math.max(1, bounds.width - 45), 11, WorkspaceStyle.MUTED);
-                description.textScaleProperty().set(WorkspaceStyle.SMALL_TEXT_SCALE, CarpetWorkspaceScreen.class);
-                description.wrapTextProperty().set(false, CarpetWorkspaceScreen.class);
-                addIcon(this, "carpet-gui", bounds.x + 6, bounds.y + 7, 27);
-            }
-        };
-        groupsFeature.setBounds(contentX, nextY, contentWidth, 38);
-        groupsFeature.tooltipProperty().set(ignored -> TTooltip.of(tr("rule_groups_home")), CarpetWorkspaceScreen.class);
-        left.add(groupsFeature);
-        nextY += 56;
-        WorkspaceStyle.label(left, tr("news"), contentX, nextY, contentWidth, 18, WorkspaceStyle.ACCENT);
-        // nextY = addParagraph(left, tr("news_intro"), contentX, nextY + 22, contentWidth, WorkspaceStyle.MUTED) + 16;
-        // nextY = addParagraph(left, tr("news_workspace"), contentX, nextY, contentWidth, WorkspaceStyle.TEXT) + 16;
-        // addParagraph(left, tr("news_addons"), contentX, nextY, contentWidth, WorkspaceStyle.TEXT);
-        var rightBounds = right.getBounds();
-        int rightX = rightBounds.x + 12, rightWidth = Math.max(1, rightBounds.width - 24), rightY = y + 12;
-        WorkspaceStyle.label(right, tr("overview"), rightX, rightY, rightWidth, 18, WorkspaceStyle.ACCENT);
-        homeCounts = WorkspaceStyle.label(
-            right, Component.translatable(
-                "carpet-gui.workspace.overview_counts",
-                sourcePages.stream()
-                    .filter(page -> !page.isVanilla())
-                    .count(),
-                sourcePages.stream()
-                    .mapToInt(page -> page.rules()
-                        .size())
-                    .sum()
-            ), rightX, rightY + 26, rightWidth, 40, WorkspaceStyle.TEXT
-        );
-        connectionStatus = WorkspaceStyle.label(
-            right,
-            tr(getClient().getConnection() == null ? "offline" : "connected"),
-            rightX,
-            rightY + 72,
-            rightWidth,
-            33,
-            WorkspaceStyle.MUTED
-        );
-        homeHelpHeading = WorkspaceStyle.label(right, tr("help"), rightX, rightY + 125, rightWidth, 18, WorkspaceStyle.ACCENT);
-        homeHelpBody = WorkspaceStyle.label(right, tr("help_body"), rightX, rightY + 152, rightWidth, 10, WorkspaceStyle.TEXT);
-        // Fit height within the available column, rather than expanding labels to their full text width.
-        homeCounts.wrapTextProperty().set(true, CarpetWorkspaceScreen.class);
-        connectionStatus.wrapTextProperty().set(true, CarpetWorkspaceScreen.class);
-        homeHelpBody.wrapTextProperty().set(true, CarpetWorkspaceScreen.class);
-        layoutHomeOverview();
-    }
-
-    private void addHomeCard(TElement parent, int x, int y, int width, int height) {
-        var card = new TPanelElement.Paintable(WorkspaceStyle.CARD, 0, 0);
-        card.setBounds(x, y, width, height);
-        card.hoverableProperty().set(false, CarpetWorkspaceScreen.class);
-        card.focusableProperty().set(false, CarpetWorkspaceScreen.class);
-        parent.add(card);
-    }
-
-    private void layoutHomeOverview() {
-        if (homeCounts == null || connectionStatus == null || homeHelpBody == null) return;
-        var bounds = homeCounts.getBounds();
-        int x = bounds.x, y = bounds.y, width = bounds.width;
-        homeCounts.setBoundsToFitText(x, y, width);
-        connectionStatus.setBoundsToFitText(x, homeCounts.getBounds().endY + 12, width);
-        homeHelpHeading.setBounds(x, connectionStatus.getBounds().endY + 24, width, 18);
-        homeHelpBody.setBoundsToFitText(x, homeHelpHeading.getBounds().endY + 9, width);
-    }
-
-    private int addParagraph(TElement parent, Component text, int x, int y, int width, int color) {
-        var label = WorkspaceStyle.label(parent, text, x, y, width, 10, color);
-        label.wrapTextProperty().set(true, CarpetWorkspaceScreen.class);
-        label.setBoundsToFitText(x, y, Math.max(1, width));
-        return label.getBounds().endY;
-    }
-
-    void addWorkspacePane(TPanelElement panel, int x, int y, int width, int height) {
-        // Child initialization is recursive and happens after this screen's init callback returns.
-        panel.setBounds(x, y, Math.max(1, width - 8), Math.max(1, height));
-        var pane = new WorkspaceScrollPane(panel);
-        pane.setBounds(x, y, width, height);
-        add(pane);
-    }
-
-    void addWorkspaceElement(TElement element) {
-        add(element);
-    }
-
-    private void addIcon(TElement parent, String modId, int x, int y, int size) {
-        Identifier icon = "minecraft".equals(modId)
-            ? Identifier.withDefaultNamespace("textures/block/grass_block_side.png")
-            : icons.icon(modId).orElse(null);
-        if (icon != null) {
-            var texture = new TTextureElement(icon);
-            // Mod icons are dynamic textures; the vanilla icon is a direct resource texture.
-            texture.modeProperty().set(TTextureElement.Mode.TEXTURE, CarpetWorkspaceScreen.class);
-            texture.setBounds(x, y, size, size);
-            parent.add(texture);
-        } else {
-            var fallback = WorkspaceStyle.label(
-                parent,
-                Component.literal(modId.substring(0, 1)
-                    .toUpperCase()),
-                x,
-                y,
-                size,
-                size,
-                WorkspaceStyle.ACCENT
-            );
-            fallback.textAlignmentProperty()
-                .set(CompassDirection.CENTER, CarpetWorkspaceScreen.class);
-            fallback.textScaleProperty()
-                .set(Math.max(1.0, size / 15.0), CarpetWorkspaceScreen.class);
-        }
-    }
-
-    private static String iconId(RulePage page) {
-        return page instanceof AllRulesPage ? "carpet-gui" : page.id();
-    }
-
-    private static <T> List<WorkspaceStyle.Option<T>> options(T[] values, Function<T, Component> label) {
-        return Arrays.stream(values)
-            .map(value -> new WorkspaceStyle.Option<>(value, label.apply(value)))
-            .toList();
-    }
-
-    private <T> void addDropdown(TElement parent, int x, int y, int width, List<WorkspaceStyle.Option<T>> options, T selected, Consumer<T> changed) {
-        addDropdown(parent, x, y, width, options, selected, changed, null);
-    }
-
-    private <T> void addIconDropdown(TElement parent, int x, int y, int width, WorkspaceIcon.Kind kind, Component hint,
-                                     List<WorkspaceStyle.Option<T>> options, T selected, Consumer<T> changed) {
-        var icon = new WorkspaceIcon(kind);
-        icon.setBounds(x, y, 20, 20);
-        icon.hoverableProperty().set(true, CarpetWorkspaceScreen.class);
-        icon.tooltipProperty().set(ignored -> TTooltip.of(hint), CarpetWorkspaceScreen.class);
-        parent.add(icon);
-        addDropdown(parent, x + 27, y, Math.max(1, width - 27), options, selected, changed, hint);
-    }
-
-    private <T> void addDropdown(TElement parent, int x, int y, int width, List<WorkspaceStyle.Option<T>> options,
-                                 T selected, Consumer<T> changed, Component hint) {
-        var initial = options.stream()
-            .filter(option -> option.value()
-                .equals(selected))
-            .findFirst()
-            .orElse(options.getFirst());
-        var dropdown = new WorkspaceStyle.Dropdown<>(initial);
-        dropdown.getEntries()
-            .addAll(options);
-        dropdown.setBounds(x, y, width, WorkspaceStyle.CONTROL_HEIGHT);
-        if (hint != null) dropdown.tooltipProperty().set(ignored -> TTooltip.of(hint), CarpetWorkspaceScreen.class);
-        dropdown.selectedEntryProperty()
-            .addChangeListener((property, previous, current) -> {
-                if (current != null) changed.accept(current.value());
-            });
-        parent.add(dropdown);
+        if (workspace != null) workspace.cancelDrafts();
+        workspace = new CarpetWorkspaceGUI(this, editor);
+        workspace.setBounds(getBounds());
+        add(workspace);
     }
 
     Component categoryLabel(RulePage page, String category) {
-        if (category.equals(RuleBrowserModel.ALL_RULES)) return Component.translatable("carpet-gui.tab.all");
-        if (category.equals(RuleBrowserModel.FAVORITES)) return tr("favorites");
-        return category.equals(RuleBrowserModel.UNCATEGORIZED) ? tr("uncategorized") : page.categoryLabel(category);
-    }
-
-    private void selectPage(String id) {
-        if (id != null) openedTabs.add(id);
-        selectedId = id;
-        feedback = Component.empty();
-        rebuildWorkspace();
+        return workspace.categoryLabel(page, category);
     }
 
     void rebuildWorkspace() {
-        if (ruleList != null) ruleList.cancelDrafts();
-        focusedElementProperty().set(null, CarpetWorkspaceScreen.class);
-        clearAndInit();
+        if (workspace != null) workspace.rebuildWorkspace();
     }
 
     void requestListRefresh() {
-        requestListRefresh(false);
-    }
-
-    private void requestListRefresh(boolean reset) {
-        listDirty = true;
-        resetScroll |= reset;
-    }
-
-    private void expandAll(boolean expanded) {
-        RulePage page = page();
-        if (page == null) return;
-        RuleBrowserModel.forPage(page.id())
-            .expandAll(page, expanded);
-        requestListRefresh();
+        if (workspace != null) workspace.requestListRefresh();
     }
 
     void feedback(RuleView rule, RuleEditResult result) {
-        feedback = rule.label()
-            .copy()
-            .append(": ")
-            .append(result.message());
+        if (workspace != null) workspace.feedback(rule, result);
     }
 
     void showFeedback(Component message) {
-        feedback = message;
+        if (workspace != null) workspace.showFeedback(message);
     }
 
     void refreshRules() {
-        source.refresh();
+        editor.refresh();
     }
 
     int textWidth(String text) {
-        return (int) Math.ceil(getClient().font.width(text) * WorkspaceStyle.TEXT_SCALE);
+        return workspace != null
+            ? workspace.textWidth(text)
+            : (int) Math.ceil(getClient().font.width(text) * WorkspaceStyle.TEXT_SCALE);
     }
 
-    @Override
-    protected void tickCallback() {
-        boolean poll = false;
-        if (++refreshTicks >= 20) {
-            refreshTicks = 0;
-            source.refresh();
-            poll = true;
-        }
-        boolean sourceChanged = observedRevision != source.revision();
-        if (poll || sourceChanged) allRules.refreshIndex();
-        RulePage page = page();
-        if (modifiedFilter != null) {
-            boolean configurationAvailable = ClientRuleConfigurations.ready() && page != null && !page.isVanilla();
-            modifiedFilter.enabledProperty().set(configurationAvailable, CarpetWorkspaceScreen.class);
-            if (!configurationAvailable && page != null && RuleBrowserModel.forPage(page.id()).modifiedOnly) {
-                RuleBrowserModel.forPage(page.id()).modifiedOnly = false;
-                modifiedFilter.checkedProperty().set(false, CarpetWorkspaceScreen.class);
-                requestListRefresh(true);
-            }
-            if (savedDefaultFilter != null) {
-                savedDefaultFilter.enabledProperty().set(configurationAvailable, CarpetWorkspaceScreen.class);
-                if (!configurationAvailable && page != null && RuleBrowserModel.forPage(page.id()).savedDefaultOnly) {
-                    RuleBrowserModel.forPage(page.id()).savedDefaultOnly = false;
-                    savedDefaultFilter.checkedProperty().set(false, CarpetWorkspaceScreen.class);
-                    requestListRefresh(true);
-                }
-            }
-        }
-        if (ruleList != null) {
-            // Live refresh is independent of the backend's observer support.
-            ruleList.refreshRows();
-            boolean overlay = findChild(element -> element instanceof TContextMenu, false).isPresent();
-            boolean dragging = findChild(
-                element -> element instanceof TClickableWidget clickable && clickable.pressedProperty()
-                    .getZ(), true
-            ).isPresent();
-            boolean textFocused = focusedElementProperty().get() instanceof NativeTextInput;
-            if ((poll || sourceChanged) && page != null && !observedCategories.equals(RuleBrowserModel.forPage(page.id()).categories(page))
-                && !ruleList.interacting() && !textFocused && !overlay && !dragging) {
-                rebuildWorkspace();
-                return;
-            }
-            if ((listDirty || sourceChanged || refreshTicks % 5 == 0 && ruleList.changed()) && !ruleList.interacting() && !overlay && !dragging) {
-                ruleList.rebuild(resetScroll);
-                listDirty = false;
-                resetScroll = false;
-                observedRevision = source.revision();
-            }
-            if (counts != null && page != null) {
-                counts.setText(ruleList.countsText());
-            }
-        }
-        if (RuleGroupWorkspace.ID.equals(selectedId)) ruleGroups.tick();
-        if (notice != null) {
-            notice.setText(feedback);
-        }
-        if (homeCounts != null) homeCounts.setText(Component.translatable("carpet-gui.workspace.overview_counts",
-            sourcePages.stream().filter(candidate -> !candidate.isVanilla()).count(),
-            sourcePages.stream().mapToInt(candidate -> candidate.rules().size()).sum()));
-        if (connectionStatus != null) connectionStatus.setText(tr(getClient().getConnection() == null ? "offline" : "connected"));
-        layoutHomeOverview();
+    void addWorkspacePane(TPanelElement panel, int x, int y, int width, int height) {
+        workspace.addWorkspacePane(panel, x, y, width, height);
     }
 
-    @Override
-    public boolean inputCallback(TInputContext.InputDiscoveryPhase phase, TInputContext context) {
-        if (phase == TInputContext.InputDiscoveryPhase.BROADCAST && context.getInputType() == TInputContext.InputType.MOUSE_PRESS &&
-            //#if MC >= 260300
-            context.getMouseButton() == SDL_BUTTON_LEFT && ruleList != null &&
-            //#else
-            //$$ context.getMouseButton() == GLFW_MOUSE_BUTTON_LEFT && ruleList != null &&
-            //#endif
-            findChild(element -> element instanceof TContextMenu, false).isEmpty()) {
-            ruleList.beforeMousePress(context.getMouseX(), context.getMouseY());
-        }
-        if (phase == TInputContext.InputDiscoveryPhase.BROADCAST && context.getInputType() == TInputContext.InputType.MOUSE_PRESS &&
-            //#if MC >= 260300
-            context.getMouseButton() == SDL_BUTTON_LEFT && RuleGroupWorkspace.ID.equals(selectedId) &&
-            //#else
-            //$$ context.getMouseButton() == GLFW_MOUSE_BUTTON_LEFT && RuleGroupWorkspace.ID.equals(selectedId) &&
-            //#endif
-            findChild(element -> element instanceof TContextMenu, false).isEmpty()) {
-            ruleGroups.beforeMousePress(context.getMouseX(), context.getMouseY());
-        }
-        return super.inputCallback(phase, context);
+    void addWorkspaceElement(TElement element) {
+        workspace.addWorkspaceElement(element);
     }
-
-    @Override
-    public void renderCallback(TGuiGraphics graphics) {
-        var bounds = getBounds();
-        graphics.fillColor(0, 0, bounds.width, bounds.height, WorkspaceStyle.BACKDROP);
-    }
-
-    private static Component tr(String key) {
-        return Component.translatable("carpet-gui.workspace." + key);
-    }
-
-    private static String version() {
-        return FabricLoader.getInstance()
-            .getModContainer("carpet-gui")
-            .map(mod -> mod.getMetadata()
-                .getVersion()
-                .getFriendlyString())
-            .orElse("?");
-    }
-
-    private record MenuAction(
-        Component label,
-        Runnable action
-    )
-    {
-    }
-
-    private final class WorkspaceTab
-        extends WorkspaceStyle.ChromeButton
-    {
-        private final String id;
-        private final String iconId;
-        private final boolean closable;
-        private boolean selected;
-
-        WorkspaceTab(String id, String iconId, boolean closable, Component title, Runnable action) {
-            super(title, action);
-            this.id = id;
-            this.iconId = iconId;
-            this.closable = closable;
-        }
-
-        @Override
-        protected void initCallback() {
-            super.initCallback();
-            var bounds = getBounds();
-            getLabel().setBounds(bounds.x + 19, bounds.y + 2, Math.max(1, bounds.width - (closable ? 34 : 23)), bounds.height - 4);
-            getLabel().textAlignmentProperty()
-                .set(CompassDirection.WEST, WorkspaceTab.class);
-            addIcon(this, iconId, bounds.x + 5, bounds.y + 4, 10);
-            if (closable) {
-                var close = new WorkspaceStyle.ChromeButton(
-                    Component.literal("×"), () -> {
-                        openedTabs.remove(id);
-                        if (id.equals(selectedId)) {
-                            selectedId = null;
-                        }
-                        rebuildWorkspace();
-                    }
-                );
-                close.setBounds(bounds.endX - 15, bounds.y + 2, 13, bounds.height - 4);
-                close.tooltipProperty()
-                    .set(ignored -> TTooltip.of(tr("close_tab")), WorkspaceTab.class);
-                add(close);
-            }
-            tooltipProperty().set(ignored -> TTooltip.of(getLabel().getText()), WorkspaceTab.class);
-        }
-    }
-
     /**
      * TCD's stock wrapper does not forward native Unicode/IME events to its custom tree.
      */
@@ -941,16 +190,19 @@ public final class CarpetWorkspaceScreen
 //$$ import io.github.piscescup.fabricmc.carpetgui.gui.model.RuleEditResult;
 //$$ import io.github.piscescup.fabricmc.carpetgui.gui.model.RuleEditor;
 //$$ import io.github.piscescup.fabricmc.carpetgui.gui.model.RulePage;
+//$$ import io.github.piscescup.fabricmc.carpetgui.gui.model.RuleBrowserModel;
 //$$ import io.github.piscescup.fabricmc.carpetgui.gui.model.RuleSource;
 //$$ import io.github.piscescup.fabricmc.carpetgui.gui.model.RuleView;
+//$$ import io.github.piscescup.fabricmc.carpetgui.store.FavoriteRules;
+//$$ import io.github.piscescup.fabricmc.carpetgui.store.RuleGroupStore;
 //$$ import io.github.thecsdev.tcdcommons.api.client.gui.TElement;
 //$$ import io.github.thecsdev.tcdcommons.api.client.gui.TParentElement;
 //$$ import io.github.thecsdev.tcdcommons.api.client.gui.other.TLabelElement;
 //$$ import io.github.thecsdev.tcdcommons.api.client.gui.other.TTextureElement;
-//$$ import io.github.thecsdev.tcdcommons.api.client.gui.layout.UILayout;
 //$$ import io.github.thecsdev.tcdcommons.api.client.gui.panel.TPanelElement;
 //$$ import io.github.thecsdev.tcdcommons.api.client.gui.panel.menu.TContextMenuPanel;
 //$$ import io.github.thecsdev.tcdcommons.api.client.gui.panel.menu.TMenuBarPanel;
+//$$ import io.github.thecsdev.tcdcommons.api.client.gui.panel.menu.item.TMenuPanelButton;
 //$$ import io.github.thecsdev.tcdcommons.api.client.gui.screen.TScreenPlus;
 //$$ import io.github.thecsdev.tcdcommons.api.client.gui.util.TDrawContext;
 //$$ import io.github.thecsdev.tcdcommons.api.client.gui.util.UITexture;
@@ -978,13 +230,8 @@ public final class CarpetWorkspaceScreen
 //$$ import java.util.Set;
 //$$ import java.util.function.Consumer;
 //$$
-//$$ /**
-//$$  * TCDCommons 3/4 implementation of the same workspace used by TCDCommons 5.
-//$$  * Layout, navigation, filters and rule rows deliberately follow the modern
-//$$  * workspace; only the widget API differs.
-//$$  */
 //$$ public final class CarpetWorkspaceScreen extends TScreenPlus {
-//$$     private static final String GROUPS_ID = "carpet-gui:rule-groups";
+//$$     private static final String GROUPS_ID = CarpetWorkspaceEditor.RULE_GROUPS_PAGE_ID;
 //$$     private static final int MENU_HEIGHT = 17;
 //$$     private static final int TAB_Y = 20;
 //$$     private static final int TAB_HEIGHT = 18;
@@ -999,15 +246,13 @@ public final class CarpetWorkspaceScreen
 //$$     private static final int BACKDROP = 0x14000000;
 //$$     private static final int FRAME = 0x30000000;
 //$$     private static final int BORDER = 0xAA151515;
+//$$     private static final int POPUP_BACKGROUND = 0xFF383838;
+//$$     private static final int POPUP_BORDER = 0xFF707070;
+//$$     private static final int POPUP_HOVER = 0xFF505050;
 //$$
 //$$     private final Screen parent;
-//$$     private final RuleSource source;
-//$$     private final List<? extends RulePage> sourcePages;
-//$$     private final List<? extends RulePage> pages;
-//$$     private final AllRulesPage allRules;
-//$$     private final Set<String> openedTabs = new LinkedHashSet<>();
+//$$     private final CarpetWorkspaceEditor editor;
 //$$     private final Map<TTextFieldWidget, RuleView> valueEditors = new LinkedHashMap<>();
-//$$     private String selectedId;
 //$$     private String selectedGroupId;
 //$$     private String observedSearch = "";
 //$$     private String observedGroupSearch = "";
@@ -1025,26 +270,23 @@ public final class CarpetWorkspaceScreen
 //$$     private long observedRevision;
 //$$
 //$$     public CarpetWorkspaceScreen(Screen parent, RuleSource source, String initialPageId) {
+//$$         this(parent, new CarpetWorkspaceEditor(source, initialPageId));
+//$$     }
+//$$
+//$$     public CarpetWorkspaceScreen(Screen parent, CarpetWorkspaceEditor editor) {
 //$$         super(Component.translatable("carpet-gui.screen.title"));
 //$$         this.parent = parent;
-//$$         this.source = Objects.requireNonNull(source);
-//$$         sourcePages = List.copyOf(source.pages());
-//$$         allRules = new AllRulesPage(sourcePages);
-//$$         List<RulePage> navigation = new ArrayList<>();
-//$$         navigation.add(allRules);
-//$$         navigation.addAll(sourcePages);
-//$$         pages = List.copyOf(navigation);
-//$$         selectedId = GROUPS_ID.equals(initialPageId) || pages.stream().anyMatch(page -> page.id().equals(initialPageId))
-//$$             ? initialPageId : null;
-//$$         openedTabs.add(allRules.id());
-//$$         if (selectedId != null) openedTabs.add(selectedId);
-//$$         pages.forEach(page -> RuleBrowserModel.forPage(page.id()).invalidateSearch());
+//$$         this.editor = Objects.requireNonNull(editor, "editor");
+//$$     }
+//$$
+//$$     public CarpetWorkspaceEditor editor() {
+//$$         return editor;
 //$$     }
 //$$
 //$$     @Override
 //$$     protected void init() {
 //$$         valueEditors.clear();
-//$$         allRules.refreshIndex();
+//$$         editor.refreshAllRules();
 //$$         int x = Math.max(4, getWidth() / 40);
 //$$         int width = Math.max(1, getWidth() - x * 2);
 //$$         int bodyHeight = Math.max(1, getHeight() - BODY_Y - 10);
@@ -1054,13 +296,13 @@ public final class CarpetWorkspaceScreen
 //$$         initMenus(x, width);
 //$$         initTabs(x, width);
 //$$
-//$$         if (GROUPS_ID.equals(selectedId)) initGroups(x, BODY_Y, width, bodyHeight);
+//$$         if (editor.isSelected(GROUPS_ID)) initGroups(x, BODY_Y, width, bodyHeight);
 //$$         else if (page() == null) initHome(x, BODY_Y, width, bodyHeight);
 //$$         else initRules(page(), x, BODY_Y, width, bodyHeight);
 //$$
 //$$         notice = label(this, feedback, x + 4, getHeight() - 18, width - 8, 14, MUTED, HorizontalAlignment.LEFT);
-//$$         observedRevision = source.revision();
-//$$         source.refresh();
+//$$         observedRevision = editor.revision();
+//$$         this.editor.refresh();
 //$$     }
 //$$
 //$$     private void initMenus(int x, int width) {
@@ -1071,8 +313,8 @@ public final class CarpetWorkspaceScreen
 //$$         menu.addButton(tr("file"), file -> openMenu(file, List.of(
 //$$             new LegacyMenuAction(tr("home"), () -> selectPage(null)),
 //$$             new LegacyMenuAction(tr("refresh"), () -> {
-//$$                 source.refresh();
-//$$                 allRules.refreshIndex();
+//$$                 editor.refresh();
+//$$                 editor.refreshAllRules();
 //$$                 rebuild();
 //$$             })
 //$$         )));
@@ -1085,19 +327,27 @@ public final class CarpetWorkspaceScreen
 //$$
 //$$     private void openViewMenu(TElement target) {
 //$$         List<LegacyMenuAction> actions = new ArrayList<>();
-//$$         actions.add(new LegacyMenuAction(tr("home"), () -> selectPage(null)));
-//$$         actions.add(new LegacyMenuAction(tr("rule_groups"), () -> selectPage(GROUPS_ID)));
-//$$         pages.forEach(page -> actions.add(new LegacyMenuAction(page.title(), () -> selectPage(page.id()))));
+//$$         UITexture carpetIcon = rootTexture("icon.png");
+//$$         actions.add(new LegacyMenuAction(tr("home"), () -> selectPage(null), carpetIcon,
+//$$             editor.isSelected(null), !editor.pages().isEmpty()));
+//$$         actions.add(new LegacyMenuAction(tr("rule_groups"), () -> selectPage(GROUPS_ID), carpetIcon,
+//$$             editor.isSelected(GROUPS_ID), true));
+//$$         editor.pages().forEach(page -> actions.add(new LegacyMenuAction(page.title(), () -> selectPage(page.id()),
+//$$             pageIcon(page), editor.isSelected(page.id()), false)));
 //$$         openMenu(target, actions);
 //$$     }
 //$$
 //$$     private void openMenu(TElement target, List<LegacyMenuAction> actions) {
-//$$         TContextMenuPanel popup = new TContextMenuPanel(target);
+//$$         TContextMenuPanel popup = new LegacyPopup(target);
 //$$         for (LegacyMenuAction action : actions) {
-//$$             popup.addButton(action.label(), ignored -> {
+//$$             LegacyMenuItem item = new LegacyMenuItem(action.label(), action.icon(), action.selected());
+//$$             item.setSize(Math.max(100, textWidth(action.label()) + (action.icon() == null ? 28 : 38)), 22);
+//$$             item.setOnClick(ignored -> {
 //$$                 popup.close();
 //$$                 action.action().run();
 //$$             });
+//$$             popup.addChild(item, true);
+//$$             if (action.separatorAfter()) popup.addSeparator();
 //$$         }
 //$$         popup.open();
 //$$     }
@@ -1106,28 +356,32 @@ public final class CarpetWorkspaceScreen
 //$$         TPanelElement tabs = panel(x + 1, TAB_Y, width - 2, TAB_HEIGHT, 0x35000000);
 //$$         addChild(tabs);
 //$$         int tabX = x + 1;
-//$$         int homeWidth = Math.max(64, textWidth(tr("home")) + 24);
-//$$         add(tabs, button(tabX, TAB_Y, homeWidth, TAB_HEIGHT, Component.literal("    ").append(tr("home")), () -> selectPage(null), selectedId == null)
-//$$             .align(HorizontalAlignment.LEFT));
-//$$         add(tabs, new TTextureElement(tabX + 4, TAB_Y + 2, 14, 14, rootTexture("icon.png")));
+//$$         int homeWidth = 56;
+//$$         LegacyChromeButton home = chromeButton(tabX, TAB_Y, homeWidth, TAB_HEIGHT,
+//$$             Component.literal("   ").append(tr("home")), () -> selectPage(null), editor.isSelected(null))
+//$$             .align(HorizontalAlignment.LEFT);
+//$$         add(tabs, home);
+//$$         add(home, new TTextureElement(tabX + 5, TAB_Y + 4, 10, 10, rootTexture("icon.png")));
 //$$         tabX += homeWidth;
-//$$         List<String> tabIds = new ArrayList<>(openedTabs);
+//$$         List<String> tabIds = new ArrayList<>(editor.openedTabs());
 //$$         tabIds.sort((left, right) -> Boolean.compare(!GROUPS_ID.equals(left), !GROUPS_ID.equals(right)));
 //$$         for (String id : tabIds) {
 //$$             Component title;
 //$$             if (GROUPS_ID.equals(id)) title = tr("rule_groups");
 //$$             else {
-//$$                 RulePage candidate = pages.stream().filter(value -> value.id().equals(id)).findFirst().orElse(null);
+//$$                 RulePage candidate = editor.pages().stream().filter(value -> value.id().equals(id)).findFirst().orElse(null);
 //$$                 if (candidate == null) continue;
 //$$                 title = candidate.title();
 //$$             }
-//$$             int tabWidth = Math.min(190, Math.max(92, textWidth(title) + 39));
+//$$             int tabWidth = Math.min(190, Math.max(GROUPS_ID.equals(id) ? 90 : 80, textWidth(title) + 35));
 //$$             if (tabX + tabWidth > x + width - 2) break;
-//$$             int pageWidth = tabWidth - 19;
-//$$             add(tabs, button(tabX, TAB_Y, pageWidth, TAB_HEIGHT, Component.literal("    ").append(title), () -> selectPage(id), Objects.equals(selectedId, id))
-//$$                 .align(HorizontalAlignment.LEFT));
-//$$             add(tabs, new TTextureElement(tabX + 4, TAB_Y + 2, 14, 14, rootTexture("icon.png")));
-//$$             add(tabs, button(tabX + pageWidth, TAB_Y, 19, TAB_HEIGHT, Component.literal("×"), () -> closeTab(id), false));
+//$$             LegacyChromeButton tab = chromeButton(tabX, TAB_Y, tabWidth, TAB_HEIGHT,
+//$$                 Component.literal("   ").append(title), () -> selectPage(id), editor.isSelected(id))
+//$$                 .align(HorizontalAlignment.LEFT);
+//$$             add(tabs, tab);
+//$$             add(tab, new TTextureElement(tabX + 5, TAB_Y + 4, 10, 10, rootTexture("icon.png")));
+//$$             add(tab, chromeButton(tabX + tabWidth - 15, TAB_Y + 2, 13, TAB_HEIGHT - 4,
+//$$                 Component.literal("×"), () -> closeTab(id), false));
 //$$             tabX += tabWidth;
 //$$         }
 //$$     }
@@ -1151,18 +405,18 @@ public final class CarpetWorkspaceScreen
 //$$         add(header, new TTextureElement(cardX, top + 12, 30, 30, rootTexture("icon.png")));
 //$$         label(header, Component.literal("Carpet GUI"), cardX + 38, top + 13, cardWidth - 42, 13, ACCENT, HorizontalAlignment.LEFT);
 //$$         label(header, Component.literal(version()), cardX + 38, top + 29, cardWidth - 42, 12, MUTED, HorizontalAlignment.LEFT);
-//$$         int ruleCount = sourcePages.stream().mapToInt(page -> page.rules().size()).sum();
+//$$         int ruleCount = editor.sourcePages().stream().mapToInt(page -> page.rules().size()).sum();
 //$$
 //$$         int quickY = top + 61;
 //$$         label(left, tr("quick_access"), cardX, quickY, cardWidth, 18, ACCENT, HorizontalAlignment.LEFT);
 //$$         quickY += 25;
 //$$         int columns = Math.max(1, cardWidth / 42);
-//$$         int quickRows = Math.max(1, (sourcePages.size() + columns - 1) / columns);
+//$$         int quickRows = Math.max(1, (editor.sourcePages().size() + columns - 1) / columns);
 //$$         int quickAccessHeight = quickRows * 42;
 //$$         TPanelElement quickCard = panel(cardX - 4, quickY - 4, cardWidth + 8, quickAccessHeight + 2, 0x24000000);
 //$$         add(left, quickCard);
-//$$         for (int index = 0; index < sourcePages.size(); index++) {
-//$$             RulePage page = sourcePages.get(index);
+//$$         for (int index = 0; index < editor.sourcePages().size(); index++) {
+//$$             RulePage page = editor.sourcePages().get(index);
 //$$             int tileX = cardX + index % columns * 42;
 //$$             int tileY = quickY + index / columns * 42;
 //$$             add(quickCard, button(tileX, tileY, 36, 36, Component.empty(), () -> selectPage(page.id()), false)
@@ -1171,11 +425,12 @@ public final class CarpetWorkspaceScreen
 //$$
 //$$         int featuresY = quickY + quickAccessHeight + 16;
 //$$         label(left, tr("features"), cardX, featuresY, cardWidth, 18, ACCENT, HorizontalAlignment.LEFT);
-//$$         TPanelElement featureCard = panel(cardX - 4, featuresY + 18, cardWidth + 8, 46, 0x24000000);
+//$$         LegacyFeatureCard featureCard = new LegacyFeatureCard(
+//$$             cardX - 4, featuresY + 18, cardWidth + 8, 46, () -> selectPage(GROUPS_ID));
 //$$         add(left, featureCard);
 //$$         add(featureCard, new TTextureElement(cardX + 2, featuresY + 25, 27, 27, rootTexture("icon.png")));
-//$$         add(featureCard, button(cardX + 36, featuresY + 22, cardWidth - 40, 18, tr("rule_groups"),
-//$$             () -> selectPage(GROUPS_ID), false).align(HorizontalAlignment.LEFT));
+//$$         label(featureCard, tr("rule_groups"), cardX + 36, featuresY + 22, cardWidth - 40, 18,
+//$$             TEXT, HorizontalAlignment.LEFT);
 //$$         label(featureCard, tr("rule_groups_home"), cardX + 36, featuresY + 40, cardWidth - 42, 14,
 //$$             MUTED, HorizontalAlignment.LEFT);
 //$$         if (featuresY + 82 < top + height - 12) {
@@ -1185,26 +440,28 @@ public final class CarpetWorkspaceScreen
 //$$         int rightX = right.getX() + 12;
 //$$         int rightInnerWidth = rightWidth - 24;
 //$$         label(right, tr("overview"), rightX, top + 10, rightInnerWidth, 18, ACCENT, HorizontalAlignment.LEFT);
-//$$         label(right, Component.translatable("carpet-gui.workspace.overview_counts",
-//$$             sourcePages.stream().filter(candidate -> !candidate.isVanilla()).count(), ruleCount),
-//$$             rightX, top + 35, rightInnerWidth, 30, TEXT, HorizontalAlignment.LEFT);
-//$$         label(right, tr(Minecraft.getInstance().getConnection() == null ? "offline" : "connected"),
-//$$             rightX, top + 78, rightInnerWidth, 32, MUTED, HorizontalAlignment.LEFT);
-//$$         label(right, tr("help"), rightX, top + 124, rightInnerWidth, 18, ACCENT, HorizontalAlignment.LEFT);
-//$$         TPanelElement help = panel(rightX, top + 150, rightInnerWidth, Math.max(24, height - 224), 0);
-//$$         help.setOutlineColor(0);
-//$$         add(right, help);
-//$$         UILayout.initWrappedLines(help, tr("help_body"), MUTED);
+//$$         int rightY = addWrappedText(right, Component.translatable("carpet-gui.workspace.overview_counts",
+//$$             editor.sourcePages().stream().filter(candidate -> !candidate.isVanilla()).count(), ruleCount),
+//$$             rightX, top + 35, rightInnerWidth, TEXT);
+//$$         rightY = addWrappedText(right,
+//$$             tr(Minecraft.getInstance().getConnection() == null ? "offline" : "connected"),
+//$$             rightX, rightY + 12, rightInnerWidth, MUTED);
+//$$         label(right, tr("help"), rightX, rightY + 24, rightInnerWidth, 18, ACCENT, HorizontalAlignment.LEFT);
+//$$         addWrappedText(right, tr("help_body"), rightX, rightY + 51, rightInnerWidth, TEXT);
 //$$     }
 //$$
 //$$     private void initRules(RulePage page, int x, int y, int width, int height) {
 //$$         RuleBrowserModel model = RuleBrowserModel.forPage(page.id());
 //$$         int sidebarWidth = Math.clamp(width * 30 / 100, Math.min(120, width / 3), 235);
-//$$         TPanelElement sidebar = panel(x, y, sidebarWidth, height, PANEL);
+//$$         TPanelElement sidebar = panel(x, y, Math.max(1, sidebarWidth - 11), height, PANEL);
+//$$         sidebar.setScrollFlags(TPanelElement.SCROLL_VERTICAL);
+//$$         sidebar.setSmoothScroll(true);
+//$$         sidebar.setScrollPadding(6);
 //$$         addChild(sidebar);
+//$$         addChild(new LegacyScrollBar(x + sidebarWidth - 10, y, 8, height, sidebar));
 //$$
 //$$         int sx = x + 9;
-//$$         int sw = Math.max(1, sidebarWidth - 18);
+//$$         int sw = Math.max(1, sidebarWidth - 29);
 //$$         int sy = y + 9;
 //$$         label(sidebar, tr("filters"), sx, sy, sw, 18, TEXT, HorizontalAlignment.CENTER);
 //$$         sy += 23;
@@ -1269,15 +526,16 @@ public final class CarpetWorkspaceScreen
 //$$         sy += 27;
 //$$
 //$$         int half = Math.max(1, (sw - 4) / 2);
-//$$         add(sidebar, button(sx, sy, half, CONTROL_HEIGHT, Component.translatable("carpet-gui.expand_all"), () -> {
+//$$         add(sidebar, new LegacyControlButton(sx, sy, half, CONTROL_HEIGHT,
+//$$             Component.translatable("carpet-gui.expand_all"), () -> {
 //$$             model.expandAll(page, true);
 //$$             rebuildRuleRows();
-//$$         }, false));
-//$$         add(sidebar, button(sx + half + 4, sy, sw - half - 4, CONTROL_HEIGHT,
+//$$         }));
+//$$         add(sidebar, new LegacyControlButton(sx + half + 4, sy, sw - half - 4, CONTROL_HEIGHT,
 //$$             Component.translatable("carpet-gui.collapse_all"), () -> {
 //$$                 model.expandAll(page, false);
 //$$                 rebuildRuleRows();
-//$$             }, false));
+//$$             }));
 //$$
 //$$         int listX = x + sidebarWidth;
 //$$         int listWidth = Math.max(1, width - sidebarWidth);
@@ -1287,7 +545,7 @@ public final class CarpetWorkspaceScreen
 //$$         rulePanel.setSmoothScroll(true);
 //$$         rulePanel.setScrollPadding(6);
 //$$         addChild(rulePanel);
-//$$         addChild(new TScrollBarWidget(listX + listWidth - 10, y + 23, 8, Math.max(1, height - 23), rulePanel));
+//$$         addChild(new LegacyScrollBar(listX + listWidth - 10, y + 23, 8, Math.max(1, height - 23), rulePanel));
 //$$         rebuildRuleRows();
 //$$     }
 //$$
@@ -1308,10 +566,11 @@ public final class CarpetWorkspaceScreen
 //$$         addChild(right);
 //$$
 //$$         label(left, tr("rule_groups"), x + 9, y + 9, leftWidth - 18, 18, ACCENT, HorizontalAlignment.LEFT);
-//$$         add(left, button(x + 9, y + 34, leftWidth - 18, CONTROL_HEIGHT, tr(creatingGroup ? "cancel" : "new_group"), () -> {
+//$$         add(left, new LegacyControlButton(x + 9, y + 34, leftWidth - 18, CONTROL_HEIGHT,
+//$$             tr(creatingGroup ? "cancel" : "new_group"), () -> {
 //$$             creatingGroup = !creatingGroup;
 //$$             rebuild();
-//$$         }, false));
+//$$         }));
 //$$
 //$$         int gy = y + 61;
 //$$         if (creatingGroup) {
@@ -1323,7 +582,7 @@ public final class CarpetWorkspaceScreen
 //$$             groupTag.setPlaceholderText(tr("group_tag"));
 //$$             add(left, groupTag);
 //$$             gy += 24;
-//$$             add(left, button(x + 9, gy, leftWidth - 18, CONTROL_HEIGHT, tr("create_group"), () -> {
+//$$             add(left, new LegacyControlButton(x + 9, gy, leftWidth - 18, CONTROL_HEIGHT, tr("create_group"), () -> {
 //$$                 String name = groupName.getInput().strip();
 //$$                 if (name.isEmpty()) {
 //$$                     showFeedback(tr("group_name_required"));
@@ -1335,7 +594,7 @@ public final class CarpetWorkspaceScreen
 //$$                 creatingGroup = false;
 //$$                 showFeedback(Component.translatable("carpet-gui.workspace.group_created", name));
 //$$                 rebuild();
-//$$             }, false));
+//$$             }));
 //$$             gy += 29;
 //$$         }
 //$$         List<RuleGroupStore.Group> groups = RuleGroupStore.groups();
@@ -1348,14 +607,14 @@ public final class CarpetWorkspaceScreen
 //$$                     groupMode = LegacyGroupMode.VIEW;
 //$$                     rebuild();
 //$$                 }, selectedGroup));
-//$$             label(left, Component.literal(group.name().isBlank() ? group.id() : group.name()),
+//$$             label(left, fitText(Component.literal(group.name().isBlank() ? group.id() : group.name()), leftWidth - 32),
 //$$                 x + 16, gy + 3, leftWidth - 32, 12, selectedGroup ? ACCENT : TEXT, HorizontalAlignment.LEFT);
 //$$             String detail = (group.tag().isBlank() ? "" : group.tag() + " · ") + "r" + group.revision()
 //$$                 + (group.commitsAhead() > 0 ? " ↑" + group.commitsAhead() : " ✓");
 //$$             label(left, Component.literal(detail), x + 16, gy + 17, leftWidth - 32, 10, MUTED, HorizontalAlignment.LEFT);
 //$$             gy += ROW_HEIGHT + 3;
 //$$         }
-//$$         if (groups.isEmpty()) label(left, tr("no_groups"), x + 10, gy + 5, leftWidth - 20, 35, MUTED, HorizontalAlignment.LEFT);
+//$$         if (groups.isEmpty()) addWrappedText(left, tr("no_groups"), x + 10, gy + 5, leftWidth - 20, MUTED);
 //$$
 //$$         RuleGroupStore.Group selected = selectedGroupId == null ? null : RuleGroupStore.find(selectedGroupId);
 //$$         activeGroup = selected;
@@ -1411,7 +670,8 @@ public final class CarpetWorkspaceScreen
 //$$     }
 //$$
 //$$     private void initGroupRuleView(TPanelElement center, RuleGroupStore.Group group, int x, int y, int width) {
-//$$         label(center, Component.literal(group.name()), x, y + 8, Math.max(1, width - 105), 18, ACCENT, HorizontalAlignment.LEFT);
+//$$         label(center, fitText(Component.literal(group.name()), Math.max(1, width - 105)),
+//$$             x, y + 8, Math.max(1, width - 105), 18, ACCENT, HorizontalAlignment.LEFT);
 //$$         add(center, button(x + width - 96, y + 5, 96, CONTROL_HEIGHT, tr("manage_rules"), () -> {
 //$$             groupMode = LegacyGroupMode.MANAGE;
 //$$             rebuild();
@@ -1426,7 +686,7 @@ public final class CarpetWorkspaceScreen
 //$$             lineY, 90, 14, TEXT, HorizontalAlignment.LEFT);
 //$$         int rowY = lineY + 24;
 //$$         if (group.members().isEmpty()) {
-//$$             label(center, tr("empty_group"), x, rowY + 8, width, 35, MUTED, HorizontalAlignment.LEFT);
+//$$             addWrappedText(center, tr("empty_group"), x, rowY + 8, width, MUTED);
 //$$             add(center, button(x, rowY + 48, Math.min(150, width), CONTROL_HEIGHT, tr("add_group_rules"), () -> {
 //$$                 groupMode = LegacyGroupMode.MANAGE;
 //$$                 rebuild();
@@ -1462,7 +722,7 @@ public final class CarpetWorkspaceScreen
 //$$         groupCandidates.setScrollFlags(TPanelElement.SCROLL_VERTICAL);
 //$$         groupCandidates.setSmoothScroll(true);
 //$$         add(center, groupCandidates);
-//$$         add(center, new TScrollBarWidget(x + width - 8, y + 33, 8, Math.max(1, height - 42), groupCandidates));
+//$$         add(center, new LegacyScrollBar(x + width - 8, y + 33, 8, Math.max(1, height - 42), groupCandidates));
 //$$         rebuildGroupCandidates();
 //$$     }
 //$$
@@ -1608,7 +868,7 @@ public final class CarpetWorkspaceScreen
 //$$     }
 //$$
 //$$     private LegacyRuleRef ruleRef(String stateId) {
-//$$         for (RulePage page : sourcePages) {
+//$$         for (RulePage page : editor.sourcePages()) {
 //$$             for (RuleView rule : page.rules()) {
 //$$                 if (rule.stateId().equals(stateId)) return new LegacyRuleRef(page, rule);
 //$$             }
@@ -1623,14 +883,15 @@ public final class CarpetWorkspaceScreen
 //$$         int rx = groupCandidates.getX();
 //$$         int rw = groupCandidates.getWidth();
 //$$         int cy = groupCandidates.getY() + 4;
-//$$         for (RulePage page : sourcePages) {
+//$$         for (RulePage page : editor.sourcePages()) {
 //$$             for (RuleView rule : page.rules()) {
 //$$                 if (!needle.isEmpty() && rule.searchTerms().stream()
 //$$                     .map(term -> term.toLowerCase(Locale.ROOT))
 //$$                     .noneMatch(term -> term.contains(needle))) continue;
 //$$                 boolean member = activeGroup.members().contains(rule.stateId());
+//$$                 Component ruleLabel = Component.literal((member ? "− " : "+ ") + rule.label().getString());
 //$$                 add(groupCandidates, button(rx + 4, cy, rw - 8, CONTROL_HEIGHT,
-//$$                     Component.literal((member ? "− " : "+ ") + rule.label().getString()), () -> {
+//$$                     fitText(ruleLabel, Math.max(1, rw - 20)), () -> {
 //$$                         if (activeGroup.members().contains(rule.stateId())) RuleGroupStore.removeMember(activeGroup, rule.stateId());
 //$$                         else RuleGroupStore.addMember(activeGroup, rule.stateId());
 //$$                         rebuildGroupCandidates();
@@ -1669,14 +930,17 @@ public final class CarpetWorkspaceScreen
 //$$
 //$$         for (RuleBrowserModel.Group group : groups) {
 //$$             Component title = categoryLabel(page, group.category());
-//$$             add(rulePanel, button(x, y, width, 20,
-//$$                 Component.literal((model.expanded(group.category()) ? "▾ " : "▸ ") + title.getString()
-//$$                     + "  (" + group.rules().size() + ")"), () -> {
-//$$                     model.setExpanded(group.category(), !model.expanded(group.category()));
-//$$                     rebuildRuleRows();
-//$$                 }, false));
+//$$             boolean expanded = model.expanded(group.category());
+//$$             LegacyCategoryHeader header = new LegacyCategoryHeader(x, y, width, 20, () -> {
+//$$                 model.setExpanded(group.category(), !model.expanded(group.category()));
+//$$                 rebuildRuleRows();
+//$$             });
+//$$             add(rulePanel, header);
+//$$             label(header, title, x + 4, y, width - 34, 20, ACCENT, HorizontalAlignment.LEFT);
+//$$             label(header, Component.literal(expanded ? "[-]" : "[+]"),
+//$$                 x + width - 28, y, 24, 20, MUTED, HorizontalAlignment.RIGHT);
 //$$             y += 23;
-//$$             if (!model.expanded(group.category())) continue;
+//$$             if (!expanded) continue;
 //$$             for (RuleView rule : group.rules()) {
 //$$                 addRuleRow(rulePanel, page, rule, x, y, width);
 //$$                 y += ROW_HEIGHT + 2;
@@ -1698,9 +962,9 @@ public final class CarpetWorkspaceScreen
 //$$         int valueX = saveX - valueWidth - 4;
 //$$         int textWidth = Math.max(1, valueX - x - 8);
 //$$
-//$$         label(row, rule.label(), x + 5, y + 2, textWidth, 12,
+//$$         label(row, fitText(rule.label(), textWidth), x + 5, y + 2, textWidth, 12,
 //$$             rule.differsFromConfiguredValue() ? ACCENT : TEXT, HorizontalAlignment.LEFT);
-//$$         label(row, rule.description(), x + 5, y + 15, textWidth, 11, MUTED, HorizontalAlignment.LEFT);
+//$$         label(row, fitText(rule.description(), textWidth), x + 5, y + 15, textWidth, 11, MUTED, HorizontalAlignment.LEFT);
 //$$
 //$$         RuleEditor editor = rule instanceof EditableRuleView editable ? editable.editor() : null;
 //$$         if (editor != null && (editor.inputKind() == RuleEditor.InputKind.BOOLEAN
@@ -1713,7 +977,7 @@ public final class CarpetWorkspaceScreen
 //$$             List<LegacyOption<String>> valueOptions = values.stream()
 //$$                 .map(value -> new LegacyOption<>(value, ruleValueLabel(value)))
 //$$                 .toList();
-//$$             TSelectWidget<TSelectWidget.SimpleEntry> value = dropdown(valueX, y + 4, valueWidth, rule.value(), valueOptions,
+//$$             LegacyDropdown value = dropdown(valueX, y + 4, valueWidth, rule.value(), valueOptions,
 //$$                 selected -> submit(rule, editor, selected));
 //$$             value.setEnabled(editor.editable());
 //$$             add(row, value);
@@ -1754,7 +1018,7 @@ public final class CarpetWorkspaceScreen
 //$$         if (!editor.editable()) return;
 //$$         RuleEditResult result = editor.submit(value, completed -> showFeedback(completed.message()));
 //$$         feedback(rule, result);
-//$$         source.refresh();
+//$$         this.editor.refresh();
 //$$         rebuildRuleRows();
 //$$     }
 //$$
@@ -1769,33 +1033,31 @@ public final class CarpetWorkspaceScreen
 //$$     }
 //$$
 //$$     private RulePage page() {
-//$$         return pages.stream().filter(candidate -> candidate.id().equals(selectedId)).findFirst().orElse(null);
+//$$         return editor.selectedPage();
 //$$     }
 //$$
 //$$     private void selectPage(String id) {
-//$$         selectedId = id;
-//$$         if (id != null) openedTabs.add(id);
+//$$         editor.selectPage(id);
 //$$         feedback = Component.empty();
 //$$         rebuild();
 //$$     }
 //$$
 //$$     private void closeTab(String id) {
-//$$         openedTabs.remove(id);
-//$$         if (Objects.equals(selectedId, id)) selectedId = null;
+//$$         editor.closePage(id);
 //$$         feedback = Component.empty();
 //$$         rebuild();
 //$$     }
 //$$
 //$$     private void cyclePage() {
-//$$         if (GROUPS_ID.equals(selectedId)) {
+//$$         if (editor.isSelected(GROUPS_ID)) {
 //$$             selectPage(null);
 //$$             return;
 //$$         }
 //$$         RulePage current = page();
-//$$         if (current == null) selectPage(pages.isEmpty() ? GROUPS_ID : pages.getFirst().id());
+//$$         if (current == null) selectPage(editor.pages().isEmpty() ? GROUPS_ID : editor.pages().getFirst().id());
 //$$         else {
-//$$             int index = pages.indexOf(current);
-//$$             selectPage(index + 1 < pages.size() ? pages.get(index + 1).id() : GROUPS_ID);
+//$$             int index = editor.pages().indexOf(current);
+//$$             selectPage(index + 1 < editor.pages().size() ? editor.pages().get(index + 1).id() : GROUPS_ID);
 //$$         }
 //$$     }
 //$$
@@ -1830,10 +1092,10 @@ public final class CarpetWorkspaceScreen
 //$$         }
 //$$         if (++refreshTicks >= 20) {
 //$$             refreshTicks = 0;
-//$$             source.refresh();
-//$$             if (source.revision() != observedRevision && getFocusedElement() == null) {
-//$$                 observedRevision = source.revision();
-//$$                 allRules.refreshIndex();
+//$$             editor.refresh();
+//$$             if (editor.revision() != observedRevision && getFocusedElement() == null) {
+//$$                 observedRevision = editor.revision();
+//$$                 editor.refreshAllRules();
 //$$                 rebuildRuleRows();
 //$$             }
 //$$         }
@@ -1872,15 +1134,20 @@ public final class CarpetWorkspaceScreen
 //$$         return new LegacyButton(x, y, Math.max(1, width), Math.max(1, height), label, action, selected);
 //$$     }
 //$$
+//$$     private LegacyChromeButton chromeButton(int x, int y, int width, int height, Component text,
+//$$                                             Runnable action, boolean selected) {
+//$$         Component label = selected ? text.copy().withStyle(ChatFormatting.YELLOW) : text;
+//$$         return new LegacyChromeButton(x, y, Math.max(1, width), Math.max(1, height), label, action, selected);
+//$$     }
+//$$
 //$$     private LegacyButton iconButton(int x, int y, int width, int height, String icon,
 //$$                                     Runnable action, boolean selected) {
 //$$         return button(x, y, width, height, Component.empty(), action, selected).withIcon(icon);
 //$$     }
 //$$
-//$$     private <T> TSelectWidget<TSelectWidget.SimpleEntry> dropdown(int x, int y, int width, T selected,
-//$$                                                                    List<LegacyOption<T>> options, Consumer<T> changed) {
-//$$         TSelectWidget<TSelectWidget.SimpleEntry> select = new TSelectWidget<>(
-//$$             x, y, Math.max(1, width), CONTROL_HEIGHT);
+//$$     private <T> LegacyDropdown dropdown(int x, int y, int width, T selected,
+//$$                                         List<LegacyOption<T>> options, Consumer<T> changed) {
+//$$         LegacyDropdown select = new LegacyDropdown(x, y, Math.max(1, width), CONTROL_HEIGHT);
 //$$         Map<TSelectWidget.SimpleEntry, T> values = new LinkedHashMap<>();
 //$$         TSelectWidget.SimpleEntry selectedEntry = null;
 //$$         for (LegacyOption<T> option : options) {
@@ -1921,6 +1188,12 @@ public final class CarpetWorkspaceScreen
 //$$         return new UITexture(ResourceLocation.fromNamespaceAndPath("carpet-gui", path));
 //$$     }
 //$$
+//$$     private static UITexture pageIcon(RulePage page) {
+//$$         return "minecraft".equals(page.id())
+//$$             ? new UITexture(ResourceLocation.withDefaultNamespace("textures/block/grass_block_side.png"))
+//$$             : rootTexture("icon.png");
+//$$     }
+//$$
 //$$     private TLabelElement label(TParentElement parent, Component text, int x, int y, int width,
 //$$                                 int height, int color, HorizontalAlignment alignment) {
 //$$         TLabelElement label = new TLabelElement(x, y, Math.max(1, width), Math.max(1, height), text);
@@ -1955,6 +1228,33 @@ public final class CarpetWorkspaceScreen
 //$$
 //$$     private int textWidth(Component text) {
 //$$         return getTextRenderer().width(text);
+//$$     }
+//$$
+//$$     private Component fitText(Component text, int maxWidth) {
+//$$         if (maxWidth <= 0) return Component.empty();
+//$$         if (textWidth(text) <= maxWidth) return text;
+//$$         String ellipsis = "…";
+//$$         if (textWidth(Component.literal(ellipsis)) > maxWidth) return Component.empty();
+//$$         String source = text.getString();
+//$$         StringBuilder fitted = new StringBuilder();
+//$$         for (int offset = 0; offset < source.length();) {
+//$$             int codePoint = source.codePointAt(offset);
+//$$             String character = new String(Character.toChars(codePoint));
+//$$             if (textWidth(Component.literal(fitted + character + ellipsis)) > maxWidth) break;
+//$$             fitted.append(character);
+//$$             offset += Character.charCount(codePoint);
+//$$         }
+//$$         return Component.literal(fitted + ellipsis).withStyle(text.getStyle());
+//$$     }
+//$$
+//$$     private int addWrappedText(TParentElement parent, Component text, int x, int y, int width, int color) {
+//$$         int lineY = y;
+//$$         for (String line : wrapLines(text.getString(), Math.max(1, width))) {
+//$$             label(parent, Component.literal(line), x, lineY, Math.max(1, width), 11,
+//$$                 color, HorizontalAlignment.LEFT);
+//$$             lineY += 12;
+//$$         }
+//$$         return lineY;
 //$$     }
 //$$
 //$$     private List<String> wrapLines(String text, int maxWidth) {
@@ -1993,7 +1293,11 @@ public final class CarpetWorkspaceScreen
 //$$             .map(mod -> mod.getMetadata().getVersion().getFriendlyString()).orElse("?");
 //$$     }
 //$$
-//$$     private record LegacyMenuAction(Component label, Runnable action) {
+//$$     private record LegacyMenuAction(Component label, Runnable action, UITexture icon,
+//$$                                     boolean selected, boolean separatorAfter) {
+//$$         LegacyMenuAction(Component label, Runnable action) {
+//$$             this(label, action, null, false, false);
+//$$         }
 //$$     }
 //$$
 //$$     private record LegacyOption<T>(T value, Component label) {
@@ -2010,8 +1314,8 @@ public final class CarpetWorkspaceScreen
 //$$     }
 //$$
 //$$     private static class LegacyButton extends TButtonWidget {
-//$$         private final boolean selected;
-//$$         private HorizontalAlignment alignment = HorizontalAlignment.CENTER;
+//$$         protected final boolean selected;
+//$$         protected HorizontalAlignment alignment = HorizontalAlignment.CENTER;
 //$$
 //$$         LegacyButton(int x, int y, int width, int height, Component text, Runnable action, boolean selected) {
 //$$             super(x, y, width, height, text, ignored -> action.run());
@@ -2044,6 +1348,157 @@ public final class CarpetWorkspaceScreen
 //$$             graphics.fill(getX() + getWidth() - 1, getY(), getX() + getWidth(), getY() + getHeight(), border);
 //$$             if (getIcon() != null) renderIcon(graphics);
 //$$             else graphics.drawTElementTextTHC(getText(), alignment, getEnabled() ? TEXT : MUTED);
+//$$         }
+//$$     }
+//$$
+//$$     private static final class LegacyChromeButton extends LegacyButton {
+//$$         LegacyChromeButton(int x, int y, int width, int height, Component text, Runnable action, boolean selected) {
+//$$             super(x, y, width, height, text, action, selected);
+//$$         }
+//$$
+//$$         @Override
+//$$         LegacyChromeButton align(HorizontalAlignment alignment) {
+//$$             super.align(alignment);
+//$$             return this;
+//$$         }
+//$$
+//$$         @Override
+//$$         public void render(TDrawContext graphics) {
+//$$             if (selected || isFocusedOrHovered()) {
+//$$                 graphics.fill(getX(), getY(), getX() + getWidth(), getY() + getHeight(),
+//$$                     selected ? 0xFF414345 : 0xA0454545);
+//$$             }
+//$$             if (selected) {
+//$$                 graphics.fill(getX(), getY() + getHeight() - 1, getX() + getWidth(),
+//$$                     getY() + getHeight(), 0xFF4288B8);
+//$$             }
+//$$             if (getIcon() != null) renderIcon(graphics);
+//$$             else graphics.drawTElementTextTHC(getText(), alignment, getEnabled() ? TEXT : MUTED);
+//$$         }
+//$$     }
+//$$
+//$$     private static final class LegacyControlButton extends TButtonWidget {
+//$$         LegacyControlButton(int x, int y, int width, int height, Component text, Runnable action) {
+//$$             super(x, y, width, height, text, ignored -> action.run());
+//$$         }
+//$$     }
+//$$
+//$$     private static final class LegacyFeatureCard extends LegacyButton {
+//$$         LegacyFeatureCard(int x, int y, int width, int height, Runnable action) {
+//$$             super(x, y, width, height, Component.empty(), action, false);
+//$$         }
+//$$
+//$$         @Override
+//$$         public void render(TDrawContext graphics) {
+//$$             graphics.fill(getX(), getY(), getX() + getWidth(), getY() + getHeight(),
+//$$                 isFocusedOrHovered() ? 0x50393939 : 0x24000000);
+//$$             if (!isFocusedOrHovered()) return;
+//$$             graphics.fill(getX(), getY(), getX() + getWidth(), getY() + 1, FOCUS);
+//$$             graphics.fill(getX(), getY() + getHeight() - 1, getX() + getWidth(), getY() + getHeight(), FOCUS);
+//$$             graphics.fill(getX(), getY(), getX() + 1, getY() + getHeight(), FOCUS);
+//$$             graphics.fill(getX() + getWidth() - 1, getY(), getX() + getWidth(), getY() + getHeight(), FOCUS);
+//$$         }
+//$$     }
+//$$
+//$$     private static final class LegacyCategoryHeader extends LegacyButton {
+//$$         LegacyCategoryHeader(int x, int y, int width, int height, Runnable action) {
+//$$             super(x, y, width, height, Component.empty(), action, false);
+//$$         }
+//$$
+//$$         @Override
+//$$         public void render(TDrawContext graphics) {
+//$$             graphics.fill(getX(), getY(), getX() + getWidth(), getY() + getHeight(),
+//$$                 isFocusedOrHovered() ? 0xFF607994 : 0x22000000);
+//$$             graphics.fill(getX(), getY() + getHeight() - 1, getX() + getWidth(), getY() + getHeight(),
+//$$                 isFocusedOrHovered() ? 0xFF9EACBC : 0x40707070);
+//$$         }
+//$$     }
+//$$
+//$$     private static final class LegacyPopup extends TContextMenuPanel {
+//$$         LegacyPopup(TElement target) {
+//$$             super(target);
+//$$         }
+//$$
+//$$         @Override
+//$$         public void render(TDrawContext graphics) {
+//$$             int x = getX();
+//$$             int y = getY();
+//$$             int width = getWidth();
+//$$             int height = getHeight();
+//$$             if (width < 5 || height < 5) {
+//$$                 graphics.fill(x, y, x + width, y + height, POPUP_BACKGROUND);
+//$$                 return;
+//$$             }
+//$$             graphics.fill(x + 2, y, x + width - 2, y + 1, POPUP_BORDER);
+//$$             graphics.fill(x + 1, y + 1, x + width - 1, y + height - 1, POPUP_BORDER);
+//$$             graphics.fill(x, y + 2, x + width, y + height - 2, POPUP_BORDER);
+//$$             graphics.fill(x + 2, y + 1, x + width - 2, y + height - 1, POPUP_BACKGROUND);
+//$$             graphics.fill(x + 1, y + 2, x + width - 1, y + height - 2, POPUP_BACKGROUND);
+//$$         }
+//$$
+//$$         @Override
+//$$         public void postRender(TDrawContext graphics) {
+//$$         }
+//$$     }
+//$$
+//$$     private static final class LegacyScrollBar extends TScrollBarWidget {
+//$$         LegacyScrollBar(int x, int y, int width, int height, TPanelElement target) {
+//$$             super(x, y, width, height, target);
+//$$         }
+//$$
+//$$         @Override
+//$$         public void renderSliderProgressBar(TDrawContext graphics) {
+//$$             // A scrollbar has one continuous track; do not paint its traversed area as slider progress.
+//$$         }
+//$$     }
+//$$
+//$$     private static final class LegacyMenuItem extends TMenuPanelButton {
+//$$         private final UITexture icon;
+//$$         private final boolean selected;
+//$$
+//$$         LegacyMenuItem(Component text, UITexture icon, boolean selected) {
+//$$             super(text);
+//$$             this.icon = icon;
+//$$             this.selected = selected;
+//$$         }
+//$$
+//$$         @Override
+//$$         public void render(TDrawContext graphics) {
+//$$             if (isFocusedOrHovered()) {
+//$$                 graphics.fill(getX(), getY(), getX() + getWidth(), getY() + getHeight(), POPUP_HOVER);
+//$$             }
+//$$             int textInset = 6;
+//$$             if (icon != null) {
+//$$                 icon.drawTexture(graphics, getX() + 3, getY() + 5, 12, 12);
+//$$                 textInset = 21;
+//$$             }
+//$$             graphics.drawTElementTextTHSC(getText(), HorizontalAlignment.LEFT, textInset,
+//$$                 selected ? ACCENT : TEXT);
+//$$         }
+//$$
+//$$         @Override
+//$$         public void postRender(TDrawContext graphics) {
+//$$         }
+//$$     }
+//$$
+//$$     private final class LegacyDropdown extends TSelectWidget<TSelectWidget.SimpleEntry> {
+//$$         LegacyDropdown(int x, int y, int width, int height) {
+//$$             super(x, y, width, height, new TSelectWidget.SimpleEntry[0]);
+//$$         }
+//$$
+//$$         @Override
+//$$         public TContextMenuPanel createContextMenu() {
+//$$             TContextMenuPanel popup = new LegacyPopup(this);
+//$$             for (TSelectWidget.SimpleEntry entry : this) {
+//$$                 LegacyMenuItem item = new LegacyMenuItem(entry.getText(), null, entry == getSelected());
+//$$                 item.setSize(Math.max(getWidth(), textWidth(entry.getText()) + 28), 22);
+//$$                 item.setOnClick(ignored -> {
+//$$                     setSelected(entry);
+//$$                     popup.close();
+//$$                 });
+//$$                 popup.addChild(item, true);
+//$$             }
+//$$             return popup;
 //$$         }
 //$$     }
 //$$

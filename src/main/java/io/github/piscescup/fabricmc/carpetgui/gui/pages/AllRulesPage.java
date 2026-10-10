@@ -18,11 +18,12 @@
  * along with Carpet GUI.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-package io.github.piscescup.fabricmc.carpetgui.gui.workspace;
+package io.github.piscescup.fabricmc.carpetgui.gui.pages;
 
 import io.github.piscescup.fabricmc.carpetgui.gui.model.RulePage;
 import io.github.piscescup.fabricmc.carpetgui.gui.model.RuleView;
 import net.minecraft.network.chat.Component;
+import org.jetbrains.annotations.ApiStatus;
 
 import java.util.List;
 import java.util.ArrayList;
@@ -30,21 +31,21 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 /** A live aggregate of every rule page exposed by the current source. */
-final class AllRulesPage
+public final class AllRulesPage
     implements RulePage
 {
-    static final String ID = "carpet-gui:all-rules";
+    public static final String ID = "carpet-gui:all-rules";
     private final List<? extends RulePage> pages;
     private List<RuleView> rules = List.of();
     private final Map<String, String> owners = new LinkedHashMap<>();
     private final Map<String, RulePage> categoryOwners = new LinkedHashMap<>();
 
-    AllRulesPage(List<? extends RulePage> pages) {
+    public AllRulesPage(List<? extends RulePage> pages) {
         this.pages = List.copyOf(pages);
         refreshIndex();
     }
 
-    void refreshIndex() {
+    public void refreshIndex() {
         var aggregate = new ArrayList<RuleView>();
         owners.clear();
         categoryOwners.clear();
@@ -79,7 +80,7 @@ final class AllRulesPage
         return owner == null ? RulePage.super.categoryLabel(category) : owner.categoryLabel(category);
     }
 
-    String ownerId(RuleView rule) {
+    public String ownerId(RuleView rule) {
         return owners.getOrDefault(rule.stateId(), ID);
     }
 }

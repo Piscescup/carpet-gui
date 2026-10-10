@@ -26,12 +26,12 @@ import com.thecsdev.commonmc.api.client.gui.render.TGuiGraphics;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 //#endif
 
-/** Shared pixel-edged popup appearance for both GUI implementations. */
+/** Shared pixel-rounded popup appearance for both GUI implementations. */
 public final class PopupStyle {
-    public static final int BACKGROUND = 0xFF202020;
+    public static final int BACKGROUND = 0xFF383838;
     public static final int BORDER = 0xFF707070;
-    public static final int HOVER = 0xFF454545;
-    public static final int SEPARATOR = 0xFF555555;
+    public static final int HOVER = 0xFF505050;
+    public static final int SEPARATOR = 0xFF606060;
     public static final int SELECTED_TEXT = 0xFFFFFF55;
 
     private PopupStyle() {}
@@ -51,7 +51,7 @@ public final class PopupStyle {
             fill.draw(x, y, width, height, BACKGROUND);
             return;
         }
-        // One-pixel stepped corners, with no rounded antialiasing or button bevels.
+        // One-pixel stepped corners preserve Minecraft's pixel-art appearance.
         fill.draw(x + 1, y + 1, width - 2, height - 2, BACKGROUND);
         fill.draw(x + 2, y, width - 4, 1, BORDER);
         fill.draw(x + 2, y + height - 1, width - 4, 1, BORDER);

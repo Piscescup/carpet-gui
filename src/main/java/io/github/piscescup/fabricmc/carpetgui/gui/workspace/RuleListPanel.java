@@ -24,7 +24,9 @@ package io.github.piscescup.fabricmc.carpetgui.gui.workspace;
 import com.thecsdev.common.math.Point2d;
 import com.thecsdev.commonmc.api.client.gui.TElement;
 import com.thecsdev.commonmc.api.client.gui.tooltip.TTooltip;
+import io.github.piscescup.fabricmc.carpetgui.gui.model.RuleBrowserModel;
 import io.github.piscescup.fabricmc.carpetgui.gui.model.RulePage;
+import io.github.piscescup.fabricmc.carpetgui.gui.pages.AllRulesPage;
 import net.minecraft.network.chat.Component;
 
 import java.util.ArrayList;
@@ -65,12 +67,12 @@ final class RuleListPanel
         if (groups.isEmpty()) {
             WorkspaceStyle.label(
                 this, Component.translatable("carpet-gui.empty"), bounds.x + 10, y + 16,
-                Math.max(1, bounds.width - 20), 30, WorkspaceStyle.MUTED
+                Math.max(1, bounds.width - 20), 30, WorkspaceStyle.MUTED_COLOR
             );
         }
         for (var group : groups) {
             Component category = screen.categoryLabel(page, group.category());
-            var header = new WorkspaceStyle.CategoryHeader(category, model.expanded(group.category()), () -> {
+            var header = new CategoryHeader(category, model.expanded(group.category()), () -> {
                 model.setExpanded(group.category(), !model.expanded(group.category()));
                 screen.requestListRefresh();
             });
