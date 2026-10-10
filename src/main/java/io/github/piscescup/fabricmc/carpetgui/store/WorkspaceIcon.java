@@ -19,7 +19,7 @@
  */
 
 //#if MC >= 12111
-package io.github.piscescup.fabricmc.carpetgui.gui.workspace;
+package io.github.piscescup.fabricmc.carpetgui.store;
 
 import com.thecsdev.commonmc.api.client.gui.misc.TTextureElement;
 import io.github.piscescup.fabricmc.carpetgui.References;

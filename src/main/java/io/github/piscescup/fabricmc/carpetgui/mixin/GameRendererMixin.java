@@ -23,7 +23,7 @@ package io.github.piscescup.fabricmc.carpetgui.mixin;
 
 import com.thecsdev.commonmc.api.client.gui.screen.TScreenWrapper;
 import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
-import io.github.piscescup.fabricmc.carpetgui.gui.workspace.CarpetWorkspaceScreen;
+import io.github.piscescup.fabricmc.carpetgui.gui.CarpetWorkspaceScreen;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.GameRenderer;
 import org.spongepowered.asm.mixin.Mixin;

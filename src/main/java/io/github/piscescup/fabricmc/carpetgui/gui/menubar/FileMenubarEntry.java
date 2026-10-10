@@ -23,7 +23,7 @@ package io.github.piscescup.fabricmc.carpetgui.gui.menubar;
 
 import com.thecsdev.commonmc.api.client.gui.ctxmenu.TContextMenu;
 import io.github.piscescup.fabricmc.carpetgui.gui.workspace.CarpetWorkspaceEditor;
-import io.github.piscescup.fabricmc.carpetgui.util.Msg;
+import io.github.piscescup.fabricmc.carpetgui.util.MsgUtils;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
 import org.jspecify.annotations.NonNull;
@@ -43,7 +43,7 @@ public final class FileMenubarEntry
     @NonNull
     @Override
     public Component getDisplayName() {
-        return Msg.tr("file");
+        return MsgUtils.tr("file");
     }
 
     @NonNull
@@ -53,8 +53,8 @@ public final class FileMenubarEntry
         @NonNull CarpetWorkspaceEditor editor
     ) {
         final var builder = new TContextMenu.Builder(client);
-        builder.addButton(Msg.tr("home"), ignored -> editor.selectPage(null));
-        builder.addButton(Msg.tr("refresh"), ignored -> editor.refreshWorkspace());
+        builder.addButton(MsgUtils.tr("home"), ignored -> editor.selectPage(null));
+        builder.addButton(MsgUtils.tr("refresh"), ignored -> editor.refreshWorkspace());
         return builder.build();
     }
 }

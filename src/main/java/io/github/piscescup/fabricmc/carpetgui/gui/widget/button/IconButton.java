@@ -24,7 +24,7 @@ package io.github.piscescup.fabricmc.carpetgui.gui.widget.button;
 import com.thecsdev.commonmc.api.client.gui.render.TGuiGraphics;
 import net.minecraft.network.chat.Component;
 
-import static io.github.piscescup.fabricmc.carpetgui.gui.workspace.WorkspaceStyle.FOCUS_COLOR;
+import static io.github.piscescup.fabricmc.carpetgui.gui.GUIStyle.FOCUS_COLOR;
 
 /**
  *

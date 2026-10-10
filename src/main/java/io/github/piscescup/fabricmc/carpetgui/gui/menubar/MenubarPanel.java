@@ -23,9 +23,9 @@ package io.github.piscescup.fabricmc.carpetgui.gui.menubar;
 
 import com.thecsdev.commonmc.api.client.gui.TElement;
 import com.thecsdev.commonmc.api.client.gui.render.TGuiGraphics;
+import io.github.piscescup.fabricmc.carpetgui.gui.GUIStyle;
 import io.github.piscescup.fabricmc.carpetgui.gui.widget.button.ChromeButton;
 import io.github.piscescup.fabricmc.carpetgui.gui.workspace.CarpetWorkspaceEditor;
-import io.github.piscescup.fabricmc.carpetgui.gui.workspace.WorkspaceStyle;
 
 import java.util.Objects;
 
@@ -45,7 +45,7 @@ public final class MenubarPanel extends TElement {
         int x = bounds.x + 1;
         for (MenubarEntry entry : MenubarEntryRegistry.entries()) {
             int buttonWidth = Math.max(36,
-                (int) Math.ceil(getClient().font.width(entry.getDisplayName()) * WorkspaceStyle.TEXT_SCALE) + 12);
+                (int) Math.ceil(getClient().font.width(entry.getDisplayName()) * GUIStyle.TEXT_SCALE) + 12);
             var button = new ChromeButton(entry.getDisplayName(), () -> {});
             button.setBounds(x, bounds.y + 1, buttonWidth, Math.max(1, bounds.height - 2));
             button.contextMenuProperty().set(
@@ -61,7 +61,7 @@ public final class MenubarPanel extends TElement {
     public void renderCallback(TGuiGraphics graphics) {
         var bounds = getBounds();
         graphics.fillColor(bounds.x, bounds.y, bounds.width, bounds.height, 0x45000000);
-        graphics.drawOutlineIn(bounds.x, bounds.y, bounds.width, bounds.height, WorkspaceStyle.BORDER_COLOR);
+        graphics.drawOutlineIn(bounds.x, bounds.y, bounds.width, bounds.height, GUIStyle.BORDER_COLOR);
     }
 }
 //#endif

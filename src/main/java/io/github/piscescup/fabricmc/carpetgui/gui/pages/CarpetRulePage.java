@@ -18,12 +18,14 @@
  * along with Carpet GUI.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-package io.github.piscescup.fabricmc.carpetgui.integration.carpet;
+package io.github.piscescup.fabricmc.carpetgui.gui.pages;
 
 import carpet.api.settings.CarpetRule;
 import carpet.utils.Translations;
-import io.github.piscescup.fabricmc.carpetgui.gui.model.RulePage;
 import io.github.piscescup.fabricmc.carpetgui.integration.RuleCommandGateway;
+import io.github.piscescup.fabricmc.carpetgui.integration.carpet.CarpetClientTranslationResolver;
+import io.github.piscescup.fabricmc.carpetgui.store.CarpetModBinding;
+import io.github.piscescup.fabricmc.carpetgui.integration.carpet.CarpetRuleView;
 import net.minecraft.network.chat.Component;
 
 import java.util.Comparator;

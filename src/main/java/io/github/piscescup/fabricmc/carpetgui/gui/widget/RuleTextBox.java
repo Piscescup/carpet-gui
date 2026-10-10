@@ -22,7 +22,8 @@
 package io.github.piscescup.fabricmc.carpetgui.gui.widget;
 
 import com.mojang.blaze3d.platform.InputConstants;
-import io.github.piscescup.fabricmc.carpetgui.gui.model.EditableRuleView;
+import com.thecsdev.common.math.Bounds2i;
+import io.github.piscescup.fabricmc.carpetgui.api.EditableRuleView;
 import io.github.piscescup.fabricmc.carpetgui.gui.model.RuleEditResult;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.components.EditBox;
@@ -38,8 +39,8 @@ public final class RuleTextBox extends EditBox {
     private boolean dirty;
     private boolean synchronizing;
 
-    public RuleTextBox(Font font, GuiBounds bounds, EditableRuleView rule, Consumer<RuleEditResult> feedback) {
-        super(font, bounds.left(), bounds.top(), bounds.width(), bounds.height(), rule.label());
+    public RuleTextBox(Font font, Bounds2i bounds, EditableRuleView rule, Consumer<RuleEditResult> feedback) {
+        super(font, bounds.x, bounds.y, bounds.width, bounds.height, rule.label());
         this.rule = rule;
         this.feedback = feedback;
         observed = rule.value();

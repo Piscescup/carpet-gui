@@ -25,7 +25,7 @@ import carpet.CarpetServer;
 import carpet.api.settings.CarpetRule;
 import carpet.api.settings.SettingsManager;
 import io.github.piscescup.fabricmc.carpetgui.api.CarpetModRulesApi;
-import io.github.piscescup.fabricmc.carpetgui.integration.carpet.CarpetTranslationResources;
+import io.github.piscescup.fabricmc.carpetgui.resources.CarpetTranslationResources;
 
 import java.lang.reflect.InvocationTargetException;
 import java.util.Collection;

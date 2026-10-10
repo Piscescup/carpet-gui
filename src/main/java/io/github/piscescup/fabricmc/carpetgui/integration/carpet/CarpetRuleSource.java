@@ -20,15 +20,20 @@
 
 package io.github.piscescup.fabricmc.carpetgui.integration.carpet;
 
-import io.github.piscescup.fabricmc.carpetgui.gui.model.*;
+import io.github.piscescup.fabricmc.carpetgui.api.RuleSource;
+import io.github.piscescup.fabricmc.carpetgui.api.RuleView;
+import io.github.piscescup.fabricmc.carpetgui.gui.pages.CarpetRulePage;
+import io.github.piscescup.fabricmc.carpetgui.gui.pages.RulePage;
 import io.github.piscescup.fabricmc.carpetgui.integration.MinecraftCommandGateway;
 //#if MC >= 260000
-import io.github.piscescup.fabricmc.carpetgui.integration.vanilla.VanillaRuleStore;
-import io.github.piscescup.fabricmc.carpetgui.integration.vanilla.VanillaRuleView;
-import io.github.piscescup.fabricmc.carpetgui.integration.vanilla.VanillaRulePage;
+import io.github.piscescup.fabricmc.carpetgui.store.VanillaRuleStore;
+import io.github.piscescup.fabricmc.carpetgui.gui.model.VanillaRuleView;
+import io.github.piscescup.fabricmc.carpetgui.gui.pages.VanillaRulePage;
 //#endif
 import io.github.piscescup.fabricmc.carpetgui.network.ClientRuleNetworking;
 import io.github.piscescup.fabricmc.carpetgui.network.ClientRuleConfigurations;
+import io.github.piscescup.fabricmc.carpetgui.store.CarpetManagerBinding;
+import io.github.piscescup.fabricmc.carpetgui.store.CarpetModBinding;
 import net.minecraft.client.Minecraft;
 //#if MC >= 260000
 import net.minecraft.core.registries.BuiltInRegistries;

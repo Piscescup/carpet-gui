@@ -20,8 +20,11 @@
 
 package io.github.piscescup.fabricmc.carpetgui.api;
 
-import io.github.piscescup.fabricmc.carpetgui.gui.workspace.CarpetWorkspaceScreen;
-import io.github.piscescup.fabricmc.carpetgui.gui.model.RuleSource;
+//#if MC >= 12111
+import io.github.piscescup.fabricmc.carpetgui.gui.CarpetWorkspaceScreen;
+//#else
+//$$ import io.github.piscescup.fabricmc.carpetgui.gui.workspace.CarpetWorkspaceScreen;
+//#endif
 import io.github.piscescup.fabricmc.carpetgui.integration.carpet.CarpetRuleSource;
 import net.minecraft.client.gui.screens.Screen;
 

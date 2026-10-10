@@ -25,11 +25,13 @@ import com.thecsdev.commonmc.api.client.gui.TElement;
 import com.thecsdev.commonmc.api.client.gui.label.TLabelElement;
 import com.thecsdev.commonmc.api.client.gui.render.TGuiGraphics;
 import com.thecsdev.commonmc.api.client.gui.tooltip.TTooltip;
-import io.github.piscescup.fabricmc.carpetgui.gui.model.EditableRuleView;
-import io.github.piscescup.fabricmc.carpetgui.gui.model.PersistentRuleEditor;
+import io.github.piscescup.fabricmc.carpetgui.api.EditableRuleView;
+import io.github.piscescup.fabricmc.carpetgui.gui.CarpetWorkspaceScreen;
+import io.github.piscescup.fabricmc.carpetgui.api.PersistentRuleEditor;
 import io.github.piscescup.fabricmc.carpetgui.gui.model.RuleEditResult;
-import io.github.piscescup.fabricmc.carpetgui.gui.model.RuleEditor;
-import io.github.piscescup.fabricmc.carpetgui.gui.model.RuleView;
+import io.github.piscescup.fabricmc.carpetgui.api.RuleEditor;
+import io.github.piscescup.fabricmc.carpetgui.api.RuleView;
+import io.github.piscescup.fabricmc.carpetgui.gui.GUIStyle;
 import io.github.piscescup.fabricmc.carpetgui.gui.widget.button.Button;
 import io.github.piscescup.fabricmc.carpetgui.gui.widget.NativeTextInput;
 import io.github.piscescup.fabricmc.carpetgui.gui.widget.button.FavoriteButton;
@@ -90,7 +92,7 @@ final class WorkspaceRuleRow
     }
 
     WorkspaceRuleRow(String modId, RuleView rule, Consumer<RuleEditResult> feedback, Consumer<String> discardDrafts) {
-        this(modId, rule, feedback, discardDrafts, () -> WorkspaceStyle.TEXT_COLOR, rule::description, false);
+        this(modId, rule, feedback, discardDrafts, () -> GUIStyle.TEXT_COLOR, rule::description, false);
     }
 
     WorkspaceRuleRow(String modId, RuleView rule, Consumer<RuleEditResult> feedback, Consumer<String> discardDrafts,
@@ -135,12 +137,12 @@ final class WorkspaceRuleRow
             .set(false, WorkspaceRuleRow.class);
         description = WorkspaceStyle.label(
             this, detailText.get(), bounds.x + 5, bounds.y + 14,
-            valueX - bounds.x - 10, 9, WorkspaceStyle.MUTED_COLOR
+            valueX - bounds.x - 10, 9, GUIStyle.MUTED_COLOR
         );
         description.wrapTextProperty()
             .set(false, WorkspaceRuleRow.class);
         description.textScaleProperty()
-            .set(WorkspaceStyle.SMALL_TEXT_SCALE, WorkspaceRuleRow.class);
+            .set(GUIStyle.SMALL_TEXT_SCALE, WorkspaceRuleRow.class);
 
         if (editor != null && editor.inputKind() == RuleEditor.InputKind.BOOLEAN) {
             valueButton = new Button(
@@ -179,7 +181,7 @@ final class WorkspaceRuleRow
             );
             valueControl = valueButton;
         }
-        valueControl.setBounds(valueX, bounds.y + 2, valueWidth, WorkspaceStyle.CONTROL_HEIGHT);
+        valueControl.setBounds(valueX, bounds.y + 2, valueWidth, GUIStyle.CONTROL_HEIGHT);
         valueControl.tooltipProperty()
             .set(ignored -> tooltip(), WorkspaceRuleRow.class);
         add(valueControl);
@@ -188,14 +190,14 @@ final class WorkspaceRuleRow
             submit(rule.defaultValue());
         }
         );
-        reset.setBounds(resetX, bounds.y + 2, resetWidth, WorkspaceStyle.CONTROL_HEIGHT);
+        reset.setBounds(resetX, bounds.y + 2, resetWidth, GUIStyle.CONTROL_HEIGHT);
         reset.tooltipProperty()
             .set(ignored -> tooltip(), WorkspaceRuleRow.class);
         add(reset);
         if (persistent) {
             saveDefault = new RuleActionIcon(true,
                 () -> ((PersistentRuleEditor) ((EditableRuleView) rule).editor()).isSavedDefault(draftValue()), this::saveDefault);
-            saveDefault.setBounds(saveX, bounds.y + 2, saveWidth, WorkspaceStyle.CONTROL_HEIGHT);
+            saveDefault.setBounds(saveX, bounds.y + 2, saveWidth, GUIStyle.CONTROL_HEIGHT);
             saveDefault.tooltipProperty()
                 .set(ignored -> TTooltip.of(Component.translatable("carpet-gui.set_default_hint")), WorkspaceRuleRow.class);
             add(saveDefault);
@@ -209,7 +211,7 @@ final class WorkspaceRuleRow
                 if (screen instanceof CarpetWorkspaceScreen workspace) workspace.requestListRefresh();
             }
         );
-        favorite.setBounds(favoriteX, bounds.y + 2, favoriteWidth, WorkspaceStyle.CONTROL_HEIGHT);
+        favorite.setBounds(favoriteX, bounds.y + 2, favoriteWidth, GUIStyle.CONTROL_HEIGHT);
         favorite.tooltipProperty()
             .set(
                 ignored -> TTooltip.of(Component.translatable(
@@ -422,8 +424,8 @@ final class WorkspaceRuleRow
     @Override
     public void renderCallback(TGuiGraphics graphics) {
         var bounds = getBounds();
-        graphics.fillColor(bounds.x, bounds.y, bounds.width, bounds.height, WorkspaceStyle.RULE_BACKGROUND_COLOR);
-        graphics.drawOutlineIn(bounds.x, bounds.y, bounds.width, bounds.height, WorkspaceStyle.BORDER_COLOR);
+        graphics.fillColor(bounds.x, bounds.y, bounds.width, bounds.height, GUIStyle.RULE_BACKGROUND_COLOR);
+        graphics.drawOutlineIn(bounds.x, bounds.y, bounds.width, bounds.height, GUIStyle.BORDER_COLOR);
         if (coloredStatus) graphics.fillColor(bounds.x + 1, bounds.y + 1, 3, Math.max(0, bounds.height - 2), statusColor.getAsInt());
     }
 
@@ -431,7 +433,7 @@ final class WorkspaceRuleRow
     public void postRenderCallback(TGuiGraphics graphics) {
         if (isHoveredOrFocused() || findChild(TElement::isHoveredOrFocused, true).isPresent()) {
             var bounds = getBounds();
-            graphics.drawOutlineIn(bounds.x, bounds.y, bounds.width, bounds.height, WorkspaceStyle.FOCUS_COLOR);
+            graphics.drawOutlineIn(bounds.x, bounds.y, bounds.width, bounds.height, GUIStyle.FOCUS_COLOR);
         }
     }
 }

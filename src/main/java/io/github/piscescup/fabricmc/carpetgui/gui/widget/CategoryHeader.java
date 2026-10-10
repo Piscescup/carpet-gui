@@ -19,11 +19,13 @@
  */
 
 //#if MC >= 12111
-package io.github.piscescup.fabricmc.carpetgui.gui.workspace;
+package io.github.piscescup.fabricmc.carpetgui.gui.widget;
 
 import com.thecsdev.common.util.enumerations.CompassDirection;
 import com.thecsdev.commonmc.api.client.gui.render.TGuiGraphics;
 import com.thecsdev.commonmc.api.client.gui.widget.TButtonWidget;
+import io.github.piscescup.fabricmc.carpetgui.gui.GUIStyle;
+import io.github.piscescup.fabricmc.carpetgui.gui.workspace.WorkspaceStyle;
 import net.minecraft.network.chat.Component;
 
 /**
@@ -38,9 +40,9 @@ public final class CategoryHeader extends TButtonWidget.Transparent {
         getLabel().hoverableProperty()
             .set(false, CategoryHeader.class);
         getLabel().textColorProperty()
-            .set(WorkspaceStyle.ACCENT_COLOR, CategoryHeader.class);
+            .set(GUIStyle.ACCENT_COLOR, CategoryHeader.class);
         getLabel().textScaleProperty()
-            .set(WorkspaceStyle.TEXT_SCALE, CategoryHeader.class);
+            .set(GUIStyle.TEXT_SCALE, CategoryHeader.class);
         //#if MC >= 260000
         getLabel().dropShadowProperty()
             .set(false, CategoryHeader.class);
@@ -59,12 +61,12 @@ public final class CategoryHeader extends TButtonWidget.Transparent {
         getLabel().setBounds(bounds.x, bounds.y, Math.max(1, bounds.width - 25), bounds.height);
         var indicator = WorkspaceStyle.label(
             this, Component.literal(expanded ? "[-]" : "[+]"),
-            bounds.endX - 22, bounds.y, 22, bounds.height, WorkspaceStyle.MUTED_COLOR
+            bounds.endX - 22, bounds.y, 22, bounds.height, GUIStyle.MUTED_COLOR
         );
         indicator.textAlignmentProperty()
             .set(CompassDirection.EAST, CategoryHeader.class);
         indicator.textScaleProperty()
-            .set(WorkspaceStyle.SMALL_TEXT_SCALE, CategoryHeader.class);
+            .set(GUIStyle.SMALL_TEXT_SCALE, CategoryHeader.class);
     }
 
     @Override

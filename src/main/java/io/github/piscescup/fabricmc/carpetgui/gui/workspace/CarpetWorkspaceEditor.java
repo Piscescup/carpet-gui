@@ -21,8 +21,8 @@
 package io.github.piscescup.fabricmc.carpetgui.gui.workspace;
 
 import io.github.piscescup.fabricmc.carpetgui.gui.model.RuleBrowserModel;
-import io.github.piscescup.fabricmc.carpetgui.gui.model.RulePage;
-import io.github.piscescup.fabricmc.carpetgui.gui.model.RuleSource;
+import io.github.piscescup.fabricmc.carpetgui.gui.pages.RulePage;
+import io.github.piscescup.fabricmc.carpetgui.api.RuleSource;
 import io.github.piscescup.fabricmc.carpetgui.gui.pages.AllRulesPage;
 
 import java.util.ArrayList;

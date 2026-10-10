@@ -23,7 +23,7 @@ package io.github.piscescup.fabricmc.carpetgui.gui.widget.button;
 
 import com.thecsdev.commonmc.api.client.gui.render.TGuiGraphics;
 import com.thecsdev.commonmc.api.client.gui.widget.TButtonWidget;
-import io.github.piscescup.fabricmc.carpetgui.gui.workspace.WorkspaceStyle;
+import io.github.piscescup.fabricmc.carpetgui.gui.GUIStyle;
 import io.github.piscescup.fabricmc.carpetgui.resources.WorkspaceActionTextures;
 import net.minecraft.network.chat.Component;
 
@@ -47,12 +47,12 @@ public final class FavoriteButton extends TButtonWidget.Transparent {
         var bounds = getBounds();
         if (isHoveredOrFocused()) {
             graphics.fillColor(bounds.x, bounds.y, bounds.width, bounds.height, 0x50393939);
-            graphics.drawOutlineIn(bounds.x, bounds.y, bounds.width, bounds.height, WorkspaceStyle.FOCUS_COLOR);
+            graphics.drawOutlineIn(bounds.x, bounds.y, bounds.width, bounds.height, GUIStyle.FOCUS_COLOR);
         }
         WorkspaceActionTextures.draw(
             graphics, bounds, favorite.getAsBoolean()
                 ? WorkspaceActionTextures.Icon.FAVORITE_ON : WorkspaceActionTextures.Icon.FAVORITE_OFF,
-            WorkspaceStyle.TEXT_COLOR
+            GUIStyle.TEXT_COLOR
         );
     }
 }

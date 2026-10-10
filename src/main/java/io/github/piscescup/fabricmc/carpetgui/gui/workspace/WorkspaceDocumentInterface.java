@@ -32,15 +32,19 @@ import com.thecsdev.commonmc.api.client.gui.tooltip.TTooltip;
 import com.thecsdev.commonmc.api.client.gui.util.TInputContext;
 import com.thecsdev.commonmc.api.client.gui.widget.TClickableWidget;
 import com.thecsdev.commonmc.api.client.gui.widget.TCheckboxWidget;
+import io.github.piscescup.fabricmc.carpetgui.api.RuleView;
+import io.github.piscescup.fabricmc.carpetgui.gui.CarpetWorkspaceScreen;
 import io.github.piscescup.fabricmc.carpetgui.gui.model.*;
-import io.github.piscescup.fabricmc.carpetgui.gui.tabstrip.WorkspaceTabStripPanel;
+import io.github.piscescup.fabricmc.carpetgui.gui.pages.RulePage;
+import io.github.piscescup.fabricmc.carpetgui.gui.GUIStyle;
 import io.github.piscescup.fabricmc.carpetgui.gui.widget.button.Button;
 import io.github.piscescup.fabricmc.carpetgui.gui.widget.NativeTextInput;
 import io.github.piscescup.fabricmc.carpetgui.gui.widget.button.ControlButton;
 import io.github.piscescup.fabricmc.carpetgui.gui.widget.button.IconButton;
 import io.github.piscescup.fabricmc.carpetgui.network.ClientRuleConfigurations;
 import io.github.piscescup.fabricmc.carpetgui.store.ModIconStore;
-import io.github.piscescup.fabricmc.carpetgui.util.Msg;
+import io.github.piscescup.fabricmc.carpetgui.store.WorkspaceIcon;
+import io.github.piscescup.fabricmc.carpetgui.util.MsgUtils;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
@@ -119,10 +123,10 @@ public final class WorkspaceDocumentInterface extends TElement {
         var screen = getBounds();
         int x = Math.max(4, screen.width / 40);
         int width = Math.max(1, screen.width - 2 * x);
-        int bodyY = WorkspaceStyle.BODY_Y;
+        int bodyY = GUIStyle.BODY_Y;
         int bodyHeight = Math.max(1, screen.height - bodyY - 10);
-        var frame = new TPanelElement.Paintable(WorkspaceStyle.FRAME_COLOR, WorkspaceStyle.BORDER_COLOR, WorkspaceStyle.BORDER_COLOR);
-        frame.setBounds(x, WorkspaceStyle.TAB_Y - 1, width, bodyY + bodyHeight - WorkspaceStyle.TAB_Y + 1);
+        var frame = new TPanelElement.Paintable(GUIStyle.FRAME_COLOR, GUIStyle.BORDER_COLOR, GUIStyle.BORDER_COLOR);
+        frame.setBounds(x, GUIStyle.TAB_Y - 1, width, bodyY + bodyHeight - GUIStyle.TAB_Y + 1);
         frame.hoverableProperty().set(false, WorkspaceDocumentInterface.class);
         frame.focusableProperty().set(false, WorkspaceDocumentInterface.class);
         add(frame);
@@ -130,7 +134,7 @@ public final class WorkspaceDocumentInterface extends TElement {
         contentRoot = WorkspacePageElement.create(this, editor);
         contentRoot.setBounds(x, bodyY, width, bodyHeight);
         add(contentRoot);
-        notice = WorkspaceStyle.label(this, Component.empty(), x + 4, screen.height - 18, width - 8, 14, WorkspaceStyle.MUTED_COLOR);
+        notice = WorkspaceStyle.label(this, Component.empty(), x + 4, screen.height - 18, width - 8, 14, GUIStyle.MUTED_COLOR);
         notice.wrapTextProperty()
             .set(false, WorkspaceDocumentInterface.class);
         observedRevision = editor.revision();
@@ -140,7 +144,7 @@ public final class WorkspaceDocumentInterface extends TElement {
 
     private void buildTabStrip(int x, int width) {
         var tabs = new WorkspaceTabStripPanel(editor);
-        tabs.setBounds(x + 1, WorkspaceStyle.TAB_Y, Math.max(1, width - 2), WorkspaceStyle.TAB_HEIGHT);
+        tabs.setBounds(x + 1, GUIStyle.TAB_Y, Math.max(1, width - 2), GUIStyle.TAB_HEIGHT);
         add(tabs);
     }
 
@@ -157,7 +161,7 @@ public final class WorkspaceDocumentInterface extends TElement {
         buildRulesSidebar(sidebar, page, model);
         int listX = x + sidebarWidth;
         int listWidth = Math.max(1, width - sidebarWidth);
-        counts = WorkspaceStyle.label(contentRoot, Component.empty(), listX + 10, y + 8, listWidth - 20, 18, WorkspaceStyle.MUTED_COLOR);
+        counts = WorkspaceStyle.label(contentRoot, Component.empty(), listX + 10, y + 8, listWidth - 20, 18, GUIStyle.MUTED_COLOR);
         ruleList = new RuleListPanel(screen, page, model);
         addWorkspacePane(ruleList, listX, y + 23, listWidth, Math.max(1, height - 23));
     }
@@ -165,14 +169,14 @@ public final class WorkspaceDocumentInterface extends TElement {
     private void buildRulesSidebar(TPanelElement sidebar, RulePage page, RuleBrowserModel model) {
         var bounds = sidebar.getBounds();
         int x = bounds.x + 9, width = Math.max(1, bounds.width - 18), y = bounds.y + 9;
-        var filterTitle = WorkspaceStyle.label(sidebar, Msg.tr("filters"), x, y, width, 18, WorkspaceStyle.TEXT_COLOR);
+        var filterTitle = WorkspaceStyle.label(sidebar, MsgUtils.tr("filters"), x, y, width, 18, GUIStyle.TEXT_COLOR);
         filterTitle.textAlignmentProperty().set(CompassDirection.CENTER, WorkspaceDocumentInterface.class);
         y += 23;
         List<WorkspaceStyle.Option<String>> categories = new ArrayList<>();
-        categories.add(new WorkspaceStyle.Option<>("", Msg.tr("all_categories")));
+        categories.add(new WorkspaceStyle.Option<>("", MsgUtils.tr("all_categories")));
         model.categories(page)
             .forEach(category -> categories.add(new WorkspaceStyle.Option<>(category, categoryLabel(page, category))));
-        categories.add(new WorkspaceStyle.Option<>(RuleBrowserModel.FAVORITES, Msg.tr("favorites")));
+        categories.add(new WorkspaceStyle.Option<>(RuleBrowserModel.FAVORITES, MsgUtils.tr("favorites")));
         addDropdown(
             sidebar, x, y, width, categories, model.category, category -> {
                 model.category = category;
@@ -181,66 +185,66 @@ public final class WorkspaceDocumentInterface extends TElement {
         );
         y += 25;
         var search = new NativeTextInput(
-            Msg.tr("search"), model.query, query -> {
+            MsgUtils.tr("search"), model.query, query -> {
             model.query = query;
             requestListRefresh(true);
         },
             () -> {
             }, () -> screen.focusedElementProperty().set(null, WorkspaceDocumentInterface.class)
         );
-        search.setBounds(x, y, width, WorkspaceStyle.CONTROL_HEIGHT);
+        search.setBounds(x, y, width, GUIStyle.CONTROL_HEIGHT);
         search.tooltipProperty()
-            .set(ignored -> TTooltip.of(Msg.tr("search_hint")), WorkspaceDocumentInterface.class);
+            .set(ignored -> TTooltip.of(MsgUtils.tr("search_hint")), WorkspaceDocumentInterface.class);
         sidebar.add(search);
         y += 25;
         if (!ClientRuleConfigurations.ready()) model.modifiedOnly = false;
         modifiedFilter = new TCheckboxWidget(model.modifiedOnly);
-        modifiedFilter.setBounds(x, y, WorkspaceStyle.CONTROL_HEIGHT, WorkspaceStyle.CONTROL_HEIGHT);
+        modifiedFilter.setBounds(x, y, GUIStyle.CONTROL_HEIGHT, GUIStyle.CONTROL_HEIGHT);
         modifiedFilter.enabledProperty().set(ClientRuleConfigurations.ready() && !page.isVanilla(), WorkspaceDocumentInterface.class);
         modifiedFilter.checkedProperty().addChangeListener((property, previous, checked) -> {
             model.modifiedOnly = checked;
             requestListRefresh(true);
         });
-        Component modifiedHint = Msg.tr("modified_only_hint").copy()
+        Component modifiedHint = MsgUtils.tr("modified_only_hint").copy()
             .append("\n")
-            .append(Msg.tr("modified_only_server_required").copy().withStyle(ChatFormatting.GOLD));
+            .append(MsgUtils.tr("modified_only_server_required").copy().withStyle(ChatFormatting.GOLD));
         modifiedFilter.tooltipProperty().set(ignored -> TTooltip.of(modifiedHint), WorkspaceDocumentInterface.class);
         sidebar.add(modifiedFilter);
-        var modifiedLabel = WorkspaceStyle.label(sidebar, Msg.tr("modified_only"), x + 27, y + 6, width - 27, 12, WorkspaceStyle.TEXT_COLOR);
+        var modifiedLabel = WorkspaceStyle.label(sidebar, MsgUtils.tr("modified_only"), x + 27, y + 6, width - 27, 12, GUIStyle.TEXT_COLOR);
         modifiedLabel.tooltipProperty().set(ignored -> TTooltip.of(modifiedHint), WorkspaceDocumentInterface.class);
         y += 27;
         var initialDifference = new TCheckboxWidget(model.initialDifferenceOnly);
-        initialDifference.setBounds(x, y, WorkspaceStyle.CONTROL_HEIGHT, WorkspaceStyle.CONTROL_HEIGHT);
+        initialDifference.setBounds(x, y, GUIStyle.CONTROL_HEIGHT, GUIStyle.CONTROL_HEIGHT);
         initialDifference.checkedProperty().addChangeListener((property, previous, checked) -> {
             model.initialDifferenceOnly = checked;
             requestListRefresh(true);
         });
         initialDifference.tooltipProperty().set(
-            ignored -> TTooltip.of(Msg.tr("initial_difference_hint")), WorkspaceDocumentInterface.class
+            ignored -> TTooltip.of(MsgUtils.tr("initial_difference_hint")), WorkspaceDocumentInterface.class
         );
         sidebar.add(initialDifference);
         var initialDifferenceLabel = WorkspaceStyle.label(
-            sidebar, Msg.tr("initial_difference_only"), x + 27, y + 6, width - 27, 12, WorkspaceStyle.TEXT_COLOR
+            sidebar, MsgUtils.tr("initial_difference_only"), x + 27, y + 6, width - 27, 12, GUIStyle.TEXT_COLOR
         );
         initialDifferenceLabel.tooltipProperty().set(
-            ignored -> TTooltip.of(Msg.tr("initial_difference_hint")), WorkspaceDocumentInterface.class
+            ignored -> TTooltip.of(MsgUtils.tr("initial_difference_hint")), WorkspaceDocumentInterface.class
         );
         y += 27;
         if (!ClientRuleConfigurations.ready()) model.savedDefaultOnly = false;
         savedDefaultFilter = new TCheckboxWidget(model.savedDefaultOnly);
-        savedDefaultFilter.setBounds(x, y, WorkspaceStyle.CONTROL_HEIGHT, WorkspaceStyle.CONTROL_HEIGHT);
+        savedDefaultFilter.setBounds(x, y, GUIStyle.CONTROL_HEIGHT, GUIStyle.CONTROL_HEIGHT);
         savedDefaultFilter.enabledProperty().set(ClientRuleConfigurations.ready() && !page.isVanilla(), WorkspaceDocumentInterface.class);
         savedDefaultFilter.checkedProperty().addChangeListener((property, previous, checked) -> {
             model.savedDefaultOnly = checked;
             requestListRefresh(true);
         });
-        Component savedDefaultHint = Msg.tr("saved_default_only_hint").copy()
+        Component savedDefaultHint = MsgUtils.tr("saved_default_only_hint").copy()
             .append("\n")
-            .append(Msg.tr("modified_only_server_required").copy().withStyle(ChatFormatting.GOLD));
+            .append(MsgUtils.tr("modified_only_server_required").copy().withStyle(ChatFormatting.GOLD));
         savedDefaultFilter.tooltipProperty().set(ignored -> TTooltip.of(savedDefaultHint), WorkspaceDocumentInterface.class);
         sidebar.add(savedDefaultFilter);
         var savedDefaultLabel = WorkspaceStyle.label(
-            sidebar, Msg.tr("saved_default_only"), x + 27, y + 6, width - 27, 12, WorkspaceStyle.TEXT_COLOR
+            sidebar, MsgUtils.tr("saved_default_only"), x + 27, y + 6, width - 27, 12, GUIStyle.TEXT_COLOR
         );
         savedDefaultLabel.tooltipProperty().set(ignored -> TTooltip.of(savedDefaultHint), WorkspaceDocumentInterface.class);
         y += 27;
@@ -250,10 +254,10 @@ public final class WorkspaceDocumentInterface extends TElement {
             y,
             width,
             WorkspaceIcon.Kind.SORT,
-            Msg.tr("sort"),
+            MsgUtils.tr("sort"),
             options(
                 RuleBrowserModel.Sort.values(),
-                value -> Msg.tr("sort." + value.name()
+                value -> MsgUtils.tr("sort." + value.name()
                     .toLowerCase(Locale.ROOT))
             ),
             model.sort,
@@ -263,8 +267,8 @@ public final class WorkspaceDocumentInterface extends TElement {
             }
         );
         y += 27;
-        addIconDropdown(sidebar, x, y, width, WorkspaceIcon.Kind.GROUP, Msg.tr("grouping"),
-            options(RuleBrowserModel.Grouping.values(), value -> Msg.tr("grouping." + value.name().toLowerCase(Locale.ROOT))),
+        addIconDropdown(sidebar, x, y, width, WorkspaceIcon.Kind.GROUP, MsgUtils.tr("grouping"),
+            options(RuleBrowserModel.Grouping.values(), value -> MsgUtils.tr("grouping." + value.name().toLowerCase(Locale.ROOT))),
             model.grouping, grouping -> {
                 model.grouping = grouping;
                 requestListRefresh(true);
@@ -276,10 +280,10 @@ public final class WorkspaceDocumentInterface extends TElement {
             y,
             width,
             WorkspaceIcon.Kind.DISTANCE,
-            Msg.tr("distance"),
+            MsgUtils.tr("distance"),
             options(
                 RuleBrowserModel.Distance.values(),
-                value -> Msg.tr("distance." + value.name()
+                value -> MsgUtils.tr("distance." + value.name()
                     .toLowerCase(Locale.ROOT))
             ),
             model.distance,
@@ -292,10 +296,10 @@ public final class WorkspaceDocumentInterface extends TElement {
             y,
             width,
             WorkspaceIcon.Kind.TIME,
-            Msg.tr("time"),
+            MsgUtils.tr("time"),
             options(
                 RuleBrowserModel.Time.values(),
-                value -> Msg.tr("time." + value.name()
+                value -> MsgUtils.tr("time." + value.name()
                     .toLowerCase(Locale.ROOT))
             ),
             model.time,
@@ -306,13 +310,15 @@ public final class WorkspaceDocumentInterface extends TElement {
         int expandWidth = Math.max(1, (width - gap) / 2);
         int collapseWidth = Math.max(1, width - gap - expandWidth);
         var expand = new ControlButton(Component.translatable("carpet-gui.expand_all"), () -> expandAll(true));
-        expand.setBounds(x, y, expandWidth, WorkspaceStyle.CONTROL_HEIGHT);
-        expand.getLabel().textScaleProperty().set(Math.min(WorkspaceStyle.TEXT_SCALE,
+        expand.setBounds(x, y, expandWidth, GUIStyle.CONTROL_HEIGHT);
+        expand.getLabel().textScaleProperty().set(Math.min(
+            GUIStyle.TEXT_SCALE,
             Math.max(1, expandWidth - 8) / (double) Math.max(1, getClient().font.width(expand.getLabel().getText()))), WorkspaceDocumentInterface.class);
         sidebar.add(expand);
         var collapse = new ControlButton(Component.translatable("carpet-gui.collapse_all"), () -> expandAll(false));
-        collapse.setBounds(x + expandWidth + gap, y, collapseWidth, WorkspaceStyle.CONTROL_HEIGHT);
-        collapse.getLabel().textScaleProperty().set(Math.min(WorkspaceStyle.TEXT_SCALE,
+        collapse.setBounds(x + expandWidth + gap, y, collapseWidth, GUIStyle.CONTROL_HEIGHT);
+        collapse.getLabel().textScaleProperty().set(Math.min(
+            GUIStyle.TEXT_SCALE,
             Math.max(1, collapseWidth - 8) / (double) Math.max(1, getClient().font.width(collapse.getLabel().getText()))), WorkspaceDocumentInterface.class);
         sidebar.add(collapse);
     }
@@ -329,11 +335,11 @@ public final class WorkspaceDocumentInterface extends TElement {
         addWorkspacePane(right, x + leftWidth + 8, y, Math.max(1, width - leftWidth - 8), height);
         int contentX = x + 12, contentWidth = Math.max(1, left.getBounds().width - 24), nextY = y + 12;
         addHomeCard(left, contentX - 4, nextY - 4, contentWidth + 8, 40);
-        WorkspaceStyle.label(left, Component.literal("Carpet GUI"), contentX + 38, nextY + 1, contentWidth - 38, 13, WorkspaceStyle.ACCENT_COLOR);
-        WorkspaceStyle.label(left, Component.literal(version()), contentX + 38, nextY + 18, contentWidth - 38, 13, WorkspaceStyle.MUTED_COLOR);
+        WorkspaceStyle.label(left, Component.literal("Carpet GUI"), contentX + 38, nextY + 1, contentWidth - 38, 13, GUIStyle.ACCENT_COLOR);
+        WorkspaceStyle.label(left, Component.literal(version()), contentX + 38, nextY + 18, contentWidth - 38, 13, GUIStyle.MUTED_COLOR);
         addIcon(left, "carpet-gui", contentX, nextY, 30);
         nextY += 51;
-        WorkspaceStyle.label(left, Msg.tr("quick_access"), contentX, nextY, contentWidth, 16, WorkspaceStyle.ACCENT_COLOR);
+        WorkspaceStyle.label(left, MsgUtils.tr("quick_access"), contentX, nextY, contentWidth, 16, GUIStyle.ACCENT_COLOR);
         nextY += 25;
         int columns = Math.max(1, contentWidth / 42);
         int quickAccessHeight = Math.max(1, (editor.sourcePages().size() + columns - 1) / columns) * 42;
@@ -354,34 +360,34 @@ public final class WorkspaceDocumentInterface extends TElement {
             left.add(tile);
         }
         nextY += quickAccessHeight + 16;
-        WorkspaceStyle.label(left, Msg.tr("features"), contentX, nextY, contentWidth, 16, WorkspaceStyle.ACCENT_COLOR);
+        WorkspaceStyle.label(left, MsgUtils.tr("features"), contentX, nextY, contentWidth, 16, GUIStyle.ACCENT_COLOR);
         nextY += 22;
         addHomeCard(left, contentX - 4, nextY - 4, contentWidth + 8, 46);
-        var groupsFeature = new Button(Msg.tr("rule_groups"), () -> selectPage(RuleGroupWorkspace.ID)) {
+        var groupsFeature = new Button(MsgUtils.tr("rule_groups"), () -> selectPage(RuleGroupWorkspace.ID)) {
             @Override protected void initCallback() {
                 super.initCallback();
                 var bounds = getBounds();
                 getLabel().setBounds(bounds.x + 39, bounds.y + 4, Math.max(1, bounds.width - 45), 14);
                 getLabel().textAlignmentProperty().set(CompassDirection.WEST, WorkspaceDocumentInterface.class);
-                var description = WorkspaceStyle.label(this, Msg.tr("rule_groups_home"), bounds.x + 39, bounds.y + 21,
-                    Math.max(1, bounds.width - 45), 11, WorkspaceStyle.MUTED_COLOR
+                var description = WorkspaceStyle.label(this, MsgUtils.tr("rule_groups_home"), bounds.x + 39, bounds.y + 21,
+                    Math.max(1, bounds.width - 45), 11, GUIStyle.MUTED_COLOR
                 );
-                description.textScaleProperty().set(WorkspaceStyle.SMALL_TEXT_SCALE, WorkspaceDocumentInterface.class);
+                description.textScaleProperty().set(GUIStyle.SMALL_TEXT_SCALE, WorkspaceDocumentInterface.class);
                 description.wrapTextProperty().set(false, WorkspaceDocumentInterface.class);
                 addIcon(this, "carpet-gui", bounds.x + 6, bounds.y + 7, 27);
             }
         };
         groupsFeature.setBounds(contentX, nextY, contentWidth, 38);
-        groupsFeature.tooltipProperty().set(ignored -> TTooltip.of(Msg.tr("rule_groups_home")), WorkspaceDocumentInterface.class);
+        groupsFeature.tooltipProperty().set(ignored -> TTooltip.of(MsgUtils.tr("rule_groups_home")), WorkspaceDocumentInterface.class);
         left.add(groupsFeature);
         nextY += 56;
-        WorkspaceStyle.label(left, Msg.tr("news"), contentX, nextY, contentWidth, 18, WorkspaceStyle.ACCENT_COLOR);
+        WorkspaceStyle.label(left, MsgUtils.tr("news"), contentX, nextY, contentWidth, 18, GUIStyle.ACCENT_COLOR);
         // nextY = addParagraph(left, tr("news_intro"), contentX, nextY + 22, contentWidth, WorkspaceStyle.MUTED) + 16;
         // nextY = addParagraph(left, tr("news_workspace"), contentX, nextY, contentWidth, WorkspaceStyle.TEXT) + 16;
         // addParagraph(left, tr("news_addons"), contentX, nextY, contentWidth, WorkspaceStyle.TEXT);
         var rightBounds = right.getBounds();
         int rightX = rightBounds.x + 12, rightWidth = Math.max(1, rightBounds.width - 24), rightY = y + 12;
-        WorkspaceStyle.label(right, Msg.tr("overview"), rightX, rightY, rightWidth, 18, WorkspaceStyle.ACCENT_COLOR);
+        WorkspaceStyle.label(right, MsgUtils.tr("overview"), rightX, rightY, rightWidth, 18, GUIStyle.ACCENT_COLOR);
         homeCounts = WorkspaceStyle.label(
             right, Component.translatable(
                 "carpet-gui.workspace.overview_counts",
@@ -392,19 +398,19 @@ public final class WorkspaceDocumentInterface extends TElement {
                     .mapToInt(page -> page.rules()
                         .size())
                     .sum()
-            ), rightX, rightY + 26, rightWidth, 40, WorkspaceStyle.TEXT_COLOR
+            ), rightX, rightY + 26, rightWidth, 40, GUIStyle.TEXT_COLOR
         );
         connectionStatus = WorkspaceStyle.label(
             right,
-            Msg.tr(getClient().getConnection() == null ? "offline" : "connected"),
+            MsgUtils.tr(getClient().getConnection() == null ? "offline" : "connected"),
             rightX,
             rightY + 72,
             rightWidth,
             33,
-            WorkspaceStyle.MUTED_COLOR
+            GUIStyle.MUTED_COLOR
         );
-        homeHelpHeading = WorkspaceStyle.label(right, Msg.tr("help"), rightX, rightY + 125, rightWidth, 18, WorkspaceStyle.ACCENT_COLOR);
-        homeHelpBody = WorkspaceStyle.label(right, Msg.tr("help_body"), rightX, rightY + 152, rightWidth, 10, WorkspaceStyle.TEXT_COLOR);
+        homeHelpHeading = WorkspaceStyle.label(right, MsgUtils.tr("help"), rightX, rightY + 125, rightWidth, 18, GUIStyle.ACCENT_COLOR);
+        homeHelpBody = WorkspaceStyle.label(right, MsgUtils.tr("help_body"), rightX, rightY + 152, rightWidth, 10, GUIStyle.TEXT_COLOR);
         // Fit height within the available column, rather than expanding labels to their full text width.
         homeCounts.wrapTextProperty().set(true, WorkspaceDocumentInterface.class);
         connectionStatus.wrapTextProperty().set(true, WorkspaceDocumentInterface.class);
@@ -413,7 +419,7 @@ public final class WorkspaceDocumentInterface extends TElement {
     }
 
     private void addHomeCard(TElement parent, int x, int y, int width, int height) {
-        var card = new TPanelElement.Paintable(WorkspaceStyle.CARD_COLOR, 0, 0);
+        var card = new TPanelElement.Paintable(GUIStyle.CARD_COLOR, 0, 0);
         card.setBounds(x, y, width, height);
         card.hoverableProperty().set(false, WorkspaceDocumentInterface.class);
         card.focusableProperty().set(false, WorkspaceDocumentInterface.class);
@@ -472,7 +478,7 @@ public final class WorkspaceDocumentInterface extends TElement {
                 y,
                 size,
                 size,
-                WorkspaceStyle.ACCENT_COLOR
+                GUIStyle.ACCENT_COLOR
             );
             fallback.textAlignmentProperty()
                 .set(CompassDirection.CENTER, WorkspaceDocumentInterface.class);
@@ -511,7 +517,7 @@ public final class WorkspaceDocumentInterface extends TElement {
         var dropdown = new WorkspaceStyle.Dropdown<>(initial);
         dropdown.getEntries()
             .addAll(options);
-        dropdown.setBounds(x, y, width, WorkspaceStyle.CONTROL_HEIGHT);
+        dropdown.setBounds(x, y, width, GUIStyle.CONTROL_HEIGHT);
         if (hint != null) dropdown.tooltipProperty().set(ignored -> TTooltip.of(hint), WorkspaceDocumentInterface.class);
         dropdown.selectedEntryProperty()
             .addChangeListener((property, previous, current) -> {
@@ -522,8 +528,8 @@ public final class WorkspaceDocumentInterface extends TElement {
 
     Component categoryLabel(RulePage page, String category) {
         if (category.equals(RuleBrowserModel.ALL_RULES)) return Component.translatable("carpet-gui.tab.all");
-        if (category.equals(RuleBrowserModel.FAVORITES)) return Msg.tr("favorites");
-        return category.equals(RuleBrowserModel.UNCATEGORIZED) ? Msg.tr("uncategorized") : page.categoryLabel(category);
+        if (category.equals(RuleBrowserModel.FAVORITES)) return MsgUtils.tr("favorites");
+        return category.equals(RuleBrowserModel.UNCATEGORIZED) ? MsgUtils.tr("uncategorized") : page.categoryLabel(category);
     }
 
     private void selectPage(String id) {
@@ -571,7 +577,7 @@ public final class WorkspaceDocumentInterface extends TElement {
     }
 
     int textWidth(String text) {
-        return (int) Math.ceil(getClient().font.width(text) * WorkspaceStyle.TEXT_SCALE);
+        return (int) Math.ceil(getClient().font.width(text) * GUIStyle.TEXT_SCALE);
     }
 
     @Override
@@ -637,7 +643,7 @@ public final class WorkspaceDocumentInterface extends TElement {
         if (homeCounts != null) homeCounts.setText(Component.translatable("carpet-gui.workspace.overview_counts",
             editor.sourcePages().stream().filter(candidate -> !candidate.isVanilla()).count(),
             editor.sourcePages().stream().mapToInt(candidate -> candidate.rules().size()).sum()));
-        if (connectionStatus != null) connectionStatus.setText(Msg.tr(getClient().getConnection() == null ? "offline" : "connected"));
+        if (connectionStatus != null) connectionStatus.setText(MsgUtils.tr(getClient().getConnection() == null ? "offline" : "connected"));
         layoutHomeOverview();
     }
 
@@ -667,7 +673,7 @@ public final class WorkspaceDocumentInterface extends TElement {
     @Override
     public void renderCallback(TGuiGraphics graphics) {
         var bounds = getBounds();
-        graphics.fillColor(0, 0, bounds.width, bounds.height, WorkspaceStyle.BACKDROP_COLOR);
+        graphics.fillColor(0, 0, bounds.width, bounds.height, GUIStyle.BACKDROP_COLOR);
     }
 
 

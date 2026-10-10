@@ -20,10 +20,8 @@
 
 package io.github.piscescup.fabricmc.carpetgui.gui.pages;
 
-import io.github.piscescup.fabricmc.carpetgui.gui.model.RulePage;
-import io.github.piscescup.fabricmc.carpetgui.gui.model.RuleView;
+import io.github.piscescup.fabricmc.carpetgui.api.RuleView;
 import net.minecraft.network.chat.Component;
-import org.jetbrains.annotations.ApiStatus;
 
 import java.util.List;
 import java.util.ArrayList;

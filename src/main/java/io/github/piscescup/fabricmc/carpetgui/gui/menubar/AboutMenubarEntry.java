@@ -23,7 +23,7 @@ package io.github.piscescup.fabricmc.carpetgui.gui.menubar;
 
 import com.thecsdev.commonmc.api.client.gui.ctxmenu.TContextMenu;
 import io.github.piscescup.fabricmc.carpetgui.gui.workspace.CarpetWorkspaceEditor;
-import io.github.piscescup.fabricmc.carpetgui.util.Msg;
+import io.github.piscescup.fabricmc.carpetgui.util.MsgUtils;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
@@ -37,7 +37,7 @@ public final class AboutMenubarEntry extends MenubarEntry {
 
     @Override
     public @NotNull Component getDisplayName() {
-        return Msg.tr("about");
+        return MsgUtils.tr("about");
     }
 
     @Override
@@ -47,7 +47,7 @@ public final class AboutMenubarEntry extends MenubarEntry {
     ) {
         var builder = new TContextMenu.Builder(client);
         builder.addButton(Component.literal("Carpet GUI " + version()), ignored -> editor.selectPage(null));
-        builder.addButton(Msg.tr("help"), ignored -> editor.selectPage(null));
+        builder.addButton(MsgUtils.tr("help"), ignored -> editor.selectPage(null));
         return builder.build();
     }
 

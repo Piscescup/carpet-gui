@@ -18,10 +18,9 @@
  * along with Carpet GUI.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-package io.github.piscescup.fabricmc.carpetgui.integration.vanilla;
+package io.github.piscescup.fabricmc.carpetgui.gui.pages;
 
-import io.github.piscescup.fabricmc.carpetgui.gui.model.RulePage;
-import io.github.piscescup.fabricmc.carpetgui.gui.model.RuleView;
+import io.github.piscescup.fabricmc.carpetgui.api.RuleView;
 import net.minecraft.network.chat.Component;
 
 import java.util.List;

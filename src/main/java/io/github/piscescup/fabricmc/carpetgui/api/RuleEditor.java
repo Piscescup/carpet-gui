@@ -18,20 +18,40 @@
  * along with Carpet GUI.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-package io.github.piscescup.fabricmc.carpetgui.gui.model;
+package io.github.piscescup.fabricmc.carpetgui.api;
 
-import java.util.List;
+import io.github.piscescup.fabricmc.carpetgui.gui.model.RuleEditResult;
 import net.minecraft.network.chat.Component;
 
+import java.util.List;
+import java.util.function.Consumer;
+
 /**
- * Injectable source for demo data now, or an API adapter later.
+ * Backend controls editability, input shape and submission; GUI never writes raw rule fields.
  */
-public interface RuleSource {
-    List<? extends RulePage> pages();
+public interface RuleEditor {
+    enum InputKind {
+        BOOLEAN,
+        NUMBER,
+        TEXT
+    }
 
-    List<? extends RuleView> vanillaRules();
+    InputKind inputKind();
 
-    default void refresh() {}
-    default long revision() { return 0; }
-    default Component notice(boolean vanilla) { return Component.empty(); }
+    List<String> suggestions();
+
+    boolean strict();
+
+    boolean editable();
+
+    Component disabledReason();
+
+    RuleEditResult submit(String value);
+
+    /**
+     * Optional asynchronous acknowledgement; legacy backends still return their immediate result.
+     */
+    default RuleEditResult submit(String value, Consumer<RuleEditResult> completed) {
+        return submit(value);
+    }
 }

@@ -22,7 +22,7 @@
 package io.github.piscescup.fabricmc.carpetgui.gui.workspace;
 
 import com.thecsdev.commonmc.api.client.gui.TElement;
-import io.github.piscescup.fabricmc.carpetgui.gui.model.RulePage;
+import io.github.piscescup.fabricmc.carpetgui.gui.pages.RulePage;
 
 import java.util.Objects;
 

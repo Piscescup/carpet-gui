@@ -24,7 +24,7 @@ package io.github.piscescup.fabricmc.carpetgui.gui.widget.button;
 import com.thecsdev.commonmc.api.client.gui.widget.TButtonWidget;
 import net.minecraft.network.chat.Component;
 
-import static io.github.piscescup.fabricmc.carpetgui.gui.workspace.WorkspaceStyle.TEXT_SCALE;
+import static io.github.piscescup.fabricmc.carpetgui.gui.GUIStyle.TEXT_SCALE;
 
 /**
  *

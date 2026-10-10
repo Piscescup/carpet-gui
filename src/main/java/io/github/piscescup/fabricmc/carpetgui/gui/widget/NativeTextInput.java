@@ -24,7 +24,7 @@ package io.github.piscescup.fabricmc.carpetgui.gui.widget;
 import com.thecsdev.commonmc.api.client.gui.TElement;
 import com.thecsdev.commonmc.api.client.gui.render.TGuiGraphics;
 import com.thecsdev.commonmc.api.client.gui.util.TInputContext;
-import io.github.piscescup.fabricmc.carpetgui.gui.workspace.WorkspaceStyle;
+import io.github.piscescup.fabricmc.carpetgui.gui.GUIStyle;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.input.CharacterEvent;
@@ -72,8 +72,8 @@ public final class NativeTextInput extends TElement {
         boundsProperty().addChangeListener((property, oldBounds, bounds) -> {
             // Local native coordinates keep rendering, caret placement and drag selection at the same scale.
             box.setX(0); box.setY(0);
-            box.setWidth(Math.max(1, (int) Math.ceil(bounds.width / WorkspaceStyle.TEXT_SCALE)));
-            box.setHeight(Math.max(1, (int) Math.ceil(bounds.height / WorkspaceStyle.TEXT_SCALE)));
+            box.setWidth(Math.max(1, (int) Math.ceil(bounds.width / GUIStyle.TEXT_SCALE)));
+            box.setHeight(Math.max(1, (int) Math.ceil(bounds.height / GUIStyle.TEXT_SCALE)));
         });
     }
 
@@ -93,13 +93,13 @@ public final class NativeTextInput extends TElement {
         var pose = graphics.getNative().pose();
         pose.pushMatrix();
         try {
-            pose.translate(bounds.x, bounds.y).scale((float) WorkspaceStyle.TEXT_SCALE);
+            pose.translate(bounds.x, bounds.y).scale((float) GUIStyle.TEXT_SCALE);
             //#if MC >= 260000
-            box.extractRenderState(graphics.getNative(), (int) ((graphics.getMouseX() - bounds.x) / WorkspaceStyle.TEXT_SCALE),
-                (int) ((graphics.getMouseY() - bounds.y) / WorkspaceStyle.TEXT_SCALE), graphics.getDeltaTicks());
+            box.extractRenderState(graphics.getNative(), (int) ((graphics.getMouseX() - bounds.x) / GUIStyle.TEXT_SCALE),
+                (int) ((graphics.getMouseY() - bounds.y) / GUIStyle.TEXT_SCALE), graphics.getDeltaTicks());
             //#else
-            //$$ box.renderWidget(graphics.getNative(), (int) ((graphics.getMouseX() - bounds.x) / WorkspaceStyle.TEXT_SCALE),
-            //$$     (int) ((graphics.getMouseY() - bounds.y) / WorkspaceStyle.TEXT_SCALE), graphics.getDeltaTicks());
+            //$$ box.renderWidget(graphics.getNative(), (int) ((graphics.getMouseX() - bounds.x) / GUIStyle.TEXT_SCALE),
+            //$$     (int) ((graphics.getMouseY() - bounds.y) / GUIStyle.TEXT_SCALE), graphics.getDeltaTicks());
             //#endif
         } finally { pose.popMatrix(); }
     }
@@ -117,8 +117,8 @@ public final class NativeTextInput extends TElement {
         }
         if (!isFocused()) return false;
         if (context.getInputType() == TInputContext.InputType.MOUSE_DRAG) {
-            box.mouseDragged(mouseEvent(context), context.getMouseDeltaX() / WorkspaceStyle.TEXT_SCALE,
-                context.getMouseDeltaY() / WorkspaceStyle.TEXT_SCALE);
+            box.mouseDragged(mouseEvent(context), context.getMouseDeltaX() / GUIStyle.TEXT_SCALE,
+                context.getMouseDeltaY() / GUIStyle.TEXT_SCALE);
             return true;
         }
         if (context.getInputType() == TInputContext.InputType.MOUSE_RELEASE) {
@@ -155,8 +155,8 @@ public final class NativeTextInput extends TElement {
 
     private MouseButtonEvent mouseEvent(TInputContext context) {
         var bounds = getBounds();
-        return new MouseButtonEvent((context.getMouseX() - bounds.x) / WorkspaceStyle.TEXT_SCALE,
-            (context.getMouseY() - bounds.y) / WorkspaceStyle.TEXT_SCALE,
+        return new MouseButtonEvent((context.getMouseX() - bounds.x) / GUIStyle.TEXT_SCALE,
+            (context.getMouseY() - bounds.y) / GUIStyle.TEXT_SCALE,
             //#if MC >= 260300
             new MouseButtonInfo(context.getMouseButton(), context.getModifiers() == null ? 0 : context.getModifiers()));
             //#else

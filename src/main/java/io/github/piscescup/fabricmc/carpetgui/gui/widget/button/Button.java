@@ -23,10 +23,8 @@ package io.github.piscescup.fabricmc.carpetgui.gui.widget.button;
 
 import com.thecsdev.commonmc.api.client.gui.render.TGuiGraphics;
 import com.thecsdev.commonmc.api.client.gui.widget.TButtonWidget;
-import io.github.piscescup.fabricmc.carpetgui.gui.workspace.WorkspaceStyle;
+import io.github.piscescup.fabricmc.carpetgui.gui.GUIStyle;
 import net.minecraft.network.chat.Component;
-
-import static io.github.piscescup.fabricmc.carpetgui.gui.workspace.WorkspaceStyle.*;
 
 /**
  *
@@ -41,7 +39,7 @@ public class Button extends TButtonWidget {
         getLabel().hoverableProperty()
             .set(false, Button.class);
         getLabel().textScaleProperty()
-            .set(WorkspaceStyle.TEXT_SCALE, Button.class);
+            .set(GUIStyle.TEXT_SCALE, Button.class);
         //#if MC >= 260000
         getLabel().dropShadowProperty()
             .set(false, Button.class);
@@ -52,7 +50,7 @@ public class Button extends TButtonWidget {
     public void setSelected(boolean value) {
         selected = value;
         getLabel().textColorProperty()
-            .set(selected ? WorkspaceStyle.ACCENT_COLOR : WorkspaceStyle.TEXT_COLOR, Button.class);
+            .set(selected ? GUIStyle.ACCENT_COLOR : GUIStyle.TEXT_COLOR, Button.class);
     }
 
     @Override
@@ -66,12 +64,12 @@ public class Button extends TButtonWidget {
         if (isHoveredOrFocused()) {
             graphics.drawOutlineIn(
                 bounds.x, bounds.y, bounds.width, bounds.height,
-                FOCUS_COLOR
+                GUIStyle.FOCUS_COLOR
             );
         }
         getLabel().textColorProperty()
             .set(
-                !isFocusable() ? WorkspaceStyle.MUTED_COLOR : selected ? WorkspaceStyle.ACCENT_COLOR : WorkspaceStyle.TEXT_COLOR,
+                !isFocusable() ? GUIStyle.MUTED_COLOR : selected ? GUIStyle.ACCENT_COLOR : GUIStyle.TEXT_COLOR,
                 Button.class
             );
     }

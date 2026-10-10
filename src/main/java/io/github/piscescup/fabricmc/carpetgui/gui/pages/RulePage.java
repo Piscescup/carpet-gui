@@ -18,28 +18,34 @@
  * along with Carpet GUI.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-package io.github.piscescup.fabricmc.carpetgui.util;
+package io.github.piscescup.fabricmc.carpetgui.gui.pages;
 
+import io.github.piscescup.fabricmc.carpetgui.api.DropdownOption;
+import io.github.piscescup.fabricmc.carpetgui.api.RuleView;
 import net.minecraft.network.chat.Component;
-import org.jetbrains.annotations.Contract;
-import org.jspecify.annotations.NonNull;
 
+import java.util.List;
 
 /**
- *
- * @author REN YuanTong
- * @since
+ * A rule system's page: a mod or any other provider, identified without a mod loader dependency.
  */
-public final class Msg {
-    private Msg() {}
+public interface RulePage
+    extends DropdownOption
+{
+    Component title();
 
-    @NonNull
-    @Contract(value = "_ -> new", pure = true)
-    public static Component tr(String key) {
-        return Component.translatable("carpet-gui.workspace." + key);
+    @Override
+    default Component label() {
+        return title();
     }
 
-    public static Component tr(String key, Object... args) {
-        return Component.translatable(key, args);
+    List<? extends RuleView> rules();
+
+    default boolean isVanilla() {
+        return false;
+    }
+
+    default Component categoryLabel(String category) {
+        return Component.translatableWithFallback("carpet-gui.category." + category, category);
     }
 }
