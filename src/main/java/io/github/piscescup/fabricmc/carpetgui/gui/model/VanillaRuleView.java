@@ -18,6 +18,7 @@
  * along with Carpet GUI.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+//#if MC >= 260000
 package io.github.piscescup.fabricmc.carpetgui.gui.model;
 
 import io.github.piscescup.fabricmc.carpetgui.api.EditableRuleView;
@@ -125,3 +126,4 @@ public final class VanillaRuleView
         return gateway.send("gamerule " + id() + " " + value);
     }
 }
+//#endif

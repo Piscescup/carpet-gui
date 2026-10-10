@@ -18,6 +18,7 @@
  * along with Carpet GUI.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+//#if MC >= 260000
 package io.github.piscescup.fabricmc.carpetgui.store;
 
 import net.minecraft.client.Minecraft;
@@ -78,3 +79,4 @@ public final class VanillaRuleStore {
         //#endif
     }
 }
+//#endif

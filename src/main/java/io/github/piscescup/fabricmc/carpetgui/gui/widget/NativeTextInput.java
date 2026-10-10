@@ -98,8 +98,8 @@ public final class NativeTextInput extends TElement {
             box.extractRenderState(graphics.getNative(), (int) ((graphics.getMouseX() - bounds.x) / GUIStyle.TEXT_SCALE),
                 (int) ((graphics.getMouseY() - bounds.y) / GUIStyle.TEXT_SCALE), graphics.getDeltaTicks());
             //#else
-            //$$ box.renderWidget(graphics.getNative(), (int) ((graphics.getMouseX() - bounds.x) / WorkspaceStyle.TEXT_SCALE),
-            //$$     (int) ((graphics.getMouseY() - bounds.y) / WorkspaceStyle.TEXT_SCALE), graphics.getDeltaTicks());
+            //$$ box.renderWidget(graphics.getNative(), (int) ((graphics.getMouseX() - bounds.x) / GUIStyle.TEXT_SCALE),
+            //$$     (int) ((graphics.getMouseY() - bounds.y) / GUIStyle.TEXT_SCALE), graphics.getDeltaTicks());
             //#endif
         } finally { pose.popMatrix(); }
     }
