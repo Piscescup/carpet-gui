@@ -16,7 +16,7 @@
 	"environment": "*",
 	"entrypoints": {
 		"modmenu": [
-			"io.github.piscescup.fabricmc.carpetgui.integration.modmenu.CarpetGuiModMenu"
+          "io.github.piscescup.fabricmc.carpetgui.modmenu.CarpetGuiModMenu"
 		],
 		"main": [
 			"io.github.piscescup.fabricmc.carpetgui.CarpetGUI"

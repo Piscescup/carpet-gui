@@ -26,13 +26,19 @@ import com.thecsdev.commonmc.api.client.gui.label.TLabelElement;
 import com.thecsdev.commonmc.api.client.gui.panel.TPanelElement;
 import com.thecsdev.commonmc.api.client.gui.render.TGuiGraphics;
 import com.thecsdev.commonmc.api.client.gui.tooltip.TTooltip;
-import io.github.piscescup.fabricmc.carpetgui.gui.model.EditableRuleView;
-import io.github.piscescup.fabricmc.carpetgui.gui.model.PersistentRuleEditor;
+import io.github.piscescup.fabricmc.carpetgui.api.EditableRuleView;
+import io.github.piscescup.fabricmc.carpetgui.gui.CarpetWorkspaceScreen;
+import io.github.piscescup.fabricmc.carpetgui.api.PersistentRuleEditor;
 import io.github.piscescup.fabricmc.carpetgui.gui.model.RuleEditResult;
-import io.github.piscescup.fabricmc.carpetgui.gui.model.RulePage;
-import io.github.piscescup.fabricmc.carpetgui.gui.model.RuleView;
+import io.github.piscescup.fabricmc.carpetgui.gui.pages.RulePage;
+import io.github.piscescup.fabricmc.carpetgui.api.RuleView;
+import io.github.piscescup.fabricmc.carpetgui.gui.GUIStyle;
+import io.github.piscescup.fabricmc.carpetgui.gui.widget.button.Button;
+import io.github.piscescup.fabricmc.carpetgui.gui.widget.NativeTextInput;
+import io.github.piscescup.fabricmc.carpetgui.gui.widget.button.ControlButton;
 import io.github.piscescup.fabricmc.carpetgui.network.ClientRuleChanges;
 import io.github.piscescup.fabricmc.carpetgui.network.RuleChangeEvent;
+import io.github.piscescup.fabricmc.carpetgui.store.RuleGroupStore;
 import net.minecraft.network.chat.Component;
 
 import java.text.Normalizer;
@@ -48,12 +54,8 @@ import java.util.Map;
 
 /** Group page first; Git-like status/stage/commit/push is a separate workflow over its member rules. */
 final class RuleGroupWorkspace {
-    static final String ID = "carpet-gui:rule-groups";
+    static final String ID = CarpetWorkspaceEditor.RULE_GROUPS_PAGE_ID;
     private static final DateTimeFormatter TIME = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
-    private static final int NEW_RULE = 0xFFFF5555;
-    private static final int MODIFIED_RULE = 0xFF55AAFF;
-    private static final int STAGED_RULE = 0xFF55FF55;
-    private static final int REMOTE_RULE = 0xFFFFAA00;
 
     private final CarpetWorkspaceScreen screen;
     private final List<? extends RulePage> pages;
@@ -130,55 +132,57 @@ final class RuleGroupWorkspace {
     private void initGroups(WorkspacePanel panel, List<RuleGroupStore.Group> groups) {
         var bounds = panel.getBounds();
         int x = bounds.x + 8, y = bounds.y + 8, width = Math.max(1, bounds.width - 16);
-        WorkspaceStyle.label(panel, tr("rule_groups"), x, y, width, 16, WorkspaceStyle.ACCENT);
+        WorkspaceStyle.label(panel, tr("rule_groups"), x, y, width, 16, GUIStyle.ACCENT_COLOR);
         y += 22;
-        var create = new WorkspaceStyle.ControlButton(tr(creating ? "cancel" : "new_group"), () -> {
+        var create = new ControlButton(tr(creating ? "cancel" : "new_group"), () -> {
             creating = !creating;
             nameDraft = "";
             tagDraft = "";
             screen.rebuildWorkspace();
         });
-        create.setBounds(x, y, width, WorkspaceStyle.CONTROL_HEIGHT);
+        create.setBounds(x, y, width, GUIStyle.CONTROL_HEIGHT);
         panel.add(create);
         y += 27;
         if (creating) {
             var name = new NativeTextInput(tr("group_name"), nameDraft, value -> nameDraft = value, () -> {}, this::cancelCreate);
-            name.setBounds(x, y, width, WorkspaceStyle.CONTROL_HEIGHT);
+            name.setBounds(x, y, width, GUIStyle.CONTROL_HEIGHT);
             panel.add(name);
             y += 24;
             var tag = new NativeTextInput(tr("group_tag"), tagDraft, value -> tagDraft = value, () -> {}, this::cancelCreate);
-            tag.setBounds(x, y, width, WorkspaceStyle.CONTROL_HEIGHT);
+            tag.setBounds(x, y, width, GUIStyle.CONTROL_HEIGHT);
             panel.add(tag);
             y += 24;
-            var confirm = new WorkspaceStyle.ControlButton(tr("create_group"), this::createGroup);
-            confirm.setBounds(x, y, width, WorkspaceStyle.CONTROL_HEIGHT);
+            var confirm = new ControlButton(tr("create_group"), this::createGroup);
+            confirm.setBounds(x, y, width, GUIStyle.CONTROL_HEIGHT);
             panel.add(confirm);
             y += 29;
         }
         if (groups.isEmpty()) {
-            paragraph(panel, tr("no_groups"), x, y + 3, width, WorkspaceStyle.MUTED);
+            paragraph(panel, tr("no_groups"), x, y + 3, width, GUIStyle.MUTED_COLOR);
             return;
         }
         for (RuleGroupStore.Group group : groups) {
-            var item = new WorkspaceStyle.Button(Component.empty(), () -> {
+            var item = new Button(Component.empty(), () -> {
                 cancelDrafts();
                 selectedGroupId = group.id();
                 mode = Mode.VIEW;
                 screen.rebuildWorkspace();
             });
             item.setSelected(group.id().equals(selectedGroupId));
-            item.setBounds(x, y, width, WorkspaceStyle.RULE_HEIGHT);
+            item.setBounds(x, y, width, GUIStyle.RULE_HEIGHT);
             panel.add(item);
             WorkspaceStyle.label(panel, Component.literal(group.name()), x + 7, y + 3,
                 Math.max(1, width - 14), 10,
-                group.id().equals(selectedGroupId) ? WorkspaceStyle.ACCENT : WorkspaceStyle.TEXT);
+                group.id().equals(selectedGroupId) ? GUIStyle.ACCENT_COLOR : GUIStyle.TEXT_COLOR
+            );
             String state = group.commitsAhead() > 0 ? "↑" + group.commitsAhead() : "✓";
             var label = WorkspaceStyle.label(panel,
                 Component.literal((group.tag().isBlank() ? "HEAD" : group.tag()) + "  ·  r" + group.revision() + "  " + state),
-                x + 7, y + 14, Math.max(1, width - 14), 9, WorkspaceStyle.MUTED);
-            label.textScaleProperty().set(WorkspaceStyle.SMALL_TEXT_SCALE, RuleGroupWorkspace.class);
+                x + 7, y + 14, Math.max(1, width - 14), 9, GUIStyle.MUTED_COLOR
+            );
+            label.textScaleProperty().set(GUIStyle.SMALL_TEXT_SCALE, RuleGroupWorkspace.class);
             label.wrapTextProperty().set(false, RuleGroupWorkspace.class);
-            y += WorkspaceStyle.RULE_HEIGHT + 3;
+            y += GUIStyle.RULE_HEIGHT + 3;
         }
     }
 
@@ -210,21 +214,21 @@ final class RuleGroupWorkspace {
         var bounds = panel.getBounds();
         int x = bounds.x + 9, y = bounds.y + 8, width = Math.max(1, bounds.width - 18);
         if (group == null) {
-            WorkspaceStyle.label(panel, tr("group_rules"), x, y, width, 16, WorkspaceStyle.ACCENT);
-            paragraph(panel, tr("select_or_create_group"), x, y + 24, width, WorkspaceStyle.MUTED);
+            WorkspaceStyle.label(panel, tr("group_rules"), x, y, width, 16, GUIStyle.ACCENT_COLOR);
+            paragraph(panel, tr("select_or_create_group"), x, y + 24, width, GUIStyle.MUTED_COLOR);
             return;
         }
-        WorkspaceStyle.label(panel, Component.literal(group.name()), x, y, Math.max(1, width - 100), 16, WorkspaceStyle.ACCENT);
-        var manage = new WorkspaceStyle.ControlButton(tr("manage_rules"), () -> setMode(Mode.MANAGE));
-        manage.setBounds(x + width - 94, y - 3, 94, WorkspaceStyle.CONTROL_HEIGHT);
+        WorkspaceStyle.label(panel, Component.literal(group.name()), x, y, Math.max(1, width - 100), 16, GUIStyle.ACCENT_COLOR);
+        var manage = new ControlButton(tr("manage_rules"), () -> setMode(Mode.MANAGE));
+        manage.setBounds(x + width - 94, y - 3, 94, GUIStyle.CONTROL_HEIGHT);
         panel.add(manage);
         y += 24;
         y = addStatusLegend(panel, x, y, width) + 6;
         Map<String, RuleRef> byId = rulesById();
         if (group.members().isEmpty()) {
-            y = paragraph(panel, tr("empty_group"), x, y + 8, width, WorkspaceStyle.MUTED) + 12;
-            var addRules = new WorkspaceStyle.ControlButton(tr("add_group_rules"), () -> setMode(Mode.MANAGE));
-            addRules.setBounds(x, y, Math.min(150, width), WorkspaceStyle.CONTROL_HEIGHT);
+            y = paragraph(panel, tr("empty_group"), x, y + 8, width, GUIStyle.MUTED_COLOR) + 12;
+            var addRules = new ControlButton(tr("add_group_rules"), () -> setMode(Mode.MANAGE));
+            addRules.setBounds(x, y, Math.min(150, width), GUIStyle.CONTROL_HEIGHT);
             panel.add(addRules);
             return;
         }
@@ -232,17 +236,17 @@ final class RuleGroupWorkspace {
             RuleRef ref = byId.get(ruleId);
             if (ref == null) {
                 addMembershipRow(panel, null, ruleId, true, group, x, y, width);
-                y += WorkspaceStyle.RULE_HEIGHT + 3;
+                y += GUIStyle.RULE_HEIGHT + 3;
                 continue;
             }
             var row = new WorkspaceRuleRow(ref.ownerId(), ref.rule(), result -> screen.feedback(ref.rule(), result),
                 this::cancelDrafts, () -> ruleColor(group, ruleId, ref.rule()),
                 () -> ruleDetail(group, ruleId, ref.rule()));
-            row.setBounds(x, y, width, WorkspaceStyle.RULE_HEIGHT);
+            row.setBounds(x, y, width, GUIStyle.RULE_HEIGHT);
             panel.add(row);
             activeRows.add(row);
             activeRowKeys.put(row, ruleId);
-            y += WorkspaceStyle.RULE_HEIGHT + 3;
+            y += GUIStyle.RULE_HEIGHT + 3;
         }
     }
 
@@ -253,20 +257,20 @@ final class RuleGroupWorkspace {
         int doneWidth = Math.min(64, width);
         int searchWidth = Math.min(Math.max(1, width - doneWidth - 8), Math.clamp(width / 3, 70, 150));
         int searchX = x + width - doneWidth - 6 - searchWidth;
-        WorkspaceStyle.label(panel, tr("manage_group_rules"), x, y, Math.max(1, searchX - x - 5), 16, WorkspaceStyle.ACCENT);
+        WorkspaceStyle.label(panel, tr("manage_group_rules"), x, y, Math.max(1, searchX - x - 5), 16, GUIStyle.ACCENT_COLOR);
         var search = new NativeTextInput(tr("search"), manageSearchDraft, value -> {
             manageSearchDraft = value;
             filterMembershipRows();
         }, () -> {}, () -> screen.focusedElementProperty().set(null, RuleGroupWorkspace.class));
-        search.setBounds(searchX, y - 3, searchWidth, WorkspaceStyle.CONTROL_HEIGHT);
+        search.setBounds(searchX, y - 3, searchWidth, GUIStyle.CONTROL_HEIGHT);
         search.tooltipProperty().set(ignored -> TTooltip.of(tr("search_hint")), RuleGroupWorkspace.class);
         panel.add(search);
-        var done = new WorkspaceStyle.ControlButton(tr("done"), () -> setMode(Mode.VIEW));
-        done.setBounds(x + width - doneWidth, y - 3, doneWidth, WorkspaceStyle.CONTROL_HEIGHT);
+        var done = new ControlButton(tr("done"), () -> setMode(Mode.VIEW));
+        done.setBounds(x + width - doneWidth, y - 3, doneWidth, GUIStyle.CONTROL_HEIGHT);
         panel.add(done);
         y += 25;
         if (group == null) {
-            paragraph(panel, tr("select_or_create_group"), x, y, width, WorkspaceStyle.MUTED);
+            paragraph(panel, tr("select_or_create_group"), x, y, width, GUIStyle.MUTED_COLOR);
             return;
         }
         List<RuleRef> rules = rules();
@@ -279,32 +283,34 @@ final class RuleGroupWorkspace {
             y += 29;
         }
         membershipRows = List.copyOf(rows);
-        manageEmpty = WorkspaceStyle.label(panel, Component.empty(), x, manageRowsY, width, 15, WorkspaceStyle.MUTED);
+        manageEmpty = WorkspaceStyle.label(panel, Component.empty(), x, manageRowsY, width, 15, GUIStyle.MUTED_COLOR);
         manageEmpty.wrapTextProperty().set(true, RuleGroupWorkspace.class);
         filterMembershipRows();
     }
 
     private WorkspaceStaticPanel addMembershipRow(TElement parent, RuleRef ref, String key, boolean member,
                                                    RuleGroupStore.Group group, int x, int y, int width) {
-        var row = new WorkspaceStaticPanel(WorkspaceStyle.RULE_BACKGROUND, WorkspaceStyle.BORDER, WorkspaceStyle.BORDER);
+        var row = new WorkspaceStaticPanel(GUIStyle.RULE_BACKGROUND_COLOR, GUIStyle.BORDER_COLOR, GUIStyle.BORDER_COLOR);
         row.setBounds(x, y, width, 26);
         parent.add(row);
         int actionWidth = Math.clamp(width / 5, 46, 70);
         WorkspaceStyle.label(row, Component.literal(member ? "●" : "+"), x + 6, y + 7, 12, 11,
-            member ? WorkspaceStyle.ACCENT : WorkspaceStyle.MUTED);
+            member ? GUIStyle.ACCENT_COLOR : GUIStyle.MUTED_COLOR
+        );
         Component title = ref == null ? Component.literal(key) : ref.rule().label();
         String detail = ref == null ? tr("missing_rule").getString()
             : ref.owner().getString() + "  ·  " + ref.rule().value();
-        int titleColor = member && ref != null ? ruleColor(group, key, ref.rule()) : WorkspaceStyle.TEXT;
+        int titleColor = member && ref != null ? ruleColor(group, key, ref.rule()) : GUIStyle.TEXT_COLOR;
         WorkspaceStyle.label(row, title, x + 21, y + 3, Math.max(1, width - actionWidth - 29), 10, titleColor);
         var detailLabel = WorkspaceStyle.label(row, Component.literal(detail), x + 21, y + 14,
-            Math.max(1, width - actionWidth - 29), 9, WorkspaceStyle.MUTED);
-        detailLabel.textScaleProperty().set(WorkspaceStyle.SMALL_TEXT_SCALE, RuleGroupWorkspace.class);
+            Math.max(1, width - actionWidth - 29), 9, GUIStyle.MUTED_COLOR
+        );
+        detailLabel.textScaleProperty().set(GUIStyle.SMALL_TEXT_SCALE, RuleGroupWorkspace.class);
         detailLabel.wrapTextProperty().set(false, RuleGroupWorkspace.class);
         Runnable action = member
             ? () -> mutate(() -> RuleGroupStore.removeMember(group, key))
             : () -> mutate(() -> RuleGroupStore.addMember(group, key));
-        var button = new WorkspaceStyle.Button(tr(member ? "remove" : "add_rule"), action);
+        var button = new Button(tr(member ? "remove" : "add_rule"), action);
         button.setBounds(x + width - actionWidth - 3, y + 3, actionWidth, 20);
         row.add(button);
         return row;
@@ -359,21 +365,22 @@ final class RuleGroupWorkspace {
     private void initStatus(WorkspacePanel panel, RuleGroupStore.Group group) {
         var bounds = panel.getBounds();
         int x = bounds.x + 9, y = bounds.y + 8, width = Math.max(1, bounds.width - 18);
-        WorkspaceStyle.label(panel, tr("status_title"), x, y, Math.max(1, width - 70), 16, WorkspaceStyle.ACCENT);
-        var back = new WorkspaceStyle.ControlButton(tr("back"), () -> setMode(Mode.VIEW));
-        back.setBounds(x + width - 64, y - 3, 64, WorkspaceStyle.CONTROL_HEIGHT);
+        WorkspaceStyle.label(panel, tr("status_title"), x, y, Math.max(1, width - 70), 16, GUIStyle.ACCENT_COLOR);
+        var back = new ControlButton(tr("back"), () -> setMode(Mode.VIEW));
+        back.setBounds(x + width - 64, y - 3, 64, GUIStyle.CONTROL_HEIGHT);
         panel.add(back);
         y += 25;
         if (group == null) {
-            paragraph(panel, tr("select_or_create_group"), x, y, width, WorkspaceStyle.MUTED);
+            paragraph(panel, tr("select_or_create_group"), x, y, width, GUIStyle.MUTED_COLOR);
             return;
         }
         Map<String, RuleRef> byId = rulesById();
         List<RuleChange> unstaged = changes(group, byId);
         WorkspaceStyle.label(panel, Component.translatable("carpet-gui.workspace.unstaged_changes", unstaged.size()),
-            x, y, width, 15, WorkspaceStyle.ACCENT);
+            x, y, width, 15, GUIStyle.ACCENT_COLOR
+        );
         y += 20;
-        if (unstaged.isEmpty()) y = paragraph(panel, tr("no_unstaged_changes"), x + 8, y, width - 8, WorkspaceStyle.MUTED) + 7;
+        if (unstaged.isEmpty()) y = paragraph(panel, tr("no_unstaged_changes"), x + 8, y, width - 8, GUIStyle.MUTED_COLOR) + 7;
         for (RuleChange change : unstaged) {
             addChangeRow(panel, change.ref(), change.key(), change.detail(), change.marker(), change.color(), "stage",
                 () -> mutate(() -> RuleGroupStore.stage(group, change.key(), change.value())), x, y, width);
@@ -381,60 +388,62 @@ final class RuleGroupWorkspace {
         }
         y += 5;
         WorkspaceStyle.label(panel, Component.translatable("carpet-gui.workspace.staged_changes", group.staged().size()),
-            x, y, width, 15, WorkspaceStyle.ACCENT);
+            x, y, width, 15, GUIStyle.ACCENT_COLOR
+        );
         y += 20;
-        if (group.staged().isEmpty()) y = paragraph(panel, tr("no_staged_changes"), x + 8, y, width - 8, WorkspaceStyle.MUTED) + 7;
+        if (group.staged().isEmpty()) y = paragraph(panel, tr("no_staged_changes"), x + 8, y, width - 8, GUIStyle.MUTED_COLOR) + 7;
         for (Map.Entry<String, String> staged : group.staged().entrySet()) {
-            addChangeRow(panel, byId.get(staged.getKey()), staged.getKey(), staged.getValue(), "A", STAGED_RULE, "unstage",
+            addChangeRow(panel, byId.get(staged.getKey()), staged.getKey(), staged.getValue(), "A", GUIStyle.STAGED_RULE_COLOR, "unstage",
                 () -> mutate(() -> RuleGroupStore.unstage(group, staged.getKey())), x, y, width);
             y += 29;
         }
         y += 8;
-        var restore = new WorkspaceStyle.ControlButton(tr("restore_head"), () -> restore(group));
-        restore.setBounds(x, y, Math.min(145, width), WorkspaceStyle.CONTROL_HEIGHT);
+        var restore = new ControlButton(tr("restore_head"), () -> restore(group));
+        restore.setBounds(x, y, Math.min(145, width), GUIStyle.CONTROL_HEIGHT);
         panel.add(restore);
     }
 
     private void initCommit(WorkspacePanel panel, RuleGroupStore.Group group) {
         var bounds = panel.getBounds();
         int x = bounds.x + 9, y = bounds.y + 8, width = Math.max(1, bounds.width - 18);
-        WorkspaceStyle.label(panel, tr("create_commit"), x, y, Math.max(1, width - 70), 16, WorkspaceStyle.ACCENT);
-        var back = new WorkspaceStyle.ControlButton(tr("back"), () -> setMode(Mode.STATUS));
-        back.setBounds(x + width - 64, y - 3, 64, WorkspaceStyle.CONTROL_HEIGHT);
+        WorkspaceStyle.label(panel, tr("create_commit"), x, y, Math.max(1, width - 70), 16, GUIStyle.ACCENT_COLOR);
+        var back = new ControlButton(tr("back"), () -> setMode(Mode.STATUS));
+        back.setBounds(x + width - 64, y - 3, 64, GUIStyle.CONTROL_HEIGHT);
         panel.add(back);
         y += 28;
         if (group == null) {
-            paragraph(panel, tr("select_or_create_group"), x, y, width, WorkspaceStyle.MUTED);
+            paragraph(panel, tr("select_or_create_group"), x, y, width, GUIStyle.MUTED_COLOR);
             return;
         }
-        WorkspaceStyle.label(panel, tr("commit_message"), x, y, width, 13, WorkspaceStyle.TEXT);
+        WorkspaceStyle.label(panel, tr("commit_message"), x, y, width, 13, GUIStyle.TEXT_COLOR);
         y += 17;
         var message = new NativeTextInput(tr("commit_message_hint"), commitMessageDraft,
             value -> commitMessageDraft = value, () -> {}, () -> setMode(Mode.STATUS));
-        message.setBounds(x, y, width, WorkspaceStyle.CONTROL_HEIGHT);
+        message.setBounds(x, y, width, GUIStyle.CONTROL_HEIGHT);
         panel.add(message);
         y += 29;
-        var commit = new WorkspaceStyle.ControlButton(Component.translatable("carpet-gui.workspace.commit_count", group.staged().size()),
+        var commit = new ControlButton(Component.translatable("carpet-gui.workspace.commit_count", group.staged().size()),
             () -> commitNow(group));
-        commit.setBounds(x, y, Math.min(170, width), WorkspaceStyle.CONTROL_HEIGHT);
+        commit.setBounds(x, y, Math.min(170, width), GUIStyle.CONTROL_HEIGHT);
         commit.enabledProperty().set(!group.staged().isEmpty(), RuleGroupWorkspace.class);
         panel.add(commit);
         y += 31;
         WorkspaceStyle.label(panel, Component.translatable("carpet-gui.workspace.staged_changes", group.staged().size()),
-            x, y, width, 15, WorkspaceStyle.ACCENT);
+            x, y, width, 15, GUIStyle.ACCENT_COLOR
+        );
         y += 20;
         Map<String, RuleRef> byId = rulesById();
         for (Map.Entry<String, String> staged : group.staged().entrySet()) {
-            addChangeRow(panel, byId.get(staged.getKey()), staged.getKey(), staged.getValue(), "A", STAGED_RULE,
+            addChangeRow(panel, byId.get(staged.getKey()), staged.getKey(), staged.getValue(), "A", GUIStyle.STAGED_RULE_COLOR,
                 null, null, x, y, width);
             y += 29;
         }
-        if (group.staged().isEmpty()) paragraph(panel, tr("nothing_to_commit"), x + 8, y, width - 8, WorkspaceStyle.MUTED);
+        if (group.staged().isEmpty()) paragraph(panel, tr("nothing_to_commit"), x + 8, y, width - 8, GUIStyle.MUTED_COLOR);
     }
 
     private void addChangeRow(TElement parent, RuleRef ref, String key, String value, String marker, int color,
                               String actionKey, Runnable action, int x, int y, int width) {
-        var row = new WorkspaceStaticPanel(WorkspaceStyle.RULE_BACKGROUND, WorkspaceStyle.BORDER, WorkspaceStyle.BORDER);
+        var row = new WorkspaceStaticPanel(GUIStyle.RULE_BACKGROUND_COLOR, GUIStyle.BORDER_COLOR, GUIStyle.BORDER_COLOR);
         row.setBounds(x, y, width, 26);
         parent.add(row);
         int actionWidth = action == null ? 0 : Math.clamp(width / 5, 46, 70);
@@ -443,18 +452,19 @@ final class RuleGroupWorkspace {
         String owner = ref == null ? tr("missing_rule").getString() : ref.owner().getString();
         WorkspaceStyle.label(row, title, x + 21, y + 3, Math.max(1, width - actionWidth - 29), 10, color);
         var detail = WorkspaceStyle.label(row, Component.literal(owner + "  ·  " + value), x + 21, y + 14,
-            Math.max(1, width - actionWidth - 29), 9, WorkspaceStyle.MUTED);
-        detail.textScaleProperty().set(WorkspaceStyle.SMALL_TEXT_SCALE, RuleGroupWorkspace.class);
+            Math.max(1, width - actionWidth - 29), 9, GUIStyle.MUTED_COLOR
+        );
+        detail.textScaleProperty().set(GUIStyle.SMALL_TEXT_SCALE, RuleGroupWorkspace.class);
         detail.wrapTextProperty().set(false, RuleGroupWorkspace.class);
         if (action != null) {
-            var button = new WorkspaceStyle.Button(tr(actionKey), action);
+            var button = new Button(tr(actionKey), action);
             button.setBounds(x + width - actionWidth - 3, y + 3, actionWidth, 20);
             row.add(button);
         }
     }
 
     private void initActions(int x, int y, int width, int height, RuleGroupStore.Group group) {
-        var bar = new WorkspaceStaticPanel(0x55000000, WorkspaceStyle.BORDER, WorkspaceStyle.BORDER);
+        var bar = new WorkspaceStaticPanel(0x55000000, GUIStyle.BORDER_COLOR, GUIStyle.BORDER_COLOR);
         bar.setBounds(x, y, width, Math.max(1, height - 4));
         screen.addWorkspaceElement(bar);
         int gap = 4;
@@ -470,10 +480,10 @@ final class RuleGroupWorkspace {
     }
 
     private void addAction(TElement parent, int x, int y, int width, String key, boolean selected, Runnable action, boolean enabled) {
-        var button = new WorkspaceStyle.Button(tr(key), action);
+        var button = new Button(tr(key), action);
         button.setSelected(selected);
         button.enabledProperty().set(enabled, RuleGroupWorkspace.class);
-        button.setBounds(x, y, width, WorkspaceStyle.CONTROL_HEIGHT);
+        button.setBounds(x, y, width, GUIStyle.CONTROL_HEIGHT);
         parent.add(button);
     }
 
@@ -481,19 +491,19 @@ final class RuleGroupWorkspace {
     private void initHistory(WorkspacePanel panel, RuleGroupStore.Group group) {
         var bounds = panel.getBounds();
         int x = bounds.x + 9, y = bounds.y + 8, width = Math.max(1, bounds.width - 18);
-        WorkspaceStyle.label(panel, tr("process"), x, y, width, 16, WorkspaceStyle.ACCENT);
+        WorkspaceStyle.label(panel, tr("process"), x, y, width, 16, GUIStyle.ACCENT_COLOR);
         y += 23;
         if (group == null) {
-            paragraph(panel, tr("no_group_selected"), x, y, width, WorkspaceStyle.MUTED);
+            paragraph(panel, tr("no_group_selected"), x, y, width, GUIStyle.MUTED_COLOR);
             return;
         }
-        WorkspaceStyle.label(panel, Component.literal(group.name()), x, y, width, 16, WorkspaceStyle.TEXT);
+        WorkspaceStyle.label(panel, Component.literal(group.name()), x, y, width, 16, GUIStyle.TEXT_COLOR);
         y += 19;
         Component summary = Component.translatable("carpet-gui.workspace.pipeline_summary", group.members().size(),
             group.staged().size(), group.commitsAhead());
-        y = paragraph(panel, summary, x, y, width, WorkspaceStyle.MUTED) + 14;
+        y = paragraph(panel, summary, x, y, width, GUIStyle.MUTED_COLOR) + 14;
         if (group.history().isEmpty()) {
-            paragraph(panel, tr("no_commits_graph"), x, y, width, WorkspaceStyle.MUTED);
+            paragraph(panel, tr("no_commits_graph"), x, y, width, GUIStyle.MUTED_COLOR);
             return;
         }
         List<RuleGroupStore.Commit> history = group.history();
@@ -509,19 +519,33 @@ final class RuleGroupWorkspace {
             graph.setBounds(x, y, 13, 38);
             panel.add(graph);
             WorkspaceStyle.label(panel, Component.literal(commit.message()), x + 18, y,
-                Math.max(1, width - 37), 12, WorkspaceStyle.TEXT).wrapTextProperty().set(false, RuleGroupWorkspace.class);
+                Math.max(1, width - 37), 12, GUIStyle.TEXT_COLOR
+            ).wrapTextProperty().set(false, RuleGroupWorkspace.class);
             String refs = "r" + commit.revision();
             if (index == 0 && !group.tag().isBlank()) refs += "  ◇ " + group.tag();
             refs += pending ? "  local" : "  server";
             var metadata = WorkspaceStyle.label(panel, Component.literal(refs), x + 18, y + 14,
-                Math.max(1, width - 37), 9, pending ? WorkspaceStyle.FOCUS : WorkspaceStyle.MUTED);
-            metadata.textScaleProperty().set(WorkspaceStyle.SMALL_TEXT_SCALE, RuleGroupWorkspace.class);
-            String time = TIME.format(Instant.ofEpochMilli(commit.time()).atZone(ZoneId.systemDefault()));
-            var date = WorkspaceStyle.label(panel, Component.literal(time), x + 18, y + 24,
-                Math.max(1, width - 37), 9, WorkspaceStyle.MUTED);
-            date.textScaleProperty().set(WorkspaceStyle.SMALL_TEXT_SCALE, RuleGroupWorkspace.class);
-            WorkspaceStyle.label(panel, Component.literal(pending ? "↑" : "✓"), x + width - 16, y + 3, 14, 12,
-                pending ? WorkspaceStyle.ACCENT : 0xFF55FF55);
+                Math.max(1, width - 37), 9, pending ? GUIStyle.FOCUS_COLOR : GUIStyle.MUTED_COLOR
+            );
+            metadata.textScaleProperty()
+                .set(GUIStyle.SMALL_TEXT_SCALE, RuleGroupWorkspace.class);
+            String time = TIME.format(
+                Instant.ofEpochMilli(commit.time()).atZone(ZoneId.systemDefault())
+            );
+            var date = WorkspaceStyle.label(
+                panel,
+                Component.literal(time),
+                x + 18, y + 24, Math.max(1, width - 37), 9,
+                GUIStyle.MUTED_COLOR
+            );
+            date.textScaleProperty()
+                .set(GUIStyle.SMALL_TEXT_SCALE, RuleGroupWorkspace.class);
+            WorkspaceStyle.label(
+                panel,
+                Component.literal(pending ? "↑" : "✓"),
+                x + width - 16, y + 3, 14, 12,
+                pending ? GUIStyle.ACCENT_COLOR : 0xFF55FF55
+            );
             y += 39;
         }
     }
@@ -532,15 +556,23 @@ final class RuleGroupWorkspace {
             RuleRef ref = byId.get(key);
             if (ref == null) continue;
             String current = draftSnapshot.getOrDefault(key, ref.rule().value());
-            String baseline = group.isStaged(key) ? group.stagedValue(key) : group.headValue(key);
+            String baseline = group.isStaged(key) ?
+                group.stagedValue(key) :
+                group.headValue(key);
+
             if (baseline == null || !baseline.equals(current)) {
                 boolean isNew = !group.tracked(key) && !group.isStaged(key);
                 RuleChangeEvent remote = remoteChange(group, key, ref.rule());
-                String detail = remote == null ? current
-                    : remote.oldValue() + " → " + remote.newValue() + "  ·  " + remote.actorName();
-                result.add(new RuleChange(key, current, detail, ref,
-                    remote != null ? "R" : isNew ? "?" : "M",
-                    remote != null ? REMOTE_RULE : isNew ? NEW_RULE : MODIFIED_RULE));
+                String detail = remote == null ?
+                    current :
+                    remote.oldValue() + " → " + remote.newValue() + "  ·  " + remote.actorName();
+                result.add(
+                    new RuleChange(
+                        key, current, detail, ref,
+                        remote != null ? "R" : isNew ? "?" : "M",
+                        remote != null ? GUIStyle.REMOTE_RULE_COLOR : isNew ? GUIStyle.NEW_RULE_COLOR : GUIStyle.MODIFIED_RULE_COLOR
+                    )
+                );
             }
         }
         return result;
@@ -679,19 +711,19 @@ final class RuleGroupWorkspace {
 
     private int addStatusLegend(TElement parent, int x, int y, int width) {
         String[] keys = {"color_new", "color_modified", "color_staged", "color_remote", "color_committed"};
-        int[] colors = {NEW_RULE, MODIFIED_RULE, STAGED_RULE, REMOTE_RULE, WorkspaceStyle.TEXT};
+        int[] colors = {GUIStyle.NEW_RULE_COLOR, GUIStyle.MODIFIED_RULE_COLOR, GUIStyle.STAGED_RULE_COLOR, GUIStyle.REMOTE_RULE_COLOR, GUIStyle.TEXT_COLOR};
         int nextX = x;
         int bottom = y;
         for (int index = 0; index < keys.length; index++) {
             Component text = Component.literal("● ").append(tr(keys[index]));
             int itemWidth = Math.min(width, (int) Math.ceil(screen.getClient().font.width(text)
-                * WorkspaceStyle.SMALL_TEXT_SCALE) + 2);
+                * GUIStyle.SMALL_TEXT_SCALE) + 2);
             if (nextX > x && nextX + itemWidth > x + width) {
                 nextX = x;
                 y = bottom + 4;
             }
             var label = WorkspaceStyle.label(parent, text, nextX, y, itemWidth, 11, colors[index]);
-            label.textScaleProperty().set(WorkspaceStyle.SMALL_TEXT_SCALE, RuleGroupWorkspace.class);
+            label.textScaleProperty().set(GUIStyle.SMALL_TEXT_SCALE, RuleGroupWorkspace.class);
             label.wrapTextProperty().set(true, RuleGroupWorkspace.class);
             label.setBoundsToFitText(nextX, y, Math.max(1, itemWidth));
             bottom = Math.max(bottom, label.getBounds().endY);
@@ -703,12 +735,12 @@ final class RuleGroupWorkspace {
     private int ruleColor(RuleGroupStore.Group group, String key, RuleView rule) {
         String current = rule.value();
         if (group.isStaged(key)) {
-            if (current.equals(group.stagedValue(key))) return STAGED_RULE;
+            if (current.equals(group.stagedValue(key))) return GUIStyle.STAGED_RULE_COLOR;
         }
-        if (remoteChange(group, key, rule) != null) return REMOTE_RULE;
-        if (group.isStaged(key)) return MODIFIED_RULE;
-        if (!group.tracked(key)) return NEW_RULE;
-        return current.equals(group.headValue(key)) ? WorkspaceStyle.TEXT : MODIFIED_RULE;
+        if (remoteChange(group, key, rule) != null) return GUIStyle.REMOTE_RULE_COLOR;
+        if (group.isStaged(key)) return GUIStyle.MODIFIED_RULE_COLOR;
+        if (!group.tracked(key)) return GUIStyle.NEW_RULE_COLOR;
+        return current.equals(group.headValue(key)) ? GUIStyle.TEXT_COLOR : GUIStyle.MODIFIED_RULE_COLOR;
     }
 
     private Component ruleDetail(RuleGroupStore.Group group, String key, RuleView rule) {

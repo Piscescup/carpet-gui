@@ -25,7 +25,7 @@ import io.github.piscescup.fabricmc.carpetgui.References;
 import io.github.piscescup.fabricmc.carpetgui.api.CarpetGuiScreens;
 import io.github.piscescup.fabricmc.carpetgui.integration.carpet.CarpetRuleSource;
 //#if MC >= 260000
-import io.github.piscescup.fabricmc.carpetgui.integration.vanilla.VanillaRuleStore;
+import io.github.piscescup.fabricmc.carpetgui.store.VanillaRuleStore;
 //#endif
 import io.github.piscescup.fabricmc.carpetgui.network.ClientRuleNetworking;
 import io.github.piscescup.fabricmc.carpetgui.network.ClientRuleChanges;
@@ -40,7 +40,6 @@ import net.fabricmc.fabric.api.client.keymapping.v1.KeyMappingHelper;
 //$$ import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 //#endif
 import net.minecraft.client.KeyMapping;
-import net.minecraft.resources.Identifier;
 
 public final class CarpetGUIClient implements ClientModInitializer {
     @Override

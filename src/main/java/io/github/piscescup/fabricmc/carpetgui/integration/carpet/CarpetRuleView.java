@@ -24,9 +24,13 @@ import carpet.api.settings.CarpetRule;
 import carpet.api.settings.InvalidRuleValueException;
 import carpet.api.settings.RuleHelper;
 import carpet.api.settings.SettingsManager;
+import io.github.piscescup.fabricmc.carpetgui.api.EditableRuleView;
+import io.github.piscescup.fabricmc.carpetgui.api.PersistentRuleEditor;
+import io.github.piscescup.fabricmc.carpetgui.api.RuleEditor;
 import io.github.piscescup.fabricmc.carpetgui.gui.model.*;
 import io.github.piscescup.fabricmc.carpetgui.integration.RuleCommandGateway;
 import io.github.piscescup.fabricmc.carpetgui.network.ClientRuleConfigurations;
+import io.github.piscescup.fabricmc.carpetgui.util.RuleNameFmtUtils;
 import net.minecraft.locale.Language;
 import net.minecraft.network.chat.Component;
 
@@ -81,7 +85,7 @@ public final class CarpetRuleView
 
     @Override
     public Component label() {
-        return Component.literal(RuleNames.displayName(rule.name()));
+        return Component.literal(RuleNameFmtUtils.displayName(rule.name()));
     }
 
     @Override

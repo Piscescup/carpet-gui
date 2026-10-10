@@ -20,7 +20,7 @@
 
 package io.github.piscescup.fabricmc.carpetgui.api;
 
-import io.github.piscescup.fabricmc.carpetgui.integration.carpet.CarpetTranslationResources;
+import io.github.piscescup.fabricmc.carpetgui.resources.CarpetTranslationResources;
 
 import java.util.Map;
 import java.util.Set;

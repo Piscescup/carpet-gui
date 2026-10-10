@@ -22,7 +22,7 @@ package io.github.piscescup.fabricmc.carpetgui.network;
 
 import carpet.api.settings.InvalidRuleValueException;
 import io.github.piscescup.fabricmc.carpetgui.References;
-import io.github.piscescup.fabricmc.carpetgui.integration.carpet.CarpetManagerBinding;
+import io.github.piscescup.fabricmc.carpetgui.store.CarpetManagerBinding;
 import io.github.piscescup.fabricmc.carpetgui.integration.carpet.CarpetRuleSource;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;

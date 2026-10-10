@@ -24,6 +24,7 @@ import carpet.CarpetExtension;
 import carpet.CarpetServer;
 import com.google.common.collect.Maps;
 import io.github.piscescup.fabricmc.carpetgui.api.CarpetModInfoApi;
+import io.github.piscescup.fabricmc.carpetgui.resources.CarpetTranslationResources;
 import net.fabricmc.loader.api.FabricLoader;
 import net.fabricmc.loader.api.ModContainer;
 
