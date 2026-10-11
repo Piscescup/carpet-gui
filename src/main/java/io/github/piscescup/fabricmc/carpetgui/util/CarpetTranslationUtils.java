@@ -18,7 +18,7 @@
  * along with Carpet GUI.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-package io.github.piscescup.fabricmc.carpetgui.resources;
+package io.github.piscescup.fabricmc.carpetgui.util;
 
 import carpet.utils.Translations;
 import net.fabricmc.loader.api.FabricLoader;
@@ -34,8 +34,8 @@ import java.util.Map;
 /**
  * Finds actual resource namespaces in a mod instead of assuming they match its mod/manager ID.
  */
-public final class CarpetTranslationResources {
-    private CarpetTranslationResources() {
+public final class CarpetTranslationUtils {
+    private CarpetTranslationUtils() {
     }
 
     public static Map<String, String> read(String modId, String language) {

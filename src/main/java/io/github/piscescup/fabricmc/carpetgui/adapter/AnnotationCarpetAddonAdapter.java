@@ -29,7 +29,23 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
 
-/** Discovers rule names from annotated static settings fields. */
+/**
+ * Discovers rule names from static settings fields carrying a configured annotation.
+ * By default the adapter scans the settings class and its directly declared nested classes. A
+ * settings-class index accessor can instead provide an explicit collection of classes to scan.
+ *
+ * <pre>{@code
+ * AnnotationCarpetAddonAdapter adapter = CarpetAddonAdapter
+ *     .annotationBuilder("my_mod", "dev.example")
+ *     .settingsClassName("MySettings")
+ *     .onCarpetRuleAnnotation()
+ *     .build();
+ * }</pre>
+ *
+ * @see AnnotationAdapterBuilder
+ * @see carpet.api.settings.Rule
+ * @see CarpetAddonAdapter
+ */
 public class AnnotationCarpetAddonAdapter extends CarpetAddonAdapter {
     private final PackageRef annotationClassRef;
     private final String annotationClassCanonicalName;
@@ -44,9 +60,30 @@ public class AnnotationCarpetAddonAdapter extends CarpetAddonAdapter {
         this.settingsClassesAccessor = builder.settingsClassesAccessor;
     }
 
+    /**
+     * Returns the unresolved annotation class reference.
+     *
+     * @return the configured rule annotation reference
+     */
     public PackageRef annotationClassRef() { return annotationClassRef; }
+
+    /**
+     * Returns the optional accessor that supplies classes to scan.
+     *
+     * @return the configured class-index accessor, or {@code null} for default nested-class scanning
+     */
     public Accessor<?> settingsClassesAccessor() { return settingsClassesAccessor; }
 
+    /**
+     * Scans configured classes for static fields carrying the rule annotation and returns their
+     * field names.
+     *
+     * @param args ignored by this adapter
+     * @return the discovered field names in scan order
+     * @throws ClassNotFoundException if the settings or annotation class cannot be loaded
+     * @throws IllegalArgumentException if the annotation type or class-index contents are invalid
+     * @throws IllegalStateException if the class-index accessor cannot read its configured member
+     */
     @Override
     protected Collection<String> getRuleNames(Object... args) throws ClassNotFoundException {
         Collection<String> names = new ArrayList<>();
@@ -96,6 +133,7 @@ public class AnnotationCarpetAddonAdapter extends CarpetAddonAdapter {
     }
 }
 
+/** Package-private implementation of {@link AnnotationAdapterBuilder}. */
 class AnnotationBuilder
     extends Builder<AnnotationAdapterBuilder>
     implements AnnotationAdapterBuilder

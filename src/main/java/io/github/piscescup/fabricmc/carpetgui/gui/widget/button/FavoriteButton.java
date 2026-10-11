@@ -18,11 +18,15 @@
  * along with Carpet GUI.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-//#if MC >= 12111
 package io.github.piscescup.fabricmc.carpetgui.gui.widget.button;
 
+//#if MC >= 12111
 import com.thecsdev.commonmc.api.client.gui.render.TGuiGraphics;
 import com.thecsdev.commonmc.api.client.gui.widget.TButtonWidget;
+//#else
+//$$ import io.github.thecsdev.tcdcommons.api.client.gui.util.TDrawContext;
+//$$ import io.github.thecsdev.tcdcommons.api.client.gui.widget.TButtonWidget;
+//#endif
 import io.github.piscescup.fabricmc.carpetgui.gui.GUIStyle;
 import io.github.piscescup.fabricmc.carpetgui.resources.WorkspaceActionTextures;
 import net.minecraft.network.chat.Component;
@@ -33,15 +37,29 @@ import java.util.function.BooleanSupplier;
 /**
  * Outline and filled heart textures switch with the favorite state.
  */
-public final class FavoriteButton extends TButtonWidget.Transparent {
+public final class FavoriteButton extends
+    //#if MC >= 12111
+    TButtonWidget.Transparent {
+    //#else
+    //$$ TButtonWidget {
+    //#endif
     private final BooleanSupplier favorite;
 
+    //#if MC >= 12111
     public FavoriteButton(BooleanSupplier favorite, Runnable action) {
         this.favorite = Objects.requireNonNull(favorite, "favorite");
         getLabel().setText(Component.empty());
         eClicked.addListener(ignored -> action.run());
     }
+    //#else
+    //$$ public FavoriteButton(int x, int y, int width, int height,
+    //$$                       BooleanSupplier favorite, Runnable action) {
+    //$$     super(x, y, width, height, Component.empty(), ignored -> action.run());
+    //$$     this.favorite = Objects.requireNonNull(favorite, "favorite");
+    //$$ }
+    //#endif
 
+    //#if MC >= 12111
     @Override
     public void renderCallback(TGuiGraphics graphics) {
         var bounds = getBounds();
@@ -55,5 +73,21 @@ public final class FavoriteButton extends TButtonWidget.Transparent {
             GUIStyle.TEXT_COLOR
         );
     }
+    //#else
+    //$$ @Override
+    //$$ public void render(TDrawContext graphics) {
+    //$$     if (isFocusedOrHovered()) {
+    //$$         graphics.fill(getX(), getY(), getX() + getWidth(), getY() + getHeight(), 0x50393939);
+    //$$     }
+    //$$     setIcon(WorkspaceActionTextures.texture(favorite.getAsBoolean()
+    //$$         ? WorkspaceActionTextures.Icon.FAVORITE_ON : WorkspaceActionTextures.Icon.FAVORITE_OFF));
+    //$$     renderIcon(graphics);
+    //$$     if (!isFocusedOrHovered()) return;
+    //$$     int color = GUIStyle.FOCUS_COLOR;
+    //$$     graphics.fill(getX(), getY(), getX() + getWidth(), getY() + 1, color);
+    //$$     graphics.fill(getX(), getY() + getHeight() - 1, getX() + getWidth(), getY() + getHeight(), color);
+    //$$     graphics.fill(getX(), getY(), getX() + 1, getY() + getHeight(), color);
+    //$$     graphics.fill(getX() + getWidth() - 1, getY(), getX() + getWidth(), getY() + getHeight(), color);
+    //$$ }
+    //#endif
 }
-//#endif

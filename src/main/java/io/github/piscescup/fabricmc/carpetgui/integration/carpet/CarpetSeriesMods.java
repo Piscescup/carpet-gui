@@ -45,14 +45,30 @@ public final class CarpetSeriesMods {
 
     /** Called during mod initialization, after Fabric's configuration directory is available. */
     public static void initialize() {
+        Path directory = adapterConfigDirectory();
+        saveDefaultAdaptersIfAbsent(directory);
         List<CarpetAddonAdapter> loaded = loadAdapters(
-            adapterConfigDirectory(),
+            directory,
             GSON,
             (file, failure) ->
                 LOGGER.warn("Cannot load Carpet adapter configuration {}", file, failure)
         );
         CARPET_SERIES.clear();
         CARPET_SERIES.addAll(loaded);
+    }
+
+    /** Creates editable examples for built-in adapters without replacing user configuration. */
+    private static void saveDefaultAdaptersIfAbsent(Path directory) {
+        for (CarpetAddonAdapter adapter : defaultAdapters()) {
+            Path file = adapterFile(directory, adapter.carpetModId());
+            if (Files.exists(file)) continue;
+
+            try {
+                saveAdapterAsJson(adapter);
+            } catch (IOException failure) {
+                LOGGER.warn("Cannot create default Carpet adapter configuration {}", file, failure);
+            }
+        }
     }
 
     public static void saveAdapterAsJson(CarpetAddonAdapter adapter) throws IOException {
@@ -113,7 +129,9 @@ public final class CarpetSeriesMods {
     }
 
     private static Path adapterFile(Path directory, String modId) {
-        if (modId == null || Identifier.isValidNamespace(modId)) {
+        // The adapter id is also used as the file name, so only a valid
+        // Minecraft namespace may reach the filesystem.
+        if (modId == null || modId.isBlank() || !Identifier.isValidNamespace(modId)) {
             throw new IllegalArgumentException("Invalid adapter Mod ID: " + modId);
         }
         return directory.resolve(modId + ".json");

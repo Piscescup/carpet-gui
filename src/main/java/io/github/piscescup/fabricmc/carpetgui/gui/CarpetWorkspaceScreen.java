@@ -30,6 +30,7 @@ import io.github.piscescup.fabricmc.carpetgui.gui.model.RuleEditResult;
 import io.github.piscescup.fabricmc.carpetgui.gui.pages.RulePage;
 import io.github.piscescup.fabricmc.carpetgui.api.RuleSource;
 import io.github.piscescup.fabricmc.carpetgui.api.RuleView;
+import io.github.piscescup.fabricmc.carpetgui.store.WorkspaceSession;
 import io.github.piscescup.fabricmc.carpetgui.gui.widget.NativeTextInput;
 import io.github.piscescup.fabricmc.carpetgui.gui.workspace.CarpetWorkspaceEditor;
 import io.github.piscescup.fabricmc.carpetgui.gui.workspace.CarpetWorkspaceGUI;
@@ -52,6 +53,7 @@ public final class CarpetWorkspaceScreen
 {
     private final Screen parent;
     private final CarpetWorkspaceEditor editor;
+    private final WorkspaceSession.Token session = WorkspaceSession.current();
     private CarpetWorkspaceGUI workspace;
 
     public CarpetWorkspaceScreen(Screen parent, RuleSource source, String initialPageId) {
@@ -94,6 +96,11 @@ public final class CarpetWorkspaceScreen
     }
 
     @Override
+    protected void tickCallback() {
+        if (!session.currentSession()) close();
+    }
+
+    @Override
     protected void closeCallback() {
         if (workspace != null) workspace.closeResources();
     }
@@ -130,6 +137,7 @@ public final class CarpetWorkspaceScreen
     }
 
     public void showFeedback(Component message) {
+        if (!session.currentSession()) return;
         if (workspace != null) workspace.showFeedback(message);
     }
 
@@ -137,7 +145,7 @@ public final class CarpetWorkspaceScreen
         editor.refresh();
     }
 
-    int textWidth(String text) {
+    public int textWidth(String text) {
         return workspace != null
             ? workspace.textWidth(text)
             : (int) Math.ceil(getClient().font.width(text) * GUIStyle.TEXT_SCALE);
@@ -190,13 +198,28 @@ public final class CarpetWorkspaceScreen
 //$$ import io.github.piscescup.fabricmc.carpetgui.api.EditableRuleView;
 //$$ import io.github.piscescup.fabricmc.carpetgui.api.PersistentRuleEditor;
 //$$ import io.github.piscescup.fabricmc.carpetgui.gui.model.RuleEditResult;
+//$$ import io.github.piscescup.fabricmc.carpetgui.gui.model.RuleGroupPushController;
+//$$ import io.github.piscescup.fabricmc.carpetgui.gui.model.RuleApplyPlan;
+//$$ import io.github.piscescup.fabricmc.carpetgui.store.RulePreset;
+//$$ import io.github.piscescup.fabricmc.carpetgui.store.RulePresetFiles;
 //$$ import io.github.piscescup.fabricmc.carpetgui.api.RuleEditor;
+//$$ import io.github.piscescup.fabricmc.carpetgui.gui.GUIStyle;
+//$$ import io.github.piscescup.fabricmc.carpetgui.gui.pages.AllRulesPage;
 //$$ import io.github.piscescup.fabricmc.carpetgui.gui.pages.RulePage;
 //$$ import io.github.piscescup.fabricmc.carpetgui.gui.model.RuleBrowserModel;
+//$$ import io.github.piscescup.fabricmc.carpetgui.gui.widget.CategoryHeader;
+//$$ import io.github.piscescup.fabricmc.carpetgui.gui.widget.button.Button;
+//$$ import io.github.piscescup.fabricmc.carpetgui.gui.widget.button.ChromeButton;
+//$$ import io.github.piscescup.fabricmc.carpetgui.gui.widget.button.ControlButton;
+//$$ import io.github.piscescup.fabricmc.carpetgui.gui.widget.button.FavoriteButton;
+//$$ import io.github.piscescup.fabricmc.carpetgui.gui.widget.button.IconButton;
+//$$ import io.github.piscescup.fabricmc.carpetgui.gui.widget.icons.RuleActionIcon;
 //$$ import io.github.piscescup.fabricmc.carpetgui.api.RuleSource;
 //$$ import io.github.piscescup.fabricmc.carpetgui.api.RuleView;
 //$$ import io.github.piscescup.fabricmc.carpetgui.store.FavoriteRules;
+//$$ import io.github.piscescup.fabricmc.carpetgui.store.ModIconStore;
 //$$ import io.github.piscescup.fabricmc.carpetgui.store.RuleGroupStore;
+//$$ import io.github.piscescup.fabricmc.carpetgui.store.WorkspaceIcon;
 //$$ import io.github.thecsdev.tcdcommons.api.client.gui.TElement;
 //$$ import io.github.thecsdev.tcdcommons.api.client.gui.TParentElement;
 //$$ import io.github.thecsdev.tcdcommons.api.client.gui.other.TLabelElement;
@@ -208,7 +231,6 @@ public final class CarpetWorkspaceScreen
 //$$ import io.github.thecsdev.tcdcommons.api.client.gui.screen.TScreenPlus;
 //$$ import io.github.thecsdev.tcdcommons.api.client.gui.util.TDrawContext;
 //$$ import io.github.thecsdev.tcdcommons.api.client.gui.util.UITexture;
-//$$ import io.github.thecsdev.tcdcommons.api.client.gui.widget.TButtonWidget;
 //$$ import io.github.thecsdev.tcdcommons.api.client.gui.widget.TCheckboxWidget;
 //$$ import io.github.thecsdev.tcdcommons.api.client.gui.widget.TScrollBarWidget;
 //$$ import io.github.thecsdev.tcdcommons.api.client.gui.widget.TSelectWidget;
@@ -218,6 +240,11 @@ public final class CarpetWorkspaceScreen
 //$$ import net.fabricmc.loader.api.FabricLoader;
 //$$ import net.minecraft.client.Minecraft;
 //$$ import net.minecraft.client.gui.screens.Screen;
+//$$ import net.minecraft.client.gui.components.Tooltip;
+//$$ import io.github.piscescup.fabricmc.carpetgui.network.ClientRuleChanges;
+//$$ import java.time.Instant;
+//$$ import java.time.ZoneId;
+//$$ import java.time.format.DateTimeFormatter;
 //$$ import net.minecraft.network.chat.Component;
 //$$ import net.minecraft.resources.ResourceLocation;
 //$$
@@ -231,45 +258,13 @@ public final class CarpetWorkspaceScreen
 //$$ import java.util.Objects;
 //$$ import java.util.Set;
 //$$ import java.util.function.Consumer;
+//$$ import io.github.piscescup.fabricmc.carpetgui.store.WorkspaceSession;
 //$$
 //$$ public final class CarpetWorkspaceScreen extends TScreenPlus {
-//$$     private static final String GROUPS_ID = CarpetWorkspaceEditor.RULE_GROUPS_PAGE_ID;
-//$$     private static final int MENU_HEIGHT = 17;
-//$$     private static final int TAB_Y = 20;
-//$$     private static final int TAB_HEIGHT = 18;
-//$$     private static final int BODY_Y = TAB_Y + TAB_HEIGHT;
-//$$     private static final int CONTROL_HEIGHT = 20;
-//$$     private static final int ROW_HEIGHT = 30;
-//$$     private static final int TEXT = 0xFFFFFFFF;
-//$$     private static final int MUTED = 0xFF999999;
-//$$     private static final int ACCENT = 0xFFFFFF55;
-//$$     private static final int FOCUS = 0xFFAAFFFF;
-//$$     private static final int PANEL = 0x18000000;
-//$$     private static final int BACKDROP = 0x14000000;
-//$$     private static final int FRAME = 0x30000000;
-//$$     private static final int BORDER = 0xAA151515;
-//$$     private static final int POPUP_BACKGROUND = 0xFF383838;
-//$$     private static final int POPUP_BORDER = 0xFF707070;
-//$$     private static final int POPUP_HOVER = 0xFF505050;
-//$$
 //$$     private final Screen parent;
 //$$     private final CarpetWorkspaceEditor editor;
-//$$     private final Map<TTextFieldWidget, RuleView> valueEditors = new LinkedHashMap<>();
-//$$     private String selectedGroupId;
-//$$     private String observedSearch = "";
-//$$     private String observedGroupSearch = "";
-//$$     private Component feedback = Component.empty();
-//$$     private TPanelElement rulePanel;
-//$$     private TPanelElement groupCandidates;
-//$$     private RuleGroupStore.Group activeGroup;
-//$$     private LegacyGroupMode groupMode = LegacyGroupMode.VIEW;
-//$$     private boolean creatingGroup;
-//$$     private TTextFieldWidget searchBox;
-//$$     private TTextFieldWidget groupSearchBox;
-//$$     private TLabelElement counts;
-//$$     private TLabelElement notice;
-//$$     private int refreshTicks;
-//$$     private long observedRevision;
+//$$     private final WorkspaceSession.Token session = WorkspaceSession.current();
+//$$     private CarpetWorkspaceGUI workspace;
 //$$
 //$$     public CarpetWorkspaceScreen(Screen parent, RuleSource source, String initialPageId) {
 //$$         this(parent, new CarpetWorkspaceEditor(source, initialPageId));
@@ -287,6 +282,86 @@ public final class CarpetWorkspaceScreen
 //$$
 //$$     @Override
 //$$     protected void init() {
+//$$         workspace = new CarpetWorkspaceGUI(this, editor);
+//$$         addChild(workspace);
+//$$         workspace.initialize();
+//$$     }
+//$$
+//$$     @Override
+//$$     protected void tick() {
+//$$         if (!session.currentSession()) { close(); return; }
+//$$         if (workspace != null) workspace.tick();
+//$$     }
+//$$
+//$$     @Override
+//$$     public void close() {
+//$$         if (workspace != null) workspace.closeResources();
+//$$         Minecraft.getInstance().setScreen(parent);
+//$$     }
+//$$
+//$$     @Override
+//$$     public boolean shouldPause() {
+//$$         return false;
+//$$     }
+//$$ }
+//$$
+//$$ class LegacyWorkspaceDocumentController extends TElement {
+//$$     private static final String GROUPS_ID = CarpetWorkspaceEditor.RULE_GROUPS_PAGE_ID;
+//$$     private static final int MENU_HEIGHT = 17;
+//$$     private static final int TAB_Y = 20;
+//$$     private static final int TAB_HEIGHT = 18;
+//$$     private static final int BODY_Y = TAB_Y + TAB_HEIGHT;
+//$$     private static final int CONTROL_HEIGHT = 20;
+//$$     private static final int ROW_HEIGHT = 30;
+//$$     private static final int TEXT = 0xFFFFFFFF;
+//$$     private static final int MUTED = 0xFF999999;
+//$$     private static final int ACCENT = 0xFFFFFF55;
+//$$     private static final int FOCUS = 0xFFAAFFFF;
+//$$     private static final int PANEL = 0x18000000;
+//$$     private static final int BACKDROP = 0x14000000;
+//$$     private static final int FRAME = 0x30000000;
+//$$     private static final int BORDER = 0xAA151515;
+//$$     private static final int POPUP_HOVER = 0xFF505050;
+//$$
+//$$     private final CarpetWorkspaceScreen screen;
+//$$     private final WorkspaceSession.Token session = WorkspaceSession.current();
+//$$     private final CarpetWorkspaceEditor editor;
+//$$     private final Map<TTextFieldWidget, RuleView> valueEditors = new LinkedHashMap<>();
+//$$     private String selectedGroupId;
+//$$     private final Set<String> collapsedFolders = new LinkedHashSet<>();
+//$$     private String expandedCommitId;
+//$$     private RuleApplyPlan applyPlan;
+//$$     private final Set<String> selectedApplyRules = new LinkedHashSet<>();
+//$$     private String importFilename = "";
+//$$     private TTextFieldWidget presetFilenameBox;
+//$$     private TPanelElement groupCenterPanel;
+//$$     private double centerScroll;
+//$$     private String observedSearch = "";
+//$$     private String observedGroupSearch = "";
+//$$     private Component feedback = Component.empty();
+//$$     private TPanelElement rulePanel;
+//$$     private TPanelElement groupCandidates;
+//$$     private TPanelElement groupTreePanel;
+//$$     private double treeScrollX;
+//$$     private double treeScrollY;
+//$$     private RuleGroupStore.Group activeGroup;
+//$$     private LegacyGroupMode groupMode = LegacyGroupMode.VIEW;
+//$$     private boolean creatingGroup;
+//$$     private TTextFieldWidget searchBox;
+//$$     private TTextFieldWidget groupSearchBox;
+//$$     private TLabelElement counts;
+//$$     private TLabelElement notice;
+//$$     private int refreshTicks;
+//$$     private long observedRevision;
+//$$
+//$$     LegacyWorkspaceDocumentController(CarpetWorkspaceScreen screen, CarpetWorkspaceEditor editor) {
+//$$         super(0, 0, screen.getWidth(), screen.getHeight());
+//$$         this.screen = Objects.requireNonNull(screen, "screen");
+//$$         this.editor = Objects.requireNonNull(editor, "editor");
+//$$     }
+//$$
+//$$     void initialize() {
+//$$         presetFilenameBox = null;
 //$$         valueEditors.clear();
 //$$         editor.refreshAllRules();
 //$$         int x = Math.max(4, getWidth() / 40);
@@ -359,7 +434,7 @@ public final class CarpetWorkspaceScreen
 //$$         addChild(tabs);
 //$$         int tabX = x + 1;
 //$$         int homeWidth = 56;
-//$$         LegacyChromeButton home = chromeButton(tabX, TAB_Y, homeWidth, TAB_HEIGHT,
+//$$         ChromeButton home = chromeButton(tabX, TAB_Y, homeWidth, TAB_HEIGHT,
 //$$             Component.literal("   ").append(tr("home")), () -> selectPage(null), editor.isSelected(null))
 //$$             .align(HorizontalAlignment.LEFT);
 //$$         add(tabs, home);
@@ -369,19 +444,24 @@ public final class CarpetWorkspaceScreen
 //$$         tabIds.sort((left, right) -> Boolean.compare(!GROUPS_ID.equals(left), !GROUPS_ID.equals(right)));
 //$$         for (String id : tabIds) {
 //$$             Component title;
+//$$             RulePage tabPage = null;
 //$$             if (GROUPS_ID.equals(id)) title = tr("rule_groups");
 //$$             else {
-//$$                 RulePage candidate = editor.pages().stream().filter(value -> value.id().equals(id)).findFirst().orElse(null);
-//$$                 if (candidate == null) continue;
-//$$                 title = candidate.title();
+//$$                 tabPage = editor.pages().stream().filter(value -> value.id().equals(id)).findFirst().orElse(null);
+//$$                 if (tabPage == null) continue;
+//$$                 title = tabPage.title();
 //$$             }
+//$$             UITexture icon = tabPage == null ? rootTexture("icon.png") : pageIcon(tabPage);
 //$$             int tabWidth = Math.min(190, Math.max(GROUPS_ID.equals(id) ? 90 : 80, textWidth(title) + 35));
 //$$             if (tabX + tabWidth > x + width - 2) break;
-//$$             LegacyChromeButton tab = chromeButton(tabX, TAB_Y, tabWidth, TAB_HEIGHT,
-//$$                 Component.literal("   ").append(title), () -> selectPage(id), editor.isSelected(id))
+//$$             ChromeButton tab = chromeButton(tabX, TAB_Y, tabWidth, TAB_HEIGHT,
+//$$                 icon == null ? title : Component.literal("   ").append(title),
+//$$                 () -> selectPage(id), editor.isSelected(id))
 //$$                 .align(HorizontalAlignment.LEFT);
 //$$             add(tabs, tab);
-//$$             add(tab, new TTextureElement(tabX + 5, TAB_Y + 4, 10, 10, rootTexture("icon.png")));
+//$$             if (icon != null) {
+//$$                 add(tab, new TTextureElement(tabX + 5, TAB_Y + 4, 10, 10, icon));
+//$$             }
 //$$             add(tab, chromeButton(tabX + tabWidth - 15, TAB_Y + 2, 13, TAB_HEIGHT - 4,
 //$$                 Component.literal("×"), () -> closeTab(id), false));
 //$$             tabX += tabWidth;
@@ -421,8 +501,16 @@ public final class CarpetWorkspaceScreen
 //$$             RulePage page = editor.sourcePages().get(index);
 //$$             int tileX = cardX + index % columns * 42;
 //$$             int tileY = quickY + index / columns * 42;
-//$$             add(quickCard, button(tileX, tileY, 36, 36, Component.empty(), () -> selectPage(page.id()), false)
-//$$                 .withTexture(rootTexture("icon.png")));
+//$$             IconButton tile = new IconButton(tileX, tileY, 36, 36, () -> selectPage(page.id()));
+//$$             UITexture icon = pageIcon(page);
+//$$             if (icon != null) {
+//$$                 tile.withTexture(icon);
+//$$             } else {
+//$$                 String title = page.title().getString();
+//$$                 tile.setText(Component.literal(title.isBlank()
+//$$                     ? "?" : title.substring(0, 1).toUpperCase(Locale.ROOT)));
+//$$             }
+//$$             add(quickCard, tile);
 //$$         }
 //$$
 //$$         int featuresY = quickY + quickAccessHeight + 16;
@@ -454,6 +542,10 @@ public final class CarpetWorkspaceScreen
 //$$
 //$$     private void initRules(RulePage page, int x, int y, int width, int height) {
 //$$         RuleBrowserModel model = RuleBrowserModel.forPage(page.id());
+//$$         if (RuleBrowserModel.FAVORITES.equals(model.category)) {
+//$$             model.category = "";
+//$$             model.favoritesOnly = true;
+//$$         }
 //$$         int sidebarWidth = Math.clamp(width * 30 / 100, Math.min(120, width / 3), 235);
 //$$         TPanelElement sidebar = panel(x, y, Math.max(1, sidebarWidth - 11), height, PANEL);
 //$$         sidebar.setScrollFlags(TPanelElement.SCROLL_VERTICAL);
@@ -472,7 +564,6 @@ public final class CarpetWorkspaceScreen
 //$$         categories.add(new LegacyOption<>("", tr("all_categories")));
 //$$         model.categories(page).forEach(category ->
 //$$             categories.add(new LegacyOption<>(category, categoryLabel(page, category))));
-//$$         categories.add(new LegacyOption<>(RuleBrowserModel.FAVORITES, tr("favorites")));
 //$$         add(sidebar, dropdown(sx, sy, sw, model.category, categories, category -> {
 //$$             model.category = category;
 //$$             rebuild();
@@ -496,31 +587,36 @@ public final class CarpetWorkspaceScreen
 //$$             rebuildRuleRows();
 //$$         });
 //$$         sy += 27;
+//$$         addFilter(sidebar, sx, sy, sw, tr("favorites_only"), model.favoritesOnly, checked -> {
+//$$             model.favoritesOnly = checked;
+//$$             rebuildRuleRows();
+//$$         });
+//$$         sy += 27;
 //$$         addFilter(sidebar, sx, sy, sw, tr("saved_default_only"), model.savedDefaultOnly, checked -> {
 //$$             model.savedDefaultOnly = checked;
 //$$             rebuildRuleRows();
 //$$         });
 //$$         sy += 29;
 //$$
-//$$         addIconDropdown(sidebar, sx, sy, sw, "filter_sort", model.sort,
+//$$         addIconDropdown(sidebar, sx, sy, sw, WorkspaceIcon.Kind.SORT, model.sort,
 //$$             enumOptions("sort", RuleBrowserModel.Sort.values()), value -> {
 //$$             model.sort = value;
 //$$             rebuild();
 //$$         });
 //$$         sy += 25;
-//$$         addIconDropdown(sidebar, sx, sy, sw, "filter_group", model.grouping,
+//$$         addIconDropdown(sidebar, sx, sy, sw, WorkspaceIcon.Kind.GROUP, model.grouping,
 //$$             enumOptions("grouping", RuleBrowserModel.Grouping.values()), value -> {
 //$$             model.grouping = value;
 //$$             rebuild();
 //$$         });
 //$$         sy += 25;
-//$$         addIconDropdown(sidebar, sx, sy, sw, "filter_unit_dist", model.distance,
+//$$         addIconDropdown(sidebar, sx, sy, sw, WorkspaceIcon.Kind.DISTANCE, model.distance,
 //$$             enumOptions("distance", RuleBrowserModel.Distance.values()), value -> {
 //$$             model.distance = value;
 //$$             rebuild();
 //$$         });
 //$$         sy += 25;
-//$$         addIconDropdown(sidebar, sx, sy, sw, "filter_unit_time", model.time,
+//$$         addIconDropdown(sidebar, sx, sy, sw, WorkspaceIcon.Kind.TIME, model.time,
 //$$             enumOptions("time", RuleBrowserModel.Time.values()), value -> {
 //$$             model.time = value;
 //$$             rebuild();
@@ -528,12 +624,12 @@ public final class CarpetWorkspaceScreen
 //$$         sy += 27;
 //$$
 //$$         int half = Math.max(1, (sw - 4) / 2);
-//$$         add(sidebar, new LegacyControlButton(sx, sy, half, CONTROL_HEIGHT,
+//$$         add(sidebar, new ControlButton(sx, sy, half, CONTROL_HEIGHT,
 //$$             Component.translatable("carpet-gui.expand_all"), () -> {
 //$$             model.expandAll(page, true);
 //$$             rebuildRuleRows();
 //$$         }));
-//$$         add(sidebar, new LegacyControlButton(sx + half + 4, sy, sw - half - 4, CONTROL_HEIGHT,
+//$$         add(sidebar, new ControlButton(sx + half + 4, sy, sw - half - 4, CONTROL_HEIGHT,
 //$$             Component.translatable("carpet-gui.collapse_all"), () -> {
 //$$                 model.expandAll(page, false);
 //$$                 rebuildRuleRows();
@@ -559,22 +655,44 @@ public final class CarpetWorkspaceScreen
 //$$         int centerWidth = Math.max(1, width - leftWidth - rightWidth);
 //$$         TPanelElement left = panel(x, y, leftWidth, height, PANEL);
 //$$         TPanelElement center = panel(x + leftWidth, y, centerWidth, contentHeight, PANEL);
+//$$         groupCenterPanel = center;
 //$$         TPanelElement right = panel(x + leftWidth + centerWidth, y, rightWidth, height, PANEL);
 //$$         center.setScrollFlags(TPanelElement.SCROLL_VERTICAL);
 //$$         center.setSmoothScroll(true);
 //$$         center.setScrollPadding(6);
+//$$         right.setScrollFlags(TPanelElement.SCROLL_BOTH);
+//$$         right.setScrollPadding(6);
 //$$         addChild(left);
 //$$         addChild(center);
 //$$         addChild(right);
+//$$         addChild(new LegacyScrollBar(x + width - 8, y, 8, height, right));
+//$$         addChild(new LegacyScrollBar(x + leftWidth + centerWidth, y + height - 8, Math.max(1, rightWidth - 10), 8, right));
 //$$
 //$$         label(left, tr("rule_groups"), x + 9, y + 9, leftWidth - 18, 18, ACCENT, HorizontalAlignment.LEFT);
-//$$         add(left, new LegacyControlButton(x + 9, y + 34, leftWidth - 18, CONTROL_HEIGHT,
+//$$         Component contextLabel = Component.translatable("carpet-gui.workspace.context_label", WorkspaceSession.current().context().label());
+//$$         label(left, contextLabel, x + 9, y + 28, Math.max(leftWidth - 18, textWidth(contextLabel)), 12, MUTED, HorizontalAlignment.LEFT);
+//$$         int navigationY = y + 47;
+//$$         if (RuleGroupStore.storageProblem()) navigationY = addWrappedText(left, tr("context_storage_error"), x + 9, navigationY, leftWidth - 18, 0xFFFF5555) + 6;
+//$$         add(left, new ControlButton(x + 9, navigationY, leftWidth - 18, CONTROL_HEIGHT,
 //$$             tr(creatingGroup ? "cancel" : "new_group"), () -> {
 //$$             creatingGroup = !creatingGroup;
 //$$             rebuild();
 //$$         }));
 //$$
-//$$         int gy = y + 61;
+//$$         int gy = navigationY + 27;
+//$$         int half = Math.max(1, (leftWidth - 22) / 2);
+//$$         add(left, new ControlButton(x + 9, gy, half, CONTROL_HEIGHT, tr("preset_import"), () -> {
+//$$             groupMode = LegacyGroupMode.IMPORT;
+//$$             centerScroll = 0;
+//$$             groupCenterPanel = null;
+//$$             rebuild();
+//$$         }));
+//$$         add(left, new ControlButton(x + 13 + half, gy, half, CONTROL_HEIGHT, tr("preset_export"), this::exportPreset));
+//$$         gy += 25;
+//$$         if (RuleGroupStore.legacyAvailable()) {
+//$$             add(left, new ControlButton(x + 9, gy, leftWidth - 18, CONTROL_HEIGHT, tr("context_copy_legacy"), this::copyLegacyGroups));
+//$$             gy += 25;
+//$$         }
 //$$         if (creatingGroup) {
 //$$             TTextFieldWidget groupName = new TTextFieldWidget(x + 9, gy, leftWidth - 18, CONTROL_HEIGHT);
 //$$             groupName.setPlaceholderText(tr("group_name"));
@@ -584,7 +702,7 @@ public final class CarpetWorkspaceScreen
 //$$             groupTag.setPlaceholderText(tr("group_tag"));
 //$$             add(left, groupTag);
 //$$             gy += 24;
-//$$             add(left, new LegacyControlButton(x + 9, gy, leftWidth - 18, CONTROL_HEIGHT, tr("create_group"), () -> {
+//$$             add(left, new ControlButton(x + 9, gy, leftWidth - 18, CONTROL_HEIGHT, tr("create_group"), () -> {
 //$$                 String name = groupName.getInput().strip();
 //$$                 if (name.isEmpty()) {
 //$$                     showFeedback(tr("group_name_required"));
@@ -601,27 +719,30 @@ public final class CarpetWorkspaceScreen
 //$$         }
 //$$         List<RuleGroupStore.Group> groups = RuleGroupStore.groups();
 //$$         if (selectedGroupId == null && !groups.isEmpty()) selectedGroupId = groups.getFirst().id();
-//$$         for (RuleGroupStore.Group group : groups) {
-//$$             if (gy + ROW_HEIGHT > y + height - 8) break;
-//$$             boolean selectedGroup = Objects.equals(selectedGroupId, group.id());
-//$$             add(left, button(x + 9, gy, leftWidth - 18, ROW_HEIGHT, Component.empty(), () -> {
-//$$                     selectedGroupId = group.id();
-//$$                     groupMode = LegacyGroupMode.VIEW;
-//$$                     rebuild();
-//$$                 }, selectedGroup));
-//$$             label(left, fitText(Component.literal(group.name().isBlank() ? group.id() : group.name()), leftWidth - 32),
-//$$                 x + 16, gy + 3, leftWidth - 32, 12, selectedGroup ? ACCENT : TEXT, HorizontalAlignment.LEFT);
-//$$             String detail = (group.tag().isBlank() ? "" : group.tag() + " · ") + "r" + group.revision()
-//$$                 + (group.commitsAhead() > 0 ? " ↑" + group.commitsAhead() : " ✓");
-//$$             label(left, Component.literal(detail), x + 16, gy + 17, leftWidth - 32, 10, MUTED, HorizontalAlignment.LEFT);
-//$$             gy += ROW_HEIGHT + 3;
+//$$         groupTreePanel = panel(x + 3, gy, Math.max(1, leftWidth - 14), Math.max(1, y + height - gy - 14), PANEL);
+//$$         groupTreePanel.setScrollFlags(TPanelElement.SCROLL_BOTH);
+//$$         groupTreePanel.setScrollPadding(4);
+//$$         add(left, groupTreePanel);
+//$$         add(left, new LegacyScrollBar(x + leftWidth - 10, gy, 8, groupTreePanel.getHeight(), groupTreePanel));
+//$$         add(left, new LegacyScrollBar(x + 3, y + height - 11, Math.max(1, leftWidth - 14), 8, groupTreePanel));
+//$$         int treeWidth = Math.max(leftWidth - 18, groups.stream().mapToInt(group -> textWidth(Component.literal(group.name())) + 70).max().orElse(0));
+//$$         for (RuleGroupTree.Folder folder : RuleGroupTree.of(groups)) {
+//$$             gy = addGroupFolder(groupTreePanel, folder, x + 5, gy, treeWidth);
 //$$         }
-//$$         if (groups.isEmpty()) addWrappedText(left, tr("no_groups"), x + 10, gy + 5, leftWidth - 20, MUTED);
+//$$         if (groups.isEmpty()) addWrappedText(groupTreePanel, tr("no_groups"), x + 10, gy + 5, treeWidth - 10, MUTED);
+//$$         groupTreePanel.setHorizontalScrollAmount(treeScrollX);
+//$$         groupTreePanel.setVerticalScrollAmount(treeScrollY);
 //$$
 //$$         RuleGroupStore.Group selected = selectedGroupId == null ? null : RuleGroupStore.find(selectedGroupId);
 //$$         activeGroup = selected;
 //$$         int cx = x + leftWidth + 10;
 //$$         int cw = Math.max(1, centerWidth - 20);
+//$$         if (groupMode == LegacyGroupMode.IMPORT) {
+//$$             initPresetImport(center, cx, y + 8, cw);
+//$$             initGroupHistory(right, selected, x + leftWidth + centerWidth, y, rightWidth);
+//$$             center.setVerticalScrollAmount(centerScroll);
+//$$             return;
+//$$         }
 //$$         if (selected == null) {
 //$$             label(center, tr("no_group_selected"), cx, y + 12, cw, 20, MUTED, HorizontalAlignment.CENTER);
 //$$             initGroupHistory(right, null, x + leftWidth + centerWidth, y, rightWidth);
@@ -632,9 +753,11 @@ public final class CarpetWorkspaceScreen
 //$$             case MANAGE -> initGroupManager(center, selected, cx, y, cw, contentHeight);
 //$$             case STATUS -> initGroupStatus(center, selected, cx, y, cw);
 //$$             case COMMIT -> initGroupCommit(center, selected, cx, y, cw);
+//$$             case PREVIEW -> initApplyPreview(center, selected, cx, y + 8, cw);
 //$$             default -> initGroupRuleView(center, selected, cx, y, cw);
 //$$         }
 //$$         initGroupHistory(right, selected, x + leftWidth + centerWidth, y, rightWidth);
+//$$         center.setVerticalScrollAmount(centerScroll);
 //$$
 //$$         TPanelElement actions = panel(x + leftWidth, y + contentHeight, centerWidth, actionsHeight - 4, 0x55000000);
 //$$         addChild(actions);
@@ -645,7 +768,7 @@ public final class CarpetWorkspaceScreen
 //$$             groupMode = LegacyGroupMode.STATUS;
 //$$             rebuild();
 //$$         }, groupMode == LegacyGroupMode.STATUS));
-//$$         LegacyButton stage = button(actionX + actionWidth + actionGap, y + contentHeight + 5, actionWidth,
+//$$         Button stage = button(actionX + actionWidth + actionGap, y + contentHeight + 5, actionWidth,
 //$$             CONTROL_HEIGHT, tr("add"), () -> {
 //$$                 int staged = RuleGroupStore.stageAll(selected, groupValues(selected));
 //$$                 showFeedback(Component.translatable("carpet-gui.workspace.add_result", staged));
@@ -654,21 +777,181 @@ public final class CarpetWorkspaceScreen
 //$$             }, false);
 //$$         stage.setEnabled(!selected.members().isEmpty());
 //$$         add(actions, stage);
-//$$         LegacyButton commit = button(actionX + (actionWidth + actionGap) * 2, y + contentHeight + 5, actionWidth,
+//$$         Button commit = button(actionX + (actionWidth + actionGap) * 2, y + contentHeight + 5, actionWidth,
 //$$             CONTROL_HEIGHT, tr("commit"), () -> {
 //$$                 groupMode = LegacyGroupMode.COMMIT;
 //$$                 rebuild();
 //$$             }, groupMode == LegacyGroupMode.COMMIT);
-//$$         commit.setEnabled(!selected.staged().isEmpty());
+//$$         commit.setEnabled(selected.hasStagedChanges());
 //$$         add(actions, commit);
-//$$         LegacyButton push = button(actionX + (actionWidth + actionGap) * 3, y + contentHeight + 5,
+//$$         Button push = button(actionX + (actionWidth + actionGap) * 3, y + contentHeight + 5,
 //$$             actionWidth,
 //$$             CONTROL_HEIGHT, tr("push"), () -> {
-//$$                 RuleGroupStore.markPushed(selected);
-//$$                 rebuild();
+//$$                 openPreview(selected);
 //$$             }, false);
 //$$         push.setEnabled(selected.commitsAhead() > 0);
 //$$         add(actions, push);
+//$$     }
+//$$
+//$$     private RuleView previewRule(String key) {
+//$$         LegacyRuleRef ref = ruleRef(key);
+//$$         return ref == null ? null : ref.rule();
+//$$     }
+//$$
+//$$     private void capturePreview(RuleGroupStore.Group group, boolean preserveSelection) {
+//$$         applyPlan = RuleApplyPlan.capture(group.revision(), group.head(), this::previewRule);
+//$$         Set<String> applicable = new LinkedHashSet<>();
+//$$         applyPlan.entries().stream().filter(RuleApplyPlan.Entry::applicable).forEach(entry -> applicable.add(entry.key()));
+//$$         if (preserveSelection) selectedApplyRules.retainAll(applicable);
+//$$         else { selectedApplyRules.clear(); selectedApplyRules.addAll(applicable); }
+//$$     }
+//$$
+//$$     private void openPreview(RuleGroupStore.Group group) {
+//$$         capturePreview(group, false);
+//$$         groupMode = LegacyGroupMode.PREVIEW;
+//$$         centerScroll = 0;
+//$$         groupCenterPanel = null;
+//$$         rebuild();
+//$$     }
+//$$
+//$$     private void confirmPush(RuleGroupStore.Group group) {
+//$$         if (applyPlan == null || selectedApplyRules.isEmpty() && !applyPlan.entries().isEmpty()) return;
+//$$         Set<String> selected = new LinkedHashSet<>(selectedApplyRules);
+//$$         boolean complete = selected.equals(applyPlan.targets().keySet());
+//$$         boolean started = RuleGroupPushController.start(group, applyPlan, selected, this::previewRule, result -> {
+//$$             showFeedback(result.success()
+//$$                 ? Component.translatable(complete ? "carpet-gui.workspace.push_result" : "carpet-gui.workspace.preview_partial", result.successful(), result.total())
+//$$                 : Component.translatable("carpet-gui.workspace.push_failed", result.successful(), result.total(), result.failure()));
+//$$             editor.refresh();
+//$$             rebuild();
+//$$         });
+//$$         showFeedback(tr(started ? "push_pending" : "push_busy"));
+//$$         groupMode = LegacyGroupMode.VIEW;
+//$$         rebuild();
+//$$     }
+//$$
+//$$     private void initApplyPreview(TPanelElement parent, RuleGroupStore.Group group, int x, int y, int width) {
+//$$         if (applyPlan == null) return;
+//$$         y = addWrappedText(parent, tr("preview_title"), x, y, width, ACCENT) + 6;
+//$$         y = addWrappedText(parent, tr("preview_help"), x, y, width, MUTED) + 6;
+//$$         Button confirm = button(x, y, Math.max(1, width / 2), CONTROL_HEIGHT,
+//$$             Component.translatable("carpet-gui.workspace.preview_confirm", selectedApplyRules.size()), () -> confirmPush(group), false);
+//$$         confirm.setEnabled(!RuleGroupPushController.busy() && (!selectedApplyRules.isEmpty() || applyPlan.entries().isEmpty()));
+//$$         add(parent, confirm);
+//$$         add(parent, button(x + width / 2 + 4, y, Math.max(1, width / 2 - 4), CONTROL_HEIGHT,
+//$$             tr("preview_refresh"), () -> { capturePreview(group, true); rebuild(); }, false));
+//$$         y += 25;
+//$$         add(parent, button(x, y, Math.max(1, width / 2), CONTROL_HEIGHT, tr("preview_select_all"), () -> {
+//$$             selectedApplyRules.clear();
+//$$             applyPlan.entries().stream().filter(RuleApplyPlan.Entry::applicable).forEach(entry -> selectedApplyRules.add(entry.key()));
+//$$             rebuild();
+//$$         }, false));
+//$$         add(parent, button(x + width / 2 + 4, y, Math.max(1, width / 2 - 4), CONTROL_HEIGHT, tr("back"), () -> {
+//$$             groupMode = LegacyGroupMode.VIEW; rebuild();
+//$$         }, false));
+//$$         y += 29;
+//$$         for (RuleApplyPlan.Entry entry : applyPlan.entries()) {
+//$$             Button toggle = button(x, y, 27, CONTROL_HEIGHT,
+//$$                 Component.literal(selectedApplyRules.contains(entry.key()) ? "[✓]" : "[ ]"), () -> {
+//$$                     if (!selectedApplyRules.add(entry.key())) selectedApplyRules.remove(entry.key());
+//$$                     rebuild();
+//$$                 }, false);
+//$$             toggle.setEnabled(entry.applicable());
+//$$             add(parent, toggle);
+//$$             y = addWrappedText(parent, entry.label(), x + 32, y, width - 32, TEXT) + 2;
+//$$             y = addWrappedText(parent, Component.literal((entry.current() == null ? tr("unrecorded").getString() : entry.current()) + " → " + entry.target()),
+//$$                 x + 32, y, width - 32, entry.applicable() ? FOCUS : 0xFFFF5555) + 2;
+//$$             y = addWrappedText(parent, entry.problem() == null ? tr(entry.unchanged() ? "preview_same" : "preview_ready") : entry.problem(),
+//$$                 x + 32, y, width - 32, MUTED) + 8;
+//$$         }
+//$$     }
+//$$
+//$$     private void exportPreset() {
+//$$         RuleGroupStore.Group group = selectedGroupId == null ? null : RuleGroupStore.find(selectedGroupId);
+//$$         if (group == null || group.head().isEmpty()) { showFeedback(tr("preset_commit_first")); return; }
+//$$         try {
+//$$             var file = RulePresetFiles.write(RulePresetFiles.directory(), new RulePreset(group.name(), group.tag(), group.head()));
+//$$             showFeedback(Component.translatable("carpet-gui.workspace.preset_exported", file.toString()));
+//$$         } catch (java.io.IOException | IllegalArgumentException failure) { showFeedback(tr("preset_error")); }
+//$$     }
+//$$
+//$$     private void copyLegacyGroups() {
+//$$         if (!session.currentSession()) return;
+//$$         try {
+//$$             String author = Minecraft.getInstance().player == null ? "" : Minecraft.getInstance().player.getName().getString();
+//$$             int count = RuleGroupStore.copyLegacyGroups(author);
+//$$             if (count > 0) selectedGroupId = RuleGroupStore.groups().get(RuleGroupStore.groups().size() - count).id();
+//$$             groupMode = LegacyGroupMode.VIEW;
+//$$             showFeedback(Component.translatable("carpet-gui.workspace.context_legacy_copied", count));
+//$$             rebuild();
+//$$         } catch (java.io.IOException failure) { showFeedback(tr("context_legacy_error")); }
+//$$     }
+//$$
+//$$     private void importPreset(String filename) {
+//$$         try {
+//$$             RulePreset preset = RulePresetFiles.read(RulePresetFiles.directory(), filename.strip());
+//$$             String author = Minecraft.getInstance().player == null ? "" : Minecraft.getInstance().player.getName().getString();
+//$$             RuleGroupStore.Group group = RuleGroupStore.importPreset(preset, author);
+//$$             selectedGroupId = group.id();
+//$$             showFeedback(tr("preset_imported"));
+//$$             openPreview(group);
+//$$         } catch (java.io.IOException | IllegalArgumentException failure) { showFeedback(tr("preset_error")); }
+//$$     }
+//$$
+//$$     private void initPresetImport(TPanelElement parent, int x, int y, int width) {
+//$$         y = addWrappedText(parent, tr("preset_import"), x, y, width, ACCENT) + 6;
+//$$         y = addWrappedText(parent, Component.translatable("carpet-gui.workspace.preset_help", RulePresetFiles.directory().toString()), x, y, width, MUTED) + 6;
+//$$         TTextFieldWidget filename = new TTextFieldWidget(x, y, width, CONTROL_HEIGHT);
+//$$         filename.setInput(importFilename, false);
+//$$         filename.setPlaceholderText(tr("preset_filename"));
+//$$         presetFilenameBox = filename;
+//$$         add(parent, filename);
+//$$         y += 25;
+//$$         add(parent, button(x, y, Math.max(1, width / 2), CONTROL_HEIGHT, tr("preset_import"), () -> importPreset(filename.getInput()), false));
+//$$         add(parent, button(x + width / 2 + 4, y, Math.max(1, width / 2 - 4), CONTROL_HEIGHT, tr("back"), () -> {
+//$$             groupMode = LegacyGroupMode.VIEW; rebuild();
+//$$         }, false));
+//$$         y += 30;
+//$$         try {
+//$$             for (String name : RulePresetFiles.list(RulePresetFiles.directory())) {
+//$$                 add(parent, button(x, y, width, CONTROL_HEIGHT, Component.literal(name), () -> importPreset(name), false));
+//$$                 y += 23;
+//$$             }
+//$$         } catch (java.io.IOException failure) { addWrappedText(parent, tr("preset_error"), x, y, width, 0xFFFF5555); }
+//$$     }
+//$$
+//$$     private int addGroupFolder(TPanelElement parent, RuleGroupTree.Folder folder, int x, int y, int width) {
+//$$         int rowX = x + folder.depth() * 10;
+//$$         boolean collapsed = collapsedFolders.contains(folder.path());
+//$$         add(parent, button(rowX, y, Math.max(1, width - folder.depth() * 10), 19, Component.empty(), () -> {
+//$$             if (!collapsedFolders.add(folder.path())) collapsedFolders.remove(folder.path());
+//$$             rebuild();
+//$$         }, false));
+//$$         label(parent, Component.literal(collapsed ? "▸" : "▾"), rowX + 2, y + 4, 9, 11, MUTED, HorizontalAlignment.LEFT);
+//$$         add(parent, new LegacyFolderIcon(rowX + 12, y + 4));
+//$$         label(parent, Component.literal(folder.name()), rowX + 29, y + 4, width - folder.depth() * 10 - 32, 11, TEXT, HorizontalAlignment.LEFT);
+//$$         y += 21;
+//$$         if (collapsed) return y;
+//$$         for (RuleGroupTree.Folder child : folder.children()) y = addGroupFolder(parent, child, x, y, width);
+//$$         for (RuleGroupTree.Entry entry : folder.groups()) {
+//$$             RuleGroupStore.Group group = entry.group();
+//$$             int gx = x + (folder.depth() + 1) * 10;
+//$$             int gw = Math.max(1, width - (folder.depth() + 1) * 10);
+//$$             boolean selected = Objects.equals(selectedGroupId, group.id());
+//$$             Button item = button(gx, y, gw, ROW_HEIGHT, Component.empty(), () -> {
+//$$                 selectedGroupId = group.id();
+//$$                 groupMode = LegacyGroupMode.VIEW;
+//$$                 rebuild();
+//$$             }, selected);
+//$$             item.setTooltip(Tooltip.create(Component.literal(group.name())));
+//$$             add(parent, item);
+//$$             label(parent, Component.literal(entry.name()), gx + 6, y + 3, gw - 12, 12, selected ? ACCENT : TEXT, HorizontalAlignment.LEFT);
+//$$             String detail = (group.tag().isBlank() ? "HEAD" : group.tag()) + " · r" + group.revision()
+//$$                 + (group.commitsAhead() > 0 ? " ↑" + group.commitsAhead() : " ✓");
+//$$             label(parent, Component.literal(detail), gx + 6, y + 17, gw - 12, 10, MUTED, HorizontalAlignment.LEFT);
+//$$             y += ROW_HEIGHT + 3;
+//$$         }
+//$$         return y;
 //$$     }
 //$$
 //$$     private void initGroupRuleView(TPanelElement center, RuleGroupStore.Group group, int x, int y, int width) {
@@ -742,27 +1025,36 @@ public final class CarpetWorkspaceScreen
 //$$             String baseline = group.isStaged(stateId) ? group.stagedValue(stateId) : group.headValue(stateId);
 //$$             if (!Objects.equals(baseline, ref.rule().value())) changed.add(ref);
 //$$         }
-//$$         label(center, Component.translatable("carpet-gui.workspace.unstaged_changes", changed.size()),
+//$$         label(center, Component.translatable("carpet-gui.workspace.unstaged_changes", changed.size() + group.unstagedDeletions().size()),
 //$$             x, rowY, width, 15, ACCENT, HorizontalAlignment.LEFT);
 //$$         rowY += 20;
-//$$         if (changed.isEmpty()) {
+//$$         if (changed.isEmpty() && group.unstagedDeletions().isEmpty()) {
 //$$             label(center, tr("no_unstaged_changes"), x + 8, rowY, width - 8, 18, MUTED, HorizontalAlignment.LEFT);
 //$$             rowY += 25;
 //$$         }
 //$$         for (LegacyRuleRef ref : changed) {
-//$$             boolean fresh = !group.tracked(ref.rule().stateId());
+//$$             boolean fresh = !group.tracked(ref.key());
 //$$             addGroupChangeRow(center, x, rowY, width, ref.rule().label(), ref.rule().value(),
 //$$                 fresh ? "?" : "M", fresh ? 0xFFFF5555 : 0xFF55AAFF, tr("stage"), () -> {
-//$$                     RuleGroupStore.stage(group, ref.rule().stateId(), ref.rule().value());
+//$$                     RuleGroupStore.stage(group, ref.key(), ref.rule().value());
 //$$                     rebuild();
 //$$                 });
 //$$             rowY += 29;
 //$$         }
 //$$         rowY += 5;
-//$$         label(center, Component.translatable("carpet-gui.workspace.staged_changes", group.staged().size()),
+//$$         for (String key : group.unstagedDeletions()) {
+//$$             LegacyRuleRef ref = ruleRef(key);
+//$$             addGroupChangeRow(center, x, rowY, width, ref == null ? Component.literal(key) : ref.rule().label(),
+//$$                 tr("removed_from_group").getString(), "D", 0xFFFF5555, tr("stage"), () -> {
+//$$                     RuleGroupStore.stageRemoval(group, key);
+//$$                     rebuild();
+//$$                 });
+//$$             rowY += 29;
+//$$         }
+//$$         label(center, Component.translatable("carpet-gui.workspace.staged_changes", group.stagedCount()),
 //$$             x, rowY, width, 15, ACCENT, HorizontalAlignment.LEFT);
 //$$         rowY += 20;
-//$$         if (group.staged().isEmpty()) {
+//$$         if (!group.hasStagedChanges()) {
 //$$             label(center, tr("no_staged_changes"), x + 8, rowY, width - 8, 18, MUTED, HorizontalAlignment.LEFT);
 //$$         }
 //$$         for (Map.Entry<String, String> staged : group.staged().entrySet()) {
@@ -775,6 +1067,7 @@ public final class CarpetWorkspaceScreen
 //$$                 });
 //$$             rowY += 29;
 //$$         }
+//$$         addDeletionRows(center, group, x, rowY, width, true);
 //$$     }
 //$$
 //$$     private void initGroupCommit(TPanelElement center, RuleGroupStore.Group group, int x, int y, int width) {
@@ -787,21 +1080,22 @@ public final class CarpetWorkspaceScreen
 //$$         TTextFieldWidget message = new TTextFieldWidget(x, y + 56, width, CONTROL_HEIGHT);
 //$$         message.setPlaceholderText(tr("commit_message_hint"));
 //$$         add(center, message);
-//$$         LegacyButton commit = button(x, y + 83, Math.min(180, width), CONTROL_HEIGHT,
-//$$             Component.translatable("carpet-gui.workspace.commit_count", group.staged().size()), () -> {
+//$$         Button commit = button(x, y + 83, Math.min(180, width), CONTROL_HEIGHT,
+//$$             Component.translatable("carpet-gui.workspace.commit_count", group.stagedCount()), () -> {
 //$$                 if (message.getInput().isBlank()) {
 //$$                     showFeedback(tr("commit_message_required"));
 //$$                     return;
 //$$                 }
-//$$                 if (RuleGroupStore.commit(group, message.getInput())) {
+//$$                 String author = Minecraft.getInstance().player == null ? "" : Minecraft.getInstance().player.getName().getString();
+//$$                 if (RuleGroupStore.commit(group, message.getInput(), author)) {
 //$$                     groupMode = LegacyGroupMode.VIEW;
 //$$                     rebuild();
 //$$                 }
 //$$             }, false);
-//$$         commit.setEnabled(!group.staged().isEmpty());
+//$$         commit.setEnabled(group.hasStagedChanges());
 //$$         add(center, commit);
 //$$         int rowY = y + 118;
-//$$         label(center, Component.translatable("carpet-gui.workspace.staged_changes", group.staged().size()),
+//$$         label(center, Component.translatable("carpet-gui.workspace.staged_changes", group.stagedCount()),
 //$$             x, rowY, width, 15, ACCENT, HorizontalAlignment.LEFT);
 //$$         rowY += 20;
 //$$         for (Map.Entry<String, String> staged : group.staged().entrySet()) {
@@ -810,8 +1104,19 @@ public final class CarpetWorkspaceScreen
 //$$             addGroupChangeRow(center, x, rowY, width, title, staged.getValue(), "A", 0xFF55FF55, null, null);
 //$$             rowY += 29;
 //$$         }
-//$$         if (group.staged().isEmpty()) {
+//$$         if (!group.hasStagedChanges()) {
 //$$             label(center, tr("nothing_to_commit"), x + 8, rowY, width - 8, 18, MUTED, HorizontalAlignment.LEFT);
+//$$         }
+//$$         addDeletionRows(center, group, x, rowY, width, false);
+//$$     }
+//$$
+//$$     private void addDeletionRows(TPanelElement parent, RuleGroupStore.Group group, int x, int y, int width, boolean editable) {
+//$$         for (String key : group.stagedDeletions()) {
+//$$             LegacyRuleRef ref = ruleRef(key);
+//$$             addGroupChangeRow(parent, x, y, width, ref == null ? Component.literal(key) : ref.rule().label(),
+//$$                 tr("removed_from_group").getString(), "D", 0xFFFF5555, editable ? tr("unstage") : null,
+//$$                 editable ? () -> { RuleGroupStore.unstage(group, key); rebuild(); } : null);
+//$$             y += 29;
 //$$         }
 //$$     }
 //$$
@@ -839,27 +1144,65 @@ public final class CarpetWorkspaceScreen
 //$$         }
 //$$         label(right, Component.literal(group.name()), rx, y + 39, rw, 18, TEXT, HorizontalAlignment.LEFT);
 //$$         label(right, Component.translatable("carpet-gui.workspace.pipeline_summary", group.members().size(),
-//$$             group.staged().size(), group.commitsAhead()), rx, y + 65, rw, 35, MUTED, HorizontalAlignment.LEFT);
+//$$             group.stagedCount(), group.commitsAhead()), rx, y + 65, rw, 35, MUTED, HorizontalAlignment.LEFT);
 //$$         int historyY = y + 112;
 //$$         if (group.history().isEmpty()) {
 //$$             label(right, tr("no_commits_graph"), rx, historyY, rw, 55, MUTED, HorizontalAlignment.LEFT);
 //$$             return;
 //$$         }
-//$$         for (RuleGroupStore.Commit history : group.history()) {
-//$$             boolean pending = history.revision() > group.pushedRevision();
-//$$             List<String> messageLines = wrapLines(history.message(), Math.max(1, rw - 14));
-//$$             for (int index = 0; index < messageLines.size(); index++) {
-//$$                 String prefix = index == 0 ? "● " : "   ";
-//$$                 label(right, Component.literal(prefix + messageLines.get(index)), rx, historyY, rw, 12,
-//$$                     pending ? ACCENT : TEXT, HorizontalAlignment.LEFT);
+//$$         List<RuleGroupStore.Commit> commits = group.history();
+//$$         for (int index = 0; index < commits.size(); index++) {
+//$$             RuleGroupStore.Commit commit = commits.get(index);
+//$$             String id = group.id() + ":" + commit.revision();
+//$$             boolean expanded = Objects.equals(expandedCommitId, id);
+//$$             int top = historyY;
+//$$             List<String> messageLines = wrapLines(commit.message(), Math.max(1, rw - 14));
+//$$             int cardHeight = messageLines.size() * 12 + 26;
+//$$             add(right, button(rx, top, rw, cardHeight, Component.empty(), () -> {
+//$$                 expandedCommitId = Objects.equals(expandedCommitId, id) ? null : id;
+//$$                 rebuild();
+//$$             }, expanded));
+//$$             for (int line = 0; line < messageLines.size(); line++) {
+//$$                 label(right, Component.literal((line == 0 ? "● " : "   ") + messageLines.get(line)),
+//$$                     rx + 3, historyY + 3, rw - 6, 12, commit.revision() > group.pushedRevision() ? ACCENT : TEXT, HorizontalAlignment.LEFT);
 //$$                 historyY += 12;
 //$$             }
-//$$             label(right, Component.literal("r" + history.revision() + (pending ? "  local" : "  server")),
-//$$                 rx + 12, historyY + 2, rw - 12, 12, MUTED, HorizontalAlignment.LEFT);
-//$$             historyY += 22;
+//$$             String date = DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm:ss")
+//$$                 .format(Instant.ofEpochMilli(commit.time()).atZone(ZoneId.systemDefault()));
+//$$             label(right, Component.literal("r" + commit.revision()), rx + 12, historyY + 3, rw - 12, 11, MUTED, HorizontalAlignment.LEFT);
+//$$             label(right, Component.literal(date), rx + 12, historyY + 15, Math.max(rw - 12, textWidth(Component.literal(date))), 11, MUTED, HorizontalAlignment.LEFT);
+//$$             historyY = top + cardHeight + 4;
+//$$             if (expanded) {
+//$$                 RuleGroupStore.Commit previous = index + 1 < commits.size() ? commits.get(index + 1) : null;
+//$$                 historyY = addCommitDetails(right, commit, previous, rx + 8, historyY, Math.max(1, rw - 8));
+//$$             }
 //$$         }
 //$$     }
 //$$
+//$$     private int addCommitDetails(TPanelElement parent, RuleGroupStore.Commit commit,
+//$$                                  RuleGroupStore.Commit previous, int x, int y, int width) {
+//$$         y = addWrappedText(parent, Component.translatable("carpet-gui.workspace.commit_detail_message", commit.message()), x, y, width, TEXT) + 3;
+//$$         String author = commit.author().isBlank() ? tr("unknown_author").getString() : commit.author();
+//$$         y = addWrappedText(parent, Component.translatable("carpet-gui.workspace.commit_detail_author", author), x, y, width, MUTED) + 3;
+//$$         String date = DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm:ss")
+//$$             .format(Instant.ofEpochMilli(commit.time()).atZone(ZoneId.systemDefault()));
+//$$         Component time = Component.translatable("carpet-gui.workspace.commit_detail_time", date);
+//$$         label(parent, time, x, y, Math.max(width, textWidth(time)), 12, MUTED, HorizontalAlignment.LEFT);
+//$$         y += 17;
+//$$         if (!RuleGroupHistory.hasBaseline(commit, previous)) y = addWrappedText(parent, tr("commit_baseline_missing"), x, y, width, MUTED) + 4;
+//$$         var changes = RuleGroupHistory.changes(commit, previous);
+//$$         y = addWrappedText(parent, Component.translatable(RuleGroupHistory.hasBaseline(commit, previous)
+//$$             ? "carpet-gui.workspace.commit_detail_rules" : "carpet-gui.workspace.commit_snapshot_rules", changes.size()), x, y, width, ACCENT) + 4;
+//$$         if (changes.isEmpty()) y = addWrappedText(parent, tr("commit_detail_no_rules"), x, y, width, MUTED) + 4;
+//$$         for (RuleGroupHistory.Change change : changes) {
+//$$             LegacyRuleRef ref = ruleRef(change.ruleId());
+//$$             y = addWrappedText(parent, ref == null ? Component.literal(change.ruleId()) : ref.rule().label(), x, y, width, TEXT);
+//$$             String oldValue = change.oldValue() == null ? tr("unrecorded").getString() : change.oldValue();
+//$$             String newValue = change.newValue() == null ? tr("unrecorded").getString() : change.newValue();
+//$$             y = addWrappedText(parent, Component.literal(RuleGroupHistory.hasBaseline(commit, previous) ? oldValue + " → " + newValue : newValue), x + 6, y, width - 6, MUTED) + 5;
+//$$         }
+//$$         return y + 8;
+//$$     }
 //$$     private Map<String, String> groupValues(RuleGroupStore.Group group) {
 //$$         Map<String, String> values = new LinkedHashMap<>();
 //$$         for (String stateId : group.members()) {
@@ -872,7 +1215,7 @@ public final class CarpetWorkspaceScreen
 //$$     private LegacyRuleRef ruleRef(String stateId) {
 //$$         for (RulePage page : editor.sourcePages()) {
 //$$             for (RuleView rule : page.rules()) {
-//$$                 if (rule.stateId().equals(stateId)) return new LegacyRuleRef(page, rule);
+//$$                 if (rule.stateId().equals(stateId) || (page.id() + "::" + rule.stateId()).equals(stateId)) return new LegacyRuleRef(stateId, page, rule);
 //$$             }
 //$$         }
 //$$         return null;
@@ -890,12 +1233,14 @@ public final class CarpetWorkspaceScreen
 //$$                 if (!needle.isEmpty() && rule.searchTerms().stream()
 //$$                     .map(term -> term.toLowerCase(Locale.ROOT))
 //$$                     .noneMatch(term -> term.contains(needle))) continue;
-//$$                 boolean member = activeGroup.members().contains(rule.stateId());
+//$$                 String key = activeGroup.members().contains(rule.stateId()) || activeGroup.tracked(rule.stateId())
+//$$                     ? rule.stateId() : page.id() + "::" + rule.stateId();
+//$$                 boolean member = activeGroup.members().contains(key);
 //$$                 Component ruleLabel = Component.literal((member ? "− " : "+ ") + rule.label().getString());
 //$$                 add(groupCandidates, button(rx + 4, cy, rw - 8, CONTROL_HEIGHT,
 //$$                     fitText(ruleLabel, Math.max(1, rw - 20)), () -> {
-//$$                         if (activeGroup.members().contains(rule.stateId())) RuleGroupStore.removeMember(activeGroup, rule.stateId());
-//$$                         else RuleGroupStore.addMember(activeGroup, rule.stateId());
+//$$                         if (activeGroup.members().contains(key)) RuleGroupStore.removeMember(activeGroup, key);
+//$$                         else RuleGroupStore.addMember(activeGroup, key);
 //$$                         rebuildGroupCandidates();
 //$$                     }, member));
 //$$                 cy += 23;
@@ -933,14 +1278,11 @@ public final class CarpetWorkspaceScreen
 //$$         for (RuleBrowserModel.Group group : groups) {
 //$$             Component title = categoryLabel(page, group.category());
 //$$             boolean expanded = model.expanded(group.category());
-//$$             LegacyCategoryHeader header = new LegacyCategoryHeader(x, y, width, 20, () -> {
+//$$             CategoryHeader header = new CategoryHeader(x, y, width, 20, title, expanded, () -> {
 //$$                 model.setExpanded(group.category(), !model.expanded(group.category()));
 //$$                 rebuildRuleRows();
 //$$             });
 //$$             add(rulePanel, header);
-//$$             label(header, title, x + 4, y, width - 34, 20, ACCENT, HorizontalAlignment.LEFT);
-//$$             label(header, Component.literal(expanded ? "[-]" : "[+]"),
-//$$                 x + width - 28, y, 24, 20, MUTED, HorizontalAlignment.RIGHT);
 //$$             y += 23;
 //$$             if (!expanded) continue;
 //$$             for (RuleView rule : group.rules()) {
@@ -952,7 +1294,7 @@ public final class CarpetWorkspaceScreen
 //$$     }
 //$$
 //$$     private void addRuleRow(TPanelElement parent, RulePage page, RuleView rule, int x, int y, int width) {
-//$$         TPanelElement row = panel(x, y, width, ROW_HEIGHT, 0x24000000);
+//$$         TPanelElement row = new LegacyRuleRow(page.id(), rule, x, y, width);
 //$$         add(parent, row);
 //$$         int favoriteWidth = 22;
 //$$         int resetWidth = 22;
@@ -979,7 +1321,8 @@ public final class CarpetWorkspaceScreen
 //$$             List<LegacyOption<String>> valueOptions = values.stream()
 //$$                 .map(value -> new LegacyOption<>(value, ruleValueLabel(value)))
 //$$                 .toList();
-//$$             LegacyDropdown value = dropdown(valueX, y + 4, valueWidth, rule.value(), valueOptions,
+//$$             TSelectWidget<TSelectWidget.SimpleEntry> value = dropdown(
+//$$                 valueX, y + 4, valueWidth, rule.value(), valueOptions,
 //$$                 selected -> submit(rule, editor, selected));
 //$$             value.setEnabled(editor.editable());
 //$$             add(row, value);
@@ -990,33 +1333,35 @@ public final class CarpetWorkspaceScreen
 //$$             add(row, value);
 //$$             valueEditors.put(value, rule);
 //$$         } else {
-//$$             LegacyButton value = button(valueX, y + 4, valueWidth, CONTROL_HEIGHT, Component.literal(rule.value()), () -> {}, false);
+//$$             Button value = button(valueX, y + 4, valueWidth, CONTROL_HEIGHT, Component.literal(rule.value()), () -> {}, false);
 //$$             value.setEnabled(false);
 //$$             add(row, value);
 //$$         }
 //$$
-//$$         LegacyButton reset = iconButton(resetX, y + 4, resetWidth, CONTROL_HEIGHT, "actions/reset", () -> {
+//$$         RuleActionIcon reset = new RuleActionIcon(resetX, y + 4, resetWidth, CONTROL_HEIGHT,
+//$$             false, () -> false, () -> {
 //$$             if (editor != null) submit(rule, editor, rule.defaultValue());
-//$$         }, false);
+//$$         });
 //$$         reset.setEnabled(editor != null && editor.editable() && !rule.value().equals(rule.defaultValue()));
 //$$         add(row, reset);
 //$$         if (saveWidth > 0) {
 //$$             PersistentRuleEditor persistent = (PersistentRuleEditor) editor;
-//$$             add(row, iconButton(saveX, y + 4, saveWidth, CONTROL_HEIGHT,
-//$$                 persistent.isSavedDefault(rule.value()) ? "actions/lock_closed" : "actions/lock_open", () -> {
+//$$             add(row, new RuleActionIcon(saveX, y + 4, saveWidth, CONTROL_HEIGHT,
+//$$                 true, () -> persistent.isSavedDefault(rule.value()), () -> {
+//$$                 if (!session.currentSession()) return;
 //$$                 RuleEditResult result = persistent.saveDefault(rule.value(), completed -> showFeedback(completed.message()));
 //$$                 feedback(rule, result);
-//$$             }, false));
+//$$             }));
 //$$         }
-//$$         boolean favorite = FavoriteRules.contains(rule.stateId());
-//$$         add(row, iconButton(favoriteX, y + 4, favoriteWidth, CONTROL_HEIGHT,
-//$$             favorite ? "actions/favorite_on" : "actions/favorite_off", () -> {
+//$$         add(row, new FavoriteButton(favoriteX, y + 4, favoriteWidth, CONTROL_HEIGHT,
+//$$             () -> FavoriteRules.contains(rule.stateId()), () -> {
 //$$                 FavoriteRules.toggle(rule.stateId());
 //$$                 rebuildRuleRows();
-//$$             }, favorite));
+//$$             }));
 //$$     }
 //$$
 //$$     private void submit(RuleView rule, RuleEditor editor, String value) {
+//$$         if (!session.currentSession()) return;
 //$$         if (!editor.editable()) return;
 //$$         RuleEditResult result = editor.submit(value, completed -> showFeedback(completed.message()));
 //$$         feedback(rule, result);
@@ -1030,6 +1375,7 @@ public final class CarpetWorkspaceScreen
 //$$     }
 //$$
 //$$     private void showFeedback(Component message) {
+//$$         if (!session.currentSession()) return;
 //$$         feedback = message;
 //$$         if (notice != null) notice.setText(feedback);
 //$$     }
@@ -1064,12 +1410,19 @@ public final class CarpetWorkspaceScreen
 //$$     }
 //$$
 //$$     private void rebuild() {
+//$$         if (presetFilenameBox != null) importFilename = presetFilenameBox.getInput();
+//$$         if (groupCenterPanel != null) centerScroll = groupCenterPanel.getVerticalScrollAmount();
+//$$         if (groupTreePanel != null) {
+//$$             treeScrollX = groupTreePanel.getHorizontalScrollAmount();
+//$$             treeScrollY = groupTreePanel.getVerticalScrollAmount();
+//$$         }
 //$$         clearChildren();
-//$$         init();
+//$$         initialize();
 //$$     }
 //$$
 //$$     @Override
-//$$     protected void tick() {
+//$$     public void tick() {
+//$$         if (!session.currentSession()) { valueEditors.clear(); applyPlan = null; selectedApplyRules.clear(); return; }
 //$$         if (searchBox != null) {
 //$$             String value = searchBox.getInput();
 //$$             if (!value.equals(observedSearch)) {
@@ -1095,7 +1448,7 @@ public final class CarpetWorkspaceScreen
 //$$         if (++refreshTicks >= 20) {
 //$$             refreshTicks = 0;
 //$$             editor.refresh();
-//$$             if (editor.revision() != observedRevision && getFocusedElement() == null) {
+//$$             if (editor.revision() != observedRevision && screen.getFocusedElement() == null) {
 //$$                 observedRevision = editor.revision();
 //$$                 editor.refreshAllRules();
 //$$                 rebuildRuleRows();
@@ -1104,18 +1457,15 @@ public final class CarpetWorkspaceScreen
 //$$     }
 //$$
 //$$     @Override
-//$$     public void renderBackground(TDrawContext graphics) {
+//$$     public void render(TDrawContext graphics) {
 //$$         graphics.fill(0, 0, getWidth(), getHeight(), BACKDROP);
 //$$     }
 //$$
-//$$     @Override
-//$$     public void close() {
-//$$         Minecraft.getInstance().setScreen(parent);
-//$$     }
-//$$
-//$$     @Override
-//$$     public boolean shouldPause() {
-//$$         return false;
+//$$     void closeResources() {
+//$$         valueEditors.clear();
+//$$         applyPlan = null;
+//$$         selectedApplyRules.clear();
+//$$         ModIconStore.INSTANCE.close();
 //$$     }
 //$$
 //$$     private static <T extends TElement> T add(TParentElement parent, T child) {
@@ -1130,26 +1480,25 @@ public final class CarpetWorkspaceScreen
 //$$         return panel;
 //$$     }
 //$$
-//$$     private LegacyButton button(int x, int y, int width, int height, Component text,
+//$$     private Button button(int x, int y, int width, int height, Component text,
 //$$                                 Runnable action, boolean selected) {
 //$$         Component label = selected ? text.copy().withStyle(ChatFormatting.YELLOW) : text;
-//$$         return new LegacyButton(x, y, Math.max(1, width), Math.max(1, height), label, action, selected);
+//$$         return new Button(x, y, Math.max(1, width), Math.max(1, height), label, () -> {
+//$$             if (session.currentSession()) action.run();
+//$$         }, selected);
 //$$     }
 //$$
-//$$     private LegacyChromeButton chromeButton(int x, int y, int width, int height, Component text,
+//$$     private ChromeButton chromeButton(int x, int y, int width, int height, Component text,
 //$$                                             Runnable action, boolean selected) {
 //$$         Component label = selected ? text.copy().withStyle(ChatFormatting.YELLOW) : text;
-//$$         return new LegacyChromeButton(x, y, Math.max(1, width), Math.max(1, height), label, action, selected);
+//$$         return new ChromeButton(x, y, Math.max(1, width), Math.max(1, height), label, action, selected);
 //$$     }
 //$$
-//$$     private LegacyButton iconButton(int x, int y, int width, int height, String icon,
-//$$                                     Runnable action, boolean selected) {
-//$$         return button(x, y, width, height, Component.empty(), action, selected).withIcon(icon);
-//$$     }
-//$$
-//$$     private <T> LegacyDropdown dropdown(int x, int y, int width, T selected,
-//$$                                         List<LegacyOption<T>> options, Consumer<T> changed) {
-//$$         LegacyDropdown select = new LegacyDropdown(x, y, Math.max(1, width), CONTROL_HEIGHT);
+//$$     private <T> TSelectWidget<TSelectWidget.SimpleEntry> dropdown(
+//$$         int x, int y, int width, T selected,
+//$$         List<LegacyOption<T>> options, Consumer<T> changed) {
+//$$         TSelectWidget<TSelectWidget.SimpleEntry> select = new TSelectWidget<>(
+//$$             x, y, Math.max(1, width), CONTROL_HEIGHT, new TSelectWidget.SimpleEntry[0]);
 //$$         Map<TSelectWidget.SimpleEntry, T> values = new LinkedHashMap<>();
 //$$         TSelectWidget.SimpleEntry selectedEntry = null;
 //$$         for (LegacyOption<T> option : options) {
@@ -1174,16 +1523,10 @@ public final class CarpetWorkspaceScreen
 //$$             .toList();
 //$$     }
 //$$
-//$$     private <T> void addIconDropdown(TParentElement parent, int x, int y, int width, String icon,
+//$$     private <T> void addIconDropdown(TParentElement parent, int x, int y, int width, WorkspaceIcon.Kind icon,
 //$$                                      T selected, List<LegacyOption<T>> options, Consumer<T> changed) {
-//$$         TTextureElement texture = new TTextureElement(x, y, CONTROL_HEIGHT, CONTROL_HEIGHT, texture(icon));
-//$$         add(parent, texture);
+//$$         add(parent, new WorkspaceIcon(x, y, CONTROL_HEIGHT, icon));
 //$$         add(parent, dropdown(x + 27, y, Math.max(1, width - 27), selected, options, changed));
-//$$     }
-//$$
-//$$     private static UITexture texture(String path) {
-//$$         return new UITexture(ResourceLocation.fromNamespaceAndPath(
-//$$             "carpet-gui", "textures/gui/icons/" + path + ".png"));
 //$$     }
 //$$
 //$$     private static UITexture rootTexture(String path) {
@@ -1191,9 +1534,13 @@ public final class CarpetWorkspaceScreen
 //$$     }
 //$$
 //$$     private static UITexture pageIcon(RulePage page) {
-//$$         return "minecraft".equals(page.id())
-//$$             ? new UITexture(ResourceLocation.withDefaultNamespace("textures/block/grass_block_side.png"))
-//$$             : rootTexture("icon.png");
+//$$         if (page.isVanilla()) {
+//$$             return new UITexture(ResourceLocation.withDefaultNamespace("textures/block/grass_block_side.png"));
+//$$         }
+//$$         String modId = page instanceof AllRulesPage ? "carpet-gui" : page.id();
+//$$         return ModIconStore.INSTANCE.icon(modId)
+//$$             .map(UITexture::new)
+//$$             .orElse(null);
 //$$     }
 //$$
 //$$     private TLabelElement label(TParentElement parent, Component text, int x, int y, int width,
@@ -1305,87 +1652,19 @@ public final class CarpetWorkspaceScreen
 //$$     private record LegacyOption<T>(T value, Component label) {
 //$$     }
 //$$
-//$$     private record LegacyRuleRef(RulePage page, RuleView rule) {
+//$$     private record LegacyRuleRef(String key, RulePage page, RuleView rule) {
 //$$     }
 //$$
 //$$     private enum LegacyGroupMode {
 //$$         VIEW,
 //$$         MANAGE,
 //$$         STATUS,
-//$$         COMMIT
+//$$         COMMIT,
+//$$         IMPORT,
+//$$         PREVIEW
 //$$     }
 //$$
-//$$     private static class LegacyButton extends TButtonWidget {
-//$$         protected final boolean selected;
-//$$         protected HorizontalAlignment alignment = HorizontalAlignment.CENTER;
-//$$
-//$$         LegacyButton(int x, int y, int width, int height, Component text, Runnable action, boolean selected) {
-//$$             super(x, y, width, height, text, ignored -> action.run());
-//$$             this.selected = selected;
-//$$         }
-//$$
-//$$         LegacyButton withIcon(String icon) {
-//$$             setIcon(texture(icon));
-//$$             return this;
-//$$         }
-//$$
-//$$         LegacyButton withTexture(UITexture icon) {
-//$$             setIcon(icon);
-//$$             return this;
-//$$         }
-//$$
-//$$         LegacyButton align(HorizontalAlignment alignment) {
-//$$             this.alignment = alignment;
-//$$             return this;
-//$$         }
-//$$
-//$$         @Override
-//$$         public void render(TDrawContext graphics) {
-//$$             int fill = selected ? 0x70505018 : isFocusedOrHovered() ? 0x60393939 : 0x30000000;
-//$$             graphics.fill(getX(), getY(), getX() + getWidth(), getY() + getHeight(), fill);
-//$$             int border = isFocusedOrHovered() ? FOCUS : BORDER;
-//$$             graphics.fill(getX(), getY(), getX() + getWidth(), getY() + 1, border);
-//$$             graphics.fill(getX(), getY() + getHeight() - 1, getX() + getWidth(), getY() + getHeight(), border);
-//$$             graphics.fill(getX(), getY(), getX() + 1, getY() + getHeight(), border);
-//$$             graphics.fill(getX() + getWidth() - 1, getY(), getX() + getWidth(), getY() + getHeight(), border);
-//$$             if (getIcon() != null) renderIcon(graphics);
-//$$             else graphics.drawTElementTextTHC(getText(), alignment, getEnabled() ? TEXT : MUTED);
-//$$         }
-//$$     }
-//$$
-//$$     private static final class LegacyChromeButton extends LegacyButton {
-//$$         LegacyChromeButton(int x, int y, int width, int height, Component text, Runnable action, boolean selected) {
-//$$             super(x, y, width, height, text, action, selected);
-//$$         }
-//$$
-//$$         @Override
-//$$         LegacyChromeButton align(HorizontalAlignment alignment) {
-//$$             super.align(alignment);
-//$$             return this;
-//$$         }
-//$$
-//$$         @Override
-//$$         public void render(TDrawContext graphics) {
-//$$             if (selected || isFocusedOrHovered()) {
-//$$                 graphics.fill(getX(), getY(), getX() + getWidth(), getY() + getHeight(),
-//$$                     selected ? 0xFF414345 : 0xA0454545);
-//$$             }
-//$$             if (selected) {
-//$$                 graphics.fill(getX(), getY() + getHeight() - 1, getX() + getWidth(),
-//$$                     getY() + getHeight(), 0xFF4288B8);
-//$$             }
-//$$             if (getIcon() != null) renderIcon(graphics);
-//$$             else graphics.drawTElementTextTHC(getText(), alignment, getEnabled() ? TEXT : MUTED);
-//$$         }
-//$$     }
-//$$
-//$$     private static final class LegacyControlButton extends TButtonWidget {
-//$$         LegacyControlButton(int x, int y, int width, int height, Component text, Runnable action) {
-//$$             super(x, y, width, height, text, ignored -> action.run());
-//$$         }
-//$$     }
-//$$
-//$$     private static final class LegacyFeatureCard extends LegacyButton {
+//$$     private static final class LegacyFeatureCard extends Button {
 //$$         LegacyFeatureCard(int x, int y, int width, int height, Runnable action) {
 //$$             super(x, y, width, height, Component.empty(), action, false);
 //$$         }
@@ -1402,20 +1681,6 @@ public final class CarpetWorkspaceScreen
 //$$         }
 //$$     }
 //$$
-//$$     private static final class LegacyCategoryHeader extends LegacyButton {
-//$$         LegacyCategoryHeader(int x, int y, int width, int height, Runnable action) {
-//$$             super(x, y, width, height, Component.empty(), action, false);
-//$$         }
-//$$
-//$$         @Override
-//$$         public void render(TDrawContext graphics) {
-//$$             graphics.fill(getX(), getY(), getX() + getWidth(), getY() + getHeight(),
-//$$                 isFocusedOrHovered() ? 0xFF607994 : 0x22000000);
-//$$             graphics.fill(getX(), getY() + getHeight() - 1, getX() + getWidth(), getY() + getHeight(),
-//$$                 isFocusedOrHovered() ? 0xFF9EACBC : 0x40707070);
-//$$         }
-//$$     }
-//$$
 //$$     private static final class LegacyPopup extends TContextMenuPanel {
 //$$         LegacyPopup(TElement target) {
 //$$             super(target);
@@ -1423,19 +1688,7 @@ public final class CarpetWorkspaceScreen
 //$$
 //$$         @Override
 //$$         public void render(TDrawContext graphics) {
-//$$             int x = getX();
-//$$             int y = getY();
-//$$             int width = getWidth();
-//$$             int height = getHeight();
-//$$             if (width < 5 || height < 5) {
-//$$                 graphics.fill(x, y, x + width, y + height, POPUP_BACKGROUND);
-//$$                 return;
-//$$             }
-//$$             graphics.fill(x + 2, y, x + width - 2, y + 1, POPUP_BORDER);
-//$$             graphics.fill(x + 1, y + 1, x + width - 1, y + height - 1, POPUP_BORDER);
-//$$             graphics.fill(x, y + 2, x + width, y + height - 2, POPUP_BORDER);
-//$$             graphics.fill(x + 2, y + 1, x + width - 2, y + height - 1, POPUP_BACKGROUND);
-//$$             graphics.fill(x + 1, y + 2, x + width - 1, y + height - 2, POPUP_BACKGROUND);
+//$$             GUIStyle.background(graphics, getX(), getY(), getWidth(), getHeight());
 //$$         }
 //$$
 //$$         @Override
@@ -1445,12 +1698,46 @@ public final class CarpetWorkspaceScreen
 //$$
 //$$     private static final class LegacyScrollBar extends TScrollBarWidget {
 //$$         LegacyScrollBar(int x, int y, int width, int height, TPanelElement target) {
-//$$             super(x, y, width, height, target);
+//$$             super(x, y, width, height, target, false);
 //$$         }
 //$$
 //$$         @Override
 //$$         public void renderSliderProgressBar(TDrawContext graphics) {
 //$$             // A scrollbar has one continuous track; do not paint its traversed area as slider progress.
+//$$         }
+//$$     }
+//$$
+//$$     private static final class LegacyFolderIcon extends TElement {
+//$$         LegacyFolderIcon(int x, int y) { super(x, y, 13, 10); }
+//$$         @Override
+//$$         public void render(TDrawContext graphics) {
+//$$             graphics.fill(getX(), getY(), getX() + 6, getY() + 3, 0xFFACD8FF);
+//$$             graphics.fill(getX(), getY() + 2, getX() + 13, getY() + 10, 0xFF6CA8DC);
+//$$             graphics.fill(getX() + 1, getY() + 3, getX() + 12, getY() + 9, 0xFF83BCEF);
+//$$         }
+//$$     }
+//$$
+//$$     private static final class LegacyRuleRow extends TPanelElement {
+//$$         private final String modId;
+//$$         private final RuleView rule;
+//$$         private long revision = Long.MIN_VALUE;
+//$$         private String value;
+//$$         LegacyRuleRow(String modId, RuleView rule, int x, int y, int width) {
+//$$             super(x, y, width, ROW_HEIGHT);
+//$$             this.modId = modId;
+//$$             this.rule = rule;
+//$$             setBackgroundColor(0x24000000);
+//$$             setOutlineColor(BORDER);
+//$$         }
+//$$         @Override
+//$$         public void tick() {
+//$$             super.tick();
+//$$             if (revision == ClientRuleChanges.revision() && Objects.equals(value, rule.value())) return;
+//$$             revision = ClientRuleChanges.revision();
+//$$             value = rule.value();
+//$$             Tooltip tooltip = Tooltip.create(WorkspaceRuleTooltip.text(modId, rule));
+//$$             setTooltip(tooltip);
+//$$             for (TElement child : getChildren()) child.setTooltip(tooltip);
 //$$         }
 //$$     }
 //$$
@@ -1480,27 +1767,6 @@ public final class CarpetWorkspaceScreen
 //$$
 //$$         @Override
 //$$         public void postRender(TDrawContext graphics) {
-//$$         }
-//$$     }
-//$$
-//$$     private final class LegacyDropdown extends TSelectWidget<TSelectWidget.SimpleEntry> {
-//$$         LegacyDropdown(int x, int y, int width, int height) {
-//$$             super(x, y, width, height, new TSelectWidget.SimpleEntry[0]);
-//$$         }
-//$$
-//$$         @Override
-//$$         public TContextMenuPanel createContextMenu() {
-//$$             TContextMenuPanel popup = new LegacyPopup(this);
-//$$             for (TSelectWidget.SimpleEntry entry : this) {
-//$$                 LegacyMenuItem item = new LegacyMenuItem(entry.getText(), null, entry == getSelected());
-//$$                 item.setSize(Math.max(getWidth(), textWidth(entry.getText()) + 28), 22);
-//$$                 item.setOnClick(ignored -> {
-//$$                     setSelected(entry);
-//$$                     popup.close();
-//$$                 });
-//$$                 popup.addChild(item, true);
-//$$             }
-//$$             return popup;
 //$$         }
 //$$     }
 //$$

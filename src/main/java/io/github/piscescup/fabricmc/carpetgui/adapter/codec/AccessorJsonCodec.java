@@ -25,8 +25,35 @@ import io.github.piscescup.fabricmc.carpetgui.adapter.Accessor;
 
 import java.lang.reflect.Type;
 
-/** Serializes configured member access, never its target or the result of invoking it. */
+/**
+ * Gson codec for the declarative configuration of an {@link Accessor}.
+ * It serializes the member name, static mode, fixed method arguments, and optional result check;
+ * it never serializes an accessor target or evaluates the accessor.
+ *
+ * <pre>{@code
+ * Gson gson = new GsonBuilder()
+ *     .registerTypeAdapter(Accessor.class, new AccessorJsonCodec())
+ *     .create();
+ * String json = gson.toJson(Accessor.ofStaticField("INSTANCE"), Accessor.class);
+ * }</pre>
+ *
+ * @see Accessor
+ * @see CarpetAddonAdapterJsonCodec
+ */
 public final class AccessorJsonCodec implements JsonSerializer<Accessor<?>>, JsonDeserializer<Accessor<?>> {
+    /**
+     * Serializes an accessor's reusable member description.
+     *
+     * <pre>{@code
+     * JsonElement json = codec.serialize(accessor, Accessor.class, context);
+     * }</pre>
+     *
+     * @param source the configured accessor to serialize
+     * @param type the declared Gson type
+     * @param context Gson context used for nested accessors and fixed arguments
+     * @return the JSON object describing {@code source}
+     * @throws JsonParseException if the accessor implementation has no supported description
+     */
     @Override
     public JsonElement serialize(Accessor<?> source, Type type, JsonSerializationContext context) {
         JsonObject json = new JsonObject();
@@ -64,6 +91,19 @@ public final class AccessorJsonCodec implements JsonSerializer<Accessor<?>>, Jso
         return json;
     }
 
+    /**
+     * Reconstructs a supported accessor without evaluating it.
+     *
+     * <pre>{@code
+     * Accessor<?> accessor = codec.deserialize(json, Accessor.class, context);
+     * }</pre>
+     *
+     * @param json the accessor JSON object
+     * @param type the requested Gson type
+     * @param context Gson context used for nested accessors and fixed arguments
+     * @return the reconstructed accessor
+     * @throws JsonParseException if the JSON shape, accessor kind, class name, or arguments are invalid
+     */
     @Override
     public Accessor<?> deserialize(JsonElement json, Type type, JsonDeserializationContext context) {
         if (!json.isJsonObject()) throw new JsonParseException("Accessor must be an object");

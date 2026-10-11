@@ -21,8 +21,6 @@
 package io.github.piscescup.fabricmc.carpetgui.modmenu;
 
 import com.terraformersmc.modmenu.api.ConfigScreenFactory;
-import io.github.piscescup.fabricmc.carpetgui.api.CarpetModMenuApi;
-import io.github.piscescup.fabricmc.carpetgui.api.CarpetGuiScreens;
 import io.github.piscescup.fabricmc.carpetgui.api.CarpetModInfoApi;
 import io.github.piscescup.fabricmc.carpetgui.integration.carpet.CarpetModRegistry;
 import net.fabricmc.loader.api.FabricLoader;

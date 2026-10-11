@@ -102,3 +102,37 @@ public final class CarpetWorkspaceGUI extends TElement {
     }
 }
 //#endif
+//#if MC <= 12110
+//$$ package io.github.piscescup.fabricmc.carpetgui.gui.workspace;
+//$$
+//$$ import io.github.thecsdev.tcdcommons.api.client.gui.TElement;
+//$$ import io.github.thecsdev.tcdcommons.api.client.gui.util.TDrawContext;
+//$$
+//$$ /** Top-level legacy workspace controller, mirroring the modern GUI composition layer. */
+//$$ public final class CarpetWorkspaceGUI extends TElement {
+//$$     private final WorkspaceDocumentInterface document;
+//$$
+//$$     public CarpetWorkspaceGUI(CarpetWorkspaceScreen screen, CarpetWorkspaceEditor editor) {
+//$$         super(0, 0, screen.getWidth(), screen.getHeight());
+//$$         document = new WorkspaceDocumentInterface(screen, editor);
+//$$         addChild(document);
+//$$     }
+//$$
+//$$     public void initialize() {
+//$$         document.initialize();
+//$$     }
+//$$
+//$$     public void closeResources() {
+//$$         document.closeResources();
+//$$     }
+//$$
+//$$     @Override
+//$$     public void tick() {
+//$$         document.tick();
+//$$     }
+//$$
+//$$     @Override
+//$$     public void render(TDrawContext graphics) {
+//$$     }
+//$$ }
+//#endif

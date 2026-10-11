@@ -1,7 +1,7 @@
 {
 	"required": true,
 	"package": "io.github.piscescup.fabricmc.carpetgui.mixin",
-	"compatibilityLevel": "JAVA_25",
+	"compatibilityLevel": "{{COMPATIBILITY_LEVEL}}",
 	"mixins": [
 		"ExampleMixin"
 	],

@@ -26,22 +26,84 @@ import net.minecraft.network.chat.Component;
 import java.util.function.Consumer;
 
 /**
- * Optional persistence capability; ordinary edits and declared defaults remain separate.
+ * Extends {@link RuleEditor} with the ability to persist a value as the server configuration
+ * default. A saved default is distinct from both the rule's declared initial value and an ordinary
+ * runtime edit.
+ *
+ * <pre>{@code
+ * if (editor instanceof PersistentRuleEditor persistent && persistent.canSaveDefault()) {
+ *     persistent.saveDefault(rule.value());
+ * }
+ * }</pre>
+ *
+ * @see RuleView#configuredValue()
+ * @see RuleView#explicitlyConfigured()
  */
 public interface PersistentRuleEditor extends RuleEditor {
+    /**
+     * Indicates whether the current client may persist a default value.
+     *
+     * <pre>{@code
+     * saveButton.active = editor.canSaveDefault();
+     * }</pre>
+     *
+     * @return {@code true} when saving a default is currently allowed
+     */
     boolean canSaveDefault();
 
     /**
      * Whether this value has been acknowledged as a saved default by the backend.
+     *
+     * <pre>{@code
+     * boolean saved = editor.isSavedDefault(rule.value());
+     * }</pre>
+     *
+     * @param value the textual rule value to compare with the acknowledged default
+     * @return {@code true} when the backend confirms that {@code value} is the saved default;
+     *         {@code false} by default
      */
     default boolean isSavedDefault(String value) {
         return false;
     }
 
+    /**
+     * Returns the explanation shown when {@link #canSaveDefault()} is {@code false}.
+     *
+     * <pre>{@code
+     * if (!editor.canSaveDefault()) showTooltip(editor.defaultDisabledReason());
+     * }</pre>
+     *
+     * @return the disabled-state explanation, or an empty component when none is needed
+     */
     Component defaultDisabledReason();
 
+    /**
+     * Persists a textual value as this rule's server configuration default.
+     *
+     * <pre>{@code
+     * RuleEditResult result = editor.saveDefault("true");
+     * }</pre>
+     *
+     * @param value the textual value to persist
+     * @return the immediate acceptance, queueing, or rejection result
+     * @throws RuntimeException if the backend cannot validate, dispatch, or persist the value
+     */
     RuleEditResult saveDefault(String value);
 
+    /**
+     * Persists a value and optionally reports a later asynchronous acknowledgement. Legacy
+     * backends use the default implementation and do not invoke the callback.
+     *
+     * <pre>{@code
+     * RuleEditResult immediate = editor.saveDefault("true",
+     *     result -> showFeedback(result.message()));
+     * }</pre>
+     *
+     * @param value the textual value to persist
+     * @param completed callback for a later backend result when asynchronous acknowledgement is supported
+     * @return the immediate acceptance, queueing, or rejection result
+     * @throws RuntimeException if the backend cannot validate, dispatch, or persist the value
+     */
     default RuleEditResult saveDefault(String value, Consumer<RuleEditResult> completed) {
         return saveDefault(value);
     }

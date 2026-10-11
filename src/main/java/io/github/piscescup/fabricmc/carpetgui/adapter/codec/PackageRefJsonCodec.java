@@ -32,8 +32,34 @@ import io.github.piscescup.fabricmc.carpetgui.adapter.PackageRef;
 
 import java.lang.reflect.Type;
 
-/** Stores the original class name and resolution mode, without loading any classes. */
+/**
+ * Gson codec that stores a {@link PackageRef}'s original class name and resolution mode without
+ * loading or resolving the referenced class.
+ *
+ * <pre>{@code
+ * Gson gson = new GsonBuilder()
+ *     .registerTypeAdapter(PackageRef.class, new PackageRefJsonCodec())
+ *     .create();
+ * String json = gson.toJson(PackageRef.relative("MySettings"), PackageRef.class);
+ * }</pre>
+ *
+ * @see PackageRef
+ * @see CarpetAddonAdapterJsonCodec
+ */
 public final class PackageRefJsonCodec implements JsonSerializer<PackageRef>, JsonDeserializer<PackageRef> {
+    /**
+     * Serializes the stored name and absolute-mode flag.
+     *
+     * <pre>{@code
+     * JsonElement json = codec.serialize(ref, PackageRef.class, context);
+     * }</pre>
+     *
+     * @param source the package reference to serialize
+     * @param type the declared Gson type
+     * @param context the current Gson serialization context
+     * @return a JSON object containing {@code name} and {@code absolute}
+     * @throws NullPointerException if {@code source} is {@code null}
+     */
     @Override
     public JsonElement serialize(PackageRef source, Type type, JsonSerializationContext context) {
         JsonObject json = new JsonObject();
@@ -42,6 +68,19 @@ public final class PackageRefJsonCodec implements JsonSerializer<PackageRef>, Js
         return json;
     }
 
+    /**
+     * Reconstructs a package reference from its stored name and resolution mode.
+     *
+     * <pre>{@code
+     * PackageRef ref = codec.deserialize(json, PackageRef.class, context);
+     * }</pre>
+     *
+     * @param json the package-reference JSON object
+     * @param type the requested Gson type
+     * @param context the current Gson deserialization context
+     * @return the reconstructed absolute or relative reference
+     * @throws JsonParseException if the input is not an object or its fields have invalid types
+     */
     @Override
     public PackageRef deserialize(JsonElement json, Type type, JsonDeserializationContext context)
         throws JsonParseException

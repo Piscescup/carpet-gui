@@ -22,6 +22,7 @@ package io.github.piscescup.fabricmc.carpetgui.network;
 
 import io.github.piscescup.fabricmc.carpetgui.References;
 import io.github.piscescup.fabricmc.carpetgui.gui.model.RuleEditResult;
+import io.github.piscescup.fabricmc.carpetgui.store.WorkspaceSession;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.network.chat.Component;
@@ -32,13 +33,18 @@ import java.util.function.Consumer;
 
 import static com.mojang.text2speech.Narrator.LOGGER;
 
-/** Client-thread request tracking. Timeout is uncertain, so it never retries through the command fallback. */
+/**
+ * Client-thread request tracking. Timeout is uncertain, so it never retries through the command fallback.
+ */
 public final class ClientRuleNetworking {
     private static final LinkedHashMap<Long, Pending> PENDING = new LinkedHashMap<>();
     private static long nextId;
     private static long completed;
     private static RuleEditResponse lastResponse;
-    private ClientRuleNetworking() {}
+
+    private ClientRuleNetworking() {
+    }
+
     public static void initialize() {
         References.LOGGER.info(
             "Initializing client rule networking of {} ver {}",
@@ -47,47 +53,91 @@ public final class ClientRuleNetworking {
         ClientPlayNetworking.registerGlobalReceiver(RuleEditResponse.TYPE, (response, context) -> receive(response));
         ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> clear());
     }
-    public static boolean supported() { return ClientPlayNetworking.canSend(RuleEditRequest.TYPE); }
+
+    public static boolean supported() {
+        return ClientPlayNetworking.canSend(RuleEditRequest.TYPE);
+    }
+
     public static RuleEditResult send(String manager, String rule, String value, boolean saveDefault, Consumer<RuleEditResult> callback) {
         if (!supported()) return RuleEditResult.rejected(Component.translatable("carpet-gui.network.unavailable"));
         if (PENDING.size() >= 32) return RuleEditResult.rejected(Component.translatable("carpet-gui.network.busy"));
-        var request = new RuleEditRequest(RuleEditRequest.VERSION, ++nextId, manager, rule,
-            saveDefault ? RuleEditRequest.SAVE_DEFAULT : RuleEditRequest.SET_VALUE, value);
+        var request = new RuleEditRequest(
+            RuleEditRequest.VERSION, ++nextId, manager, rule,
+            saveDefault ? RuleEditRequest.SAVE_DEFAULT : RuleEditRequest.SET_VALUE, value
+        );
         if (!request.valid()) return RuleEditResult.rejected(Component.translatable("carpet-gui.network.bad_request"));
-        PENDING.put(request.requestId(), new Pending(request, System.nanoTime(), callback));
+        PENDING.put(request.requestId(), new Pending(request, System.nanoTime(), callback, WorkspaceSession.current()));
         ClientPlayNetworking.send(request);
         return RuleEditResult.queuedRequest(Component.translatable("carpet-gui.network.pending"));
     }
+
     private static void receive(RuleEditResponse response) {
         var pending = PENDING.get(response.requestId());
         if (pending == null || !response.matches(pending.request())) return;
         PENDING.remove(response.requestId());
+        if (!pending.session()
+            .currentSession()) {
+            return;
+        }
         completed++;
         lastResponse = response;
-        if (!response.value().isEmpty()) {
+        if (!response.value()
+            .isEmpty()) {
             // Apply only a matched server acknowledgement, just as Carpet's own rule synchronization does.
             ClientRuleChanges.applyServerValue(response.managerId(), response.ruleId(), response.value());
         }
         if (response.success()) ClientRuleChanges.clear(response.managerId() + ":" + response.ruleId());
-        pending.callback().accept(new RuleEditResult(response.success(), false, Component.translatable(response.messageKey())));
+        pending.callback()
+            .accept(new RuleEditResult(response.success(), false, Component.translatable(response.messageKey())));
     }
+
     public static void tick() {
         long now = System.nanoTime();
-        var expired = PENDING.values().stream().filter(pending -> now - pending.started() > 10_000_000_000L).toList();
+        var expired = PENDING.values()
+            .stream()
+            .filter(pending -> now - pending.started() > 10_000_000_000L)
+            .toList();
         for (var pending : expired) {
-            PENDING.remove(pending.request().requestId());
-            pending.callback().accept(RuleEditResult.rejected(Component.translatable("carpet-gui.network.timeout")));
+            PENDING.remove(pending.request()
+                .requestId());
+            if (pending.session()
+                .currentSession()) {
+                pending.callback()
+                    .accept(RuleEditResult.rejected(Component.translatable("carpet-gui.network.timeout")));
+            }
         }
     }
+
     private static void clear() {
         var abandoned = List.copyOf(PENDING.values());
         PENDING.clear();
         lastResponse = null;
         for (var pending : abandoned)
-            pending.callback().accept(RuleEditResult.rejected(Component.translatable("carpet-gui.network.disconnected")));
+            if (pending.session()
+                .currentSession()) {
+                pending.callback()
+                    .accept(RuleEditResult.rejected(Component.translatable("carpet-gui.network.disconnected")));
+            }
     }
-    public static int pendingCount() { return PENDING.size(); }
-    public static long completedCount() { return completed; }
-    public static RuleEditResponse lastResponse() { return lastResponse; }
-    private record Pending(RuleEditRequest request, long started, Consumer<RuleEditResult> callback) {}
+
+    public static int pendingCount() {
+        return PENDING.size();
+    }
+
+    public static long completedCount() {
+        return completed;
+    }
+
+    public static RuleEditResponse lastResponse() {
+        return lastResponse;
+    }
+
+    private record Pending(
+        RuleEditRequest request,
+        long started,
+        Consumer<RuleEditResult> callback,
+        WorkspaceSession.Token session
+    )
+    {
+    }
 }

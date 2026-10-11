@@ -23,13 +23,17 @@ package io.github.piscescup.fabricmc.carpetgui.gui.workspace;
 
 import com.thecsdev.commonmc.api.client.gui.TElement;
 import com.thecsdev.commonmc.api.client.gui.label.TLabelElement;
-import com.thecsdev.commonmc.api.client.gui.panel.TPanelElement;
 import com.thecsdev.commonmc.api.client.gui.render.TGuiGraphics;
 import com.thecsdev.commonmc.api.client.gui.tooltip.TTooltip;
 import io.github.piscescup.fabricmc.carpetgui.api.EditableRuleView;
 import io.github.piscescup.fabricmc.carpetgui.gui.CarpetWorkspaceScreen;
 import io.github.piscescup.fabricmc.carpetgui.api.PersistentRuleEditor;
 import io.github.piscescup.fabricmc.carpetgui.gui.model.RuleEditResult;
+import io.github.piscescup.fabricmc.carpetgui.gui.model.RuleGroupPushController;
+import io.github.piscescup.fabricmc.carpetgui.gui.model.RuleApplyPlan;
+import io.github.piscescup.fabricmc.carpetgui.store.RulePreset;
+import io.github.piscescup.fabricmc.carpetgui.store.RulePresetFiles;
+import io.github.piscescup.fabricmc.carpetgui.store.WorkspaceSession;
 import io.github.piscescup.fabricmc.carpetgui.gui.pages.RulePage;
 import io.github.piscescup.fabricmc.carpetgui.api.RuleView;
 import io.github.piscescup.fabricmc.carpetgui.gui.GUIStyle;
@@ -47,21 +51,27 @@ import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 
 /** Group page first; Git-like status/stage/commit/push is a separate workflow over its member rules. */
 final class RuleGroupWorkspace {
     static final String ID = CarpetWorkspaceEditor.RULE_GROUPS_PAGE_ID;
     private static final DateTimeFormatter TIME = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
+    private static final DateTimeFormatter DETAIL_TIME = DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm:ss");
 
     private final CarpetWorkspaceScreen screen;
     private final List<? extends RulePage> pages;
     private final List<WorkspaceRuleRow> activeRows = new ArrayList<>();
     private final Map<WorkspaceRuleRow, String> activeRowKeys = new LinkedHashMap<>();
     private final Map<String, String> draftSnapshot = new LinkedHashMap<>();
+    private final Set<String> collapsedFolders = new HashSet<>();
     private String selectedGroupId;
     private Mode mode = Mode.VIEW;
     private boolean creating;
@@ -69,13 +79,18 @@ final class RuleGroupWorkspace {
     private String tagDraft = "";
     private String manageSearchDraft = "";
     private String commitMessageDraft = "";
+    private String expandedCommitId;
+    private String importFilename = "";
+    private RuleApplyPlan applyPlan;
+    private final WorkspaceSession.Token session = WorkspaceSession.current();
+    private final Set<String> selectedApplyRules = new LinkedHashSet<>();
     private long observedRemoteRevision;
     private List<WorkspacePanel> panels = List.of();
     private WorkspacePanel managePanel;
     private List<MembershipRow> membershipRows = List.of();
     private TLabelElement manageEmpty;
     private int manageRowsY;
-    private int[] pendingScrollOffsets;
+    private int[][] pendingScrollOffsets;
 
     RuleGroupWorkspace(CarpetWorkspaceScreen screen, List<? extends RulePage> pages) {
         this.screen = screen;
@@ -101,18 +116,19 @@ final class RuleGroupWorkspace {
         int leftWidth = Math.clamp(width * 18 / 100, Math.min(100, width / 3), 175);
         int rightWidth = Math.clamp(width * 24 / 100, Math.min(130, width / 3), 250);
         int centerWidth = Math.max(1, width - leftWidth - rightWidth);
-        var left = new WorkspacePanel(8);
+        var left = new WorkspacePanel(8, true);
         var center = new WorkspacePanel(8);
-        var right = new WorkspacePanel(8);
+        var right = new WorkspacePanel(8, true);
         panels = List.of(left, center, right);
         if (pendingScrollOffsets != null) {
-            int[] offsets = pendingScrollOffsets;
+            int[][] offsets = pendingScrollOffsets;
             pendingScrollOffsets = null;
             for (int index = 0; index < panels.size(); index++) {
                 WorkspacePanel panel = panels.get(index);
-                int offset = offsets[index];
+                int horizontal = offsets[index][0];
+                int vertical = offsets[index][1];
                 // Restore after the panel's content and scroll extent have initialized.
-                panel.eInitialized.addListener(ignored -> panel.scroll(0, -offset));
+                panel.eInitialized.addListener(ignored -> panel.scroll(-horizontal, -vertical));
             }
         }
         screen.addWorkspacePane(left, x, y, leftWidth, contentHeight);
@@ -124,6 +140,8 @@ final class RuleGroupWorkspace {
             case MANAGE -> initManageRules(center, selected);
             case STATUS -> initStatus(center, selected);
             case COMMIT -> initCommit(center, selected);
+            case IMPORT -> initImport(center);
+            case PREVIEW -> initPreview(center, selected);
         }
         initHistory(right, selected);
         initActions(x + leftWidth, y + contentHeight, centerWidth, actionsHeight, selected);
@@ -134,6 +152,11 @@ final class RuleGroupWorkspace {
         int x = bounds.x + 8, y = bounds.y + 8, width = Math.max(1, bounds.width - 16);
         WorkspaceStyle.label(panel, tr("rule_groups"), x, y, width, 16, GUIStyle.ACCENT_COLOR);
         y += 22;
+        Component contextLabel = Component.translatable("carpet-gui.workspace.context_label", WorkspaceSession.current().context().label());
+        WorkspaceStyle.label(panel, contextLabel, x, y, Math.max(width, screen.textWidth(contextLabel.getString())), 12, GUIStyle.MUTED_COLOR)
+            .wrapTextProperty().set(false, RuleGroupWorkspace.class);
+        y += 17;
+        if (RuleGroupStore.storageProblem()) y = paragraph(panel, tr("context_storage_error"), x, y, width, GUIStyle.NEW_RULE_COLOR) + 6;
         var create = new ControlButton(tr(creating ? "cancel" : "new_group"), () -> {
             creating = !creating;
             nameDraft = "";
@@ -143,6 +166,20 @@ final class RuleGroupWorkspace {
         create.setBounds(x, y, width, GUIStyle.CONTROL_HEIGHT);
         panel.add(create);
         y += 27;
+        int half = Math.max(1, (width - 4) / 2);
+        var importButton = new ControlButton(tr("preset_import"), () -> setMode(Mode.IMPORT));
+        importButton.setBounds(x, y, half, GUIStyle.CONTROL_HEIGHT);
+        panel.add(importButton);
+        var exportButton = new ControlButton(tr("preset_export"), this::exportPreset);
+        exportButton.setBounds(x + half + 4, y, half, GUIStyle.CONTROL_HEIGHT);
+        panel.add(exportButton);
+        y += 27;
+        if (RuleGroupStore.legacyAvailable()) {
+            var legacy = new ControlButton(tr("context_copy_legacy"), this::copyLegacyGroups);
+            legacy.setBounds(x, y, width, GUIStyle.CONTROL_HEIGHT);
+            panel.add(legacy);
+            y += 27;
+        }
         if (creating) {
             var name = new NativeTextInput(tr("group_name"), nameDraft, value -> nameDraft = value, () -> {}, this::cancelCreate);
             name.setBounds(x, y, width, GUIStyle.CONTROL_HEIGHT);
@@ -161,29 +198,68 @@ final class RuleGroupWorkspace {
             paragraph(panel, tr("no_groups"), x, y + 3, width, GUIStyle.MUTED_COLOR);
             return;
         }
-        for (RuleGroupStore.Group group : groups) {
-            var item = new Button(Component.empty(), () -> {
-                cancelDrafts();
-                selectedGroupId = group.id();
-                mode = Mode.VIEW;
-                screen.rebuildWorkspace();
-            });
-            item.setSelected(group.id().equals(selectedGroupId));
-            item.setBounds(x, y, width, GUIStyle.RULE_HEIGHT);
-            panel.add(item);
-            WorkspaceStyle.label(panel, Component.literal(group.name()), x + 7, y + 3,
-                Math.max(1, width - 14), 10,
-                group.id().equals(selectedGroupId) ? GUIStyle.ACCENT_COLOR : GUIStyle.TEXT_COLOR
-            );
-            String state = group.commitsAhead() > 0 ? "↑" + group.commitsAhead() : "✓";
-            var label = WorkspaceStyle.label(panel,
-                Component.literal((group.tag().isBlank() ? "HEAD" : group.tag()) + "  ·  r" + group.revision() + "  " + state),
-                x + 7, y + 14, Math.max(1, width - 14), 9, GUIStyle.MUTED_COLOR
-            );
-            label.textScaleProperty().set(GUIStyle.SMALL_TEXT_SCALE, RuleGroupWorkspace.class);
-            label.wrapTextProperty().set(false, RuleGroupWorkspace.class);
-            y += GUIStyle.RULE_HEIGHT + 3;
+        int treeWidth = groups.stream()
+            .mapToInt(group -> screen.textWidth(group.name()) + 72)
+            .max()
+            .orElse(width);
+        treeWidth = Math.max(width, treeWidth);
+        for (RuleGroupTree.Folder folder : RuleGroupTree.of(groups)) {
+            y = addGroupFolder(panel, folder, x, y, treeWidth);
         }
+    }
+
+    private int addGroupFolder(WorkspacePanel panel, RuleGroupTree.Folder folder, int x, int y, int width) {
+        int indent = Math.min(folder.depth() * 10, Math.max(0, width - 42));
+        int rowX = x + indent;
+        int rowWidth = Math.max(1, width - indent);
+        boolean collapsed = collapsedFolders.contains(folder.path());
+        var toggle = new Button(Component.empty(), () -> {
+            mutate(() -> {
+                if (!collapsedFolders.add(folder.path())) collapsedFolders.remove(folder.path());
+            });
+        });
+        toggle.setBounds(rowX, y, rowWidth, 18);
+        panel.add(toggle);
+        WorkspaceStyle.label(panel, Component.literal(collapsed ? "▸" : "▾"), rowX + 2, y + 3, 8, 10,
+            GUIStyle.MUTED_COLOR);
+        var icon = new FolderIcon();
+        icon.setBounds(rowX + 11, y + 4, 13, 10);
+        panel.add(icon);
+        WorkspaceStyle.label(panel, Component.literal(folder.name()), rowX + 28, y + 3,
+            Math.max(1, rowWidth - 31), 10, GUIStyle.TEXT_COLOR);
+        y += 20;
+        if (collapsed) return y;
+        for (RuleGroupTree.Folder child : folder.children()) y = addGroupFolder(panel, child, x, y, width);
+        for (RuleGroupTree.Entry entry : folder.groups()) y = addGroupItem(panel, entry, folder.depth() + 1, x, y, width);
+        return y;
+    }
+
+    private int addGroupItem(WorkspacePanel panel, RuleGroupTree.Entry entry, int depth, int x, int y, int width) {
+        RuleGroupStore.Group group = entry.group();
+        int indent = Math.min(depth * 10, Math.max(0, width - 36));
+        int rowX = x + indent;
+        int rowWidth = Math.max(1, width - indent);
+        var item = new Button(Component.empty(), () -> mutate(() -> {
+            cancelDrafts();
+            selectedGroupId = group.id();
+            mode = Mode.VIEW;
+        }));
+        item.setSelected(group.id().equals(selectedGroupId));
+        item.setBounds(rowX, y, rowWidth, GUIStyle.RULE_HEIGHT);
+        item.tooltipProperty().set(ignored -> TTooltip.of(Component.literal(group.name())), RuleGroupWorkspace.class);
+        panel.add(item);
+        WorkspaceStyle.label(panel, Component.literal(entry.name()), rowX + 7, y + 3,
+            Math.max(1, rowWidth - 14), 10,
+            group.id().equals(selectedGroupId) ? GUIStyle.ACCENT_COLOR : GUIStyle.TEXT_COLOR
+        );
+        String state = group.commitsAhead() > 0 ? "↑" + group.commitsAhead() : "✓";
+        var label = WorkspaceStyle.label(panel,
+            Component.literal((group.tag().isBlank() ? "HEAD" : group.tag()) + "  ·  r" + group.revision() + "  " + state),
+            rowX + 7, y + 14, Math.max(1, rowWidth - 14), 9, GUIStyle.MUTED_COLOR
+        );
+        label.textScaleProperty().set(GUIStyle.SMALL_TEXT_SCALE, RuleGroupWorkspace.class);
+        label.wrapTextProperty().set(false, RuleGroupWorkspace.class);
+        return y + GUIStyle.RULE_HEIGHT + 3;
     }
 
     private void cancelCreate() {
@@ -194,6 +270,7 @@ final class RuleGroupWorkspace {
     }
 
     private void createGroup() {
+        if (!session.currentSession()) return;
         String name = nameDraft.strip();
         if (name.isEmpty()) {
             screen.showFeedback(tr("group_name_required"));
@@ -278,7 +355,9 @@ final class RuleGroupWorkspace {
         managePanel = panel;
         manageRowsY = y;
         for (RuleRef ref : rules) {
-            WorkspaceStaticPanel row = addMembershipRow(panel, ref, ref.key(), group.members().contains(ref.key()), group, x, y, width);
+            String key = group.members().contains(ref.rule().stateId()) || group.tracked(ref.rule().stateId())
+                ? ref.rule().stateId() : ref.key();
+            WorkspaceStaticPanel row = addMembershipRow(panel, ref, key, group.members().contains(key), group, x, y, width);
             rows.add(new MembershipRow(ref, row));
             y += 29;
         }
@@ -376,25 +455,35 @@ final class RuleGroupWorkspace {
         }
         Map<String, RuleRef> byId = rulesById();
         List<RuleChange> unstaged = changes(group, byId);
-        WorkspaceStyle.label(panel, Component.translatable("carpet-gui.workspace.unstaged_changes", unstaged.size()),
+        WorkspaceStyle.label(panel, Component.translatable("carpet-gui.workspace.unstaged_changes", unstaged.size() + group.unstagedDeletions().size()),
             x, y, width, 15, GUIStyle.ACCENT_COLOR
         );
         y += 20;
-        if (unstaged.isEmpty()) y = paragraph(panel, tr("no_unstaged_changes"), x + 8, y, width - 8, GUIStyle.MUTED_COLOR) + 7;
+        if (unstaged.isEmpty() && group.unstagedDeletions().isEmpty()) y = paragraph(panel, tr("no_unstaged_changes"), x + 8, y, width - 8, GUIStyle.MUTED_COLOR) + 7;
         for (RuleChange change : unstaged) {
             addChangeRow(panel, change.ref(), change.key(), change.detail(), change.marker(), change.color(), "stage",
                 () -> mutate(() -> RuleGroupStore.stage(group, change.key(), change.value())), x, y, width);
             y += 29;
         }
+        for (String key : group.unstagedDeletions()) {
+            addChangeRow(panel, byId.get(key), key, tr("removed_from_group").getString(), "D", GUIStyle.NEW_RULE_COLOR,
+                "stage", () -> mutate(() -> RuleGroupStore.stageRemoval(group, key)), x, y, width);
+            y += 29;
+        }
         y += 5;
-        WorkspaceStyle.label(panel, Component.translatable("carpet-gui.workspace.staged_changes", group.staged().size()),
+        WorkspaceStyle.label(panel, Component.translatable("carpet-gui.workspace.staged_changes", group.stagedCount()),
             x, y, width, 15, GUIStyle.ACCENT_COLOR
         );
         y += 20;
-        if (group.staged().isEmpty()) y = paragraph(panel, tr("no_staged_changes"), x + 8, y, width - 8, GUIStyle.MUTED_COLOR) + 7;
+        if (!group.hasStagedChanges()) y = paragraph(panel, tr("no_staged_changes"), x + 8, y, width - 8, GUIStyle.MUTED_COLOR) + 7;
         for (Map.Entry<String, String> staged : group.staged().entrySet()) {
             addChangeRow(panel, byId.get(staged.getKey()), staged.getKey(), staged.getValue(), "A", GUIStyle.STAGED_RULE_COLOR, "unstage",
                 () -> mutate(() -> RuleGroupStore.unstage(group, staged.getKey())), x, y, width);
+            y += 29;
+        }
+        for (String key : group.stagedDeletions()) {
+            addChangeRow(panel, byId.get(key), key, tr("removed_from_group").getString(), "D", GUIStyle.NEW_RULE_COLOR,
+                "unstage", () -> mutate(() -> RuleGroupStore.unstage(group, key)), x, y, width);
             y += 29;
         }
         y += 8;
@@ -422,13 +511,13 @@ final class RuleGroupWorkspace {
         message.setBounds(x, y, width, GUIStyle.CONTROL_HEIGHT);
         panel.add(message);
         y += 29;
-        var commit = new ControlButton(Component.translatable("carpet-gui.workspace.commit_count", group.staged().size()),
+        var commit = new ControlButton(Component.translatable("carpet-gui.workspace.commit_count", group.stagedCount()),
             () -> commitNow(group));
         commit.setBounds(x, y, Math.min(170, width), GUIStyle.CONTROL_HEIGHT);
-        commit.enabledProperty().set(!group.staged().isEmpty(), RuleGroupWorkspace.class);
+        commit.enabledProperty().set(group.hasStagedChanges(), RuleGroupWorkspace.class);
         panel.add(commit);
         y += 31;
-        WorkspaceStyle.label(panel, Component.translatable("carpet-gui.workspace.staged_changes", group.staged().size()),
+        WorkspaceStyle.label(panel, Component.translatable("carpet-gui.workspace.staged_changes", group.stagedCount()),
             x, y, width, 15, GUIStyle.ACCENT_COLOR
         );
         y += 20;
@@ -438,7 +527,12 @@ final class RuleGroupWorkspace {
                 null, null, x, y, width);
             y += 29;
         }
-        if (group.staged().isEmpty()) paragraph(panel, tr("nothing_to_commit"), x + 8, y, width - 8, GUIStyle.MUTED_COLOR);
+        for (String key : group.stagedDeletions()) {
+            addChangeRow(panel, byId.get(key), key, tr("removed_from_group").getString(), "D", GUIStyle.NEW_RULE_COLOR,
+                null, null, x, y, width);
+            y += 29;
+        }
+        if (!group.hasStagedChanges()) paragraph(panel, tr("nothing_to_commit"), x + 8, y, width - 8, GUIStyle.MUTED_COLOR);
     }
 
     private void addChangeRow(TElement parent, RuleRef ref, String key, String value, String marker, int color,
@@ -474,7 +568,7 @@ final class RuleGroupWorkspace {
         addAction(bar, x + inset, y + 5, buttonWidth, "status", mode == Mode.STATUS, () -> setMode(Mode.STATUS), group != null);
         addAction(bar, x + inset + (buttonWidth + gap), y + 5, buttonWidth, "add", false, () -> stageAll(group), group != null);
         addAction(bar, x + inset + (buttonWidth + gap) * 2, y + 5, buttonWidth, "commit", mode == Mode.COMMIT,
-            () -> setMode(Mode.COMMIT), group != null && !group.staged().isEmpty());
+            () -> setMode(Mode.COMMIT), group != null && group.hasStagedChanges());
         addAction(bar, x + inset + (buttonWidth + gap) * 3, y + 5,
             available - (buttonWidth + gap) * 3, "push", false, () -> push(group), group != null && group.commitsAhead() > 0);
     }
@@ -487,7 +581,7 @@ final class RuleGroupWorkspace {
         parent.add(button);
     }
 
-    /** Right-hand Git log: graph line, commit message, refs, time and pushed state. */
+    /** Right-hand Git log with an inline, clickable commit inspector. */
     private void initHistory(WorkspacePanel panel, RuleGroupStore.Group group) {
         var bounds = panel.getBounds();
         int x = bounds.x + 9, y = bounds.y + 8, width = Math.max(1, bounds.width - 18);
@@ -500,21 +594,26 @@ final class RuleGroupWorkspace {
         WorkspaceStyle.label(panel, Component.literal(group.name()), x, y, width, 16, GUIStyle.TEXT_COLOR);
         y += 19;
         Component summary = Component.translatable("carpet-gui.workspace.pipeline_summary", group.members().size(),
-            group.staged().size(), group.commitsAhead());
+            group.stagedCount(), group.commitsAhead());
         y = paragraph(panel, summary, x, y, width, GUIStyle.MUTED_COLOR) + 14;
         if (group.history().isEmpty()) {
             paragraph(panel, tr("no_commits_graph"), x, y, width, GUIStyle.MUTED_COLOR);
             return;
         }
         List<RuleGroupStore.Commit> history = group.history();
+        Map<String, RuleRef> byId = rulesById();
         for (int index = 0; index < history.size(); index++) {
             RuleGroupStore.Commit commit = history.get(index);
             boolean pending = commit.revision() > group.pushedRevision();
-            if (index == 0) {
-                var selected = new TPanelElement.Paintable(0xAA1F3156, 0, 0);
-                selected.setBounds(x - 4, y - 3, width + 8, 37);
-                panel.add(selected);
-            }
+            int commitY = y;
+            String commitId = group.id() + ":" + commit.revision();
+            boolean expanded = commitId.equals(expandedCommitId);
+            var select = new Button(Component.empty(), () -> mutate(() ->
+                expandedCommitId = expanded ? null : commitId
+            ));
+            select.setSelected(expanded);
+            select.setBounds(x - 4, y - 3, width + 8, 37);
+            panel.add(select);
             var graph = new CommitGraphNode(pending, index < history.size() - 1);
             graph.setBounds(x, y, 13, 38);
             panel.add(graph);
@@ -547,7 +646,61 @@ final class RuleGroupWorkspace {
                 pending ? GUIStyle.ACCENT_COLOR : 0xFF55FF55
             );
             y += 39;
+            if (expanded) {
+                RuleGroupStore.Commit previous = index + 1 < history.size() ? history.get(index + 1) : null;
+                y = addCommitDetails(panel, commit, previous, byId, x + 14, y, Math.max(1, width - 14));
+                graph.setBounds(x, commitY, 13, Math.max(38, y - commitY));
+            }
         }
+    }
+
+    private int addCommitDetails(WorkspacePanel panel, RuleGroupStore.Commit commit,
+                                 RuleGroupStore.Commit previous, Map<String, RuleRef> byId,
+                                 int x, int y, int width) {
+        int top = y;
+        var detail = new WorkspaceStaticPanel(0x80131720, GUIStyle.BORDER_COLOR, GUIStyle.BORDER_COLOR);
+        detail.setBounds(x, y, width, 1);
+        panel.add(detail);
+        int contentX = x + 7;
+        int contentWidth = Math.max(1, width - 14);
+        y += 6;
+        y = paragraph(detail, Component.translatable("carpet-gui.workspace.commit_detail_message", commit.message()),
+            contentX, y, contentWidth, GUIStyle.TEXT_COLOR) + 3;
+        String author = commit.author().isBlank() ? tr("unknown_author").getString() : commit.author();
+        y = paragraph(detail, Component.translatable("carpet-gui.workspace.commit_detail_author", author),
+            contentX, y, contentWidth, GUIStyle.MUTED_COLOR) + 2;
+        String time = DETAIL_TIME.format(Instant.ofEpochMilli(commit.time()).atZone(ZoneId.systemDefault()));
+        Component timeLabel = Component.translatable("carpet-gui.workspace.commit_detail_time", time);
+        var date = WorkspaceStyle.label(detail, timeLabel, contentX, y,
+            Math.max(contentWidth, screen.textWidth(timeLabel.getString())), 12, GUIStyle.MUTED_COLOR);
+        date.wrapTextProperty().set(false, RuleGroupWorkspace.class);
+        y += 18;
+
+        List<RuleGroupHistory.Change> changes = RuleGroupHistory.changes(commit, previous);
+        if (!RuleGroupHistory.hasBaseline(commit, previous)) {
+            y = paragraph(detail, tr("commit_baseline_missing"), contentX, y, contentWidth, GUIStyle.MUTED_COLOR) + 4;
+        }
+        WorkspaceStyle.label(detail,
+            Component.translatable(RuleGroupHistory.hasBaseline(commit, previous)
+                ? "carpet-gui.workspace.commit_detail_rules" : "carpet-gui.workspace.commit_snapshot_rules", changes.size()),
+            contentX, y, contentWidth, 12, GUIStyle.ACCENT_COLOR);
+        y += 16;
+        if (changes.isEmpty()) {
+            y = paragraph(detail, tr("commit_detail_no_rules"), contentX, y, contentWidth, GUIStyle.MUTED_COLOR) + 3;
+        } else {
+            for (RuleGroupHistory.Change change : changes) {
+                RuleRef ref = byId.get(change.ruleId());
+                Component name = ref == null ? Component.literal(change.ruleId()) : ref.rule().label();
+                y = paragraph(detail, Component.literal("• ").append(name), contentX, y, contentWidth,
+                    GUIStyle.TEXT_COLOR) + 1;
+                String oldValue = change.oldValue() == null ? tr("unrecorded").getString() : change.oldValue();
+                String newValue = change.newValue() == null ? tr("unrecorded").getString() : change.newValue();
+                y = paragraph(detail, Component.literal(RuleGroupHistory.hasBaseline(commit, previous) ? oldValue + " → " + newValue : newValue), contentX + 8, y,
+                    Math.max(1, contentWidth - 8), GUIStyle.MUTED_COLOR) + 4;
+            }
+        }
+        detail.setBounds(x, top, Math.max(width, screen.textWidth(timeLabel.getString()) + 14), Math.max(1, y - top + 3));
+        return detail.getBounds().endY + 5;
     }
 
     private List<RuleChange> changes(RuleGroupStore.Group group, Map<String, RuleRef> byId) {
@@ -598,7 +751,8 @@ final class RuleGroupWorkspace {
             screen.showFeedback(tr("commit_message_required"));
             return;
         }
-        if (!RuleGroupStore.commit(group, commitMessageDraft)) {
+        String author = screen.getClient().player == null ? "" : screen.getClient().player.getName().getString();
+        if (!RuleGroupStore.commit(group, commitMessageDraft, author)) {
             screen.showFeedback(tr("nothing_to_commit"));
             return;
         }
@@ -613,36 +767,165 @@ final class RuleGroupWorkspace {
             screen.showFeedback(tr("nothing_to_push"));
             return;
         }
-        int accepted = applyHead(group, true);
-        int total = group.head().size();
-        if (accepted == total) RuleGroupStore.markPushed(group);
-        screen.showFeedback(Component.translatable("carpet-gui.workspace.push_result", accepted, total));
+        capturePreview(group, false);
+        mode = Mode.PREVIEW;
+        screen.rebuildWorkspace();
+    }
+
+    private void capturePreview(RuleGroupStore.Group group, boolean preserveSelection) {
+        Map<String, RuleRef> rules = rulesById();
+        applyPlan = RuleApplyPlan.capture(group.revision(), group.head(), key -> {
+            RuleRef ref = rules.get(key);
+            return ref == null ? null : ref.rule();
+        });
+        Set<String> applicable = new LinkedHashSet<>();
+        applyPlan.entries().stream().filter(RuleApplyPlan.Entry::applicable).forEach(entry -> applicable.add(entry.key()));
+        if (preserveSelection) selectedApplyRules.retainAll(applicable);
+        else { selectedApplyRules.clear(); selectedApplyRules.addAll(applicable); }
+    }
+
+    private void confirmPush(RuleGroupStore.Group group) {
+        if (!session.currentSession()) return;
+        if (group == null || applyPlan == null || selectedApplyRules.isEmpty() && !applyPlan.entries().isEmpty()) return;
+        Map<String, RuleRef> rules = rulesById();
+        Set<String> selected = new LinkedHashSet<>(selectedApplyRules);
+        boolean complete = selected.equals(applyPlan.targets().keySet());
+        boolean started = RuleGroupPushController.start(group, applyPlan, selected, key -> {
+            RuleRef ref = rules.get(key);
+            return ref == null ? null : ref.rule();
+        }, result -> {
+            screen.showFeedback(result.success()
+                ? Component.translatable(complete ? "carpet-gui.workspace.push_result" : "carpet-gui.workspace.preview_partial", result.successful(), result.total())
+                : Component.translatable("carpet-gui.workspace.push_failed", result.successful(), result.total(), result.failure()));
+            screen.refreshRules();
+            screen.rebuildWorkspace();
+        });
+        screen.showFeedback(tr(started ? "push_pending" : "push_busy"));
         mode = Mode.VIEW;
         screen.refreshRules();
         screen.rebuildWorkspace();
     }
 
+    private void initPreview(WorkspacePanel panel, RuleGroupStore.Group group) {
+        if (group == null || applyPlan == null) return;
+        var bounds = panel.getBounds();
+        int x = bounds.x + 9, y = bounds.y + 8, width = Math.max(1, bounds.width - 18);
+        y = paragraph(panel, tr("preview_title"), x, y, width, GUIStyle.ACCENT_COLOR) + 6;
+        y = paragraph(panel, tr("preview_help"), x, y, width, GUIStyle.MUTED_COLOR) + 6;
+        var confirm = new ControlButton(Component.translatable("carpet-gui.workspace.preview_confirm", selectedApplyRules.size()), () -> confirmPush(group));
+        confirm.setBounds(x, y, Math.max(1, width / 2), GUIStyle.CONTROL_HEIGHT);
+        confirm.enabledProperty().set(!RuleGroupPushController.busy() && (!selectedApplyRules.isEmpty() || applyPlan.entries().isEmpty()), RuleGroupWorkspace.class);
+        panel.add(confirm);
+        var refresh = new ControlButton(tr("preview_refresh"), () -> mutate(() -> capturePreview(group, true)));
+        refresh.setBounds(x + width / 2 + 4, y, Math.max(1, width / 2 - 4), GUIStyle.CONTROL_HEIGHT);
+        panel.add(refresh);
+        y += 25;
+        var all = new ControlButton(tr("preview_select_all"), () -> mutate(() -> {
+            selectedApplyRules.clear();
+            applyPlan.entries().stream().filter(RuleApplyPlan.Entry::applicable).forEach(entry -> selectedApplyRules.add(entry.key()));
+        }));
+        all.setBounds(x, y, Math.max(1, width / 2), GUIStyle.CONTROL_HEIGHT);
+        panel.add(all);
+        var back = new ControlButton(tr("back"), () -> setMode(Mode.VIEW));
+        back.setBounds(x + width / 2 + 4, y, Math.max(1, width / 2 - 4), GUIStyle.CONTROL_HEIGHT);
+        panel.add(back);
+        y += 29;
+        for (RuleApplyPlan.Entry entry : applyPlan.entries()) {
+            var toggle = new Button(Component.literal(selectedApplyRules.contains(entry.key()) ? "[✓]" : "[ ]"), () -> mutate(() -> {
+                if (!selectedApplyRules.add(entry.key())) selectedApplyRules.remove(entry.key());
+            }));
+            toggle.setBounds(x, y, 27, 20);
+            toggle.enabledProperty().set(entry.applicable(), RuleGroupWorkspace.class);
+            panel.add(toggle);
+            y = paragraph(panel, entry.label(), x + 32, y, Math.max(1, width - 32), GUIStyle.TEXT_COLOR) + 2;
+            y = paragraph(panel, Component.literal((entry.current() == null ? tr("unrecorded").getString() : entry.current()) + " → " + entry.target()),
+                x + 32, y, Math.max(1, width - 32), entry.applicable() ? GUIStyle.FOCUS_COLOR : GUIStyle.NEW_RULE_COLOR) + 2;
+            y = paragraph(panel, entry.problem() != null ? entry.problem() : tr(entry.unchanged() ? "preview_same" : "preview_ready"),
+                x + 32, y, Math.max(1, width - 32), GUIStyle.MUTED_COLOR) + 8;
+        }
+    }
+
+    private void exportPreset() {
+        RuleGroupStore.Group group = selectedGroupId == null ? null : RuleGroupStore.find(selectedGroupId);
+        if (group == null || group.head().isEmpty()) { screen.showFeedback(tr("preset_commit_first")); return; }
+        try {
+            var file = RulePresetFiles.write(RulePresetFiles.directory(), new RulePreset(group.name(), group.tag(), group.head()));
+            screen.showFeedback(Component.translatable("carpet-gui.workspace.preset_exported", file.toString()));
+        } catch (java.io.IOException | IllegalArgumentException failure) { screen.showFeedback(tr("preset_error")); }
+    }
+
+    private void copyLegacyGroups() {
+        if (!session.currentSession()) return;
+        try {
+            String author = screen.getClient().player == null ? "" : screen.getClient().player.getName().getString();
+            int count = RuleGroupStore.copyLegacyGroups(author);
+            if (count > 0) selectedGroupId = RuleGroupStore.groups().get(RuleGroupStore.groups().size() - count).id();
+            mode = Mode.VIEW;
+            screen.showFeedback(Component.translatable("carpet-gui.workspace.context_legacy_copied", count));
+            screen.rebuildWorkspace();
+        } catch (java.io.IOException failure) { screen.showFeedback(tr("context_legacy_error")); }
+    }
+
+    private void importPreset(String filename) {
+        if (!session.currentSession()) return;
+        try {
+            RulePreset preset = RulePresetFiles.read(RulePresetFiles.directory(), filename.strip());
+            String author = screen.getClient().player == null ? "" : screen.getClient().player.getName().getString();
+            RuleGroupStore.Group group = RuleGroupStore.importPreset(preset, author);
+            selectedGroupId = group.id();
+            capturePreview(group, false);
+            mode = Mode.PREVIEW;
+            screen.showFeedback(tr("preset_imported"));
+            screen.rebuildWorkspace();
+        } catch (java.io.IOException | IllegalArgumentException failure) { screen.showFeedback(tr("preset_error")); }
+    }
+
+    private void initImport(WorkspacePanel panel) {
+        var bounds = panel.getBounds();
+        int x = bounds.x + 9, y = bounds.y + 8, width = Math.max(1, bounds.width - 18);
+        y = paragraph(panel, tr("preset_import"), x, y, width, GUIStyle.ACCENT_COLOR) + 6;
+        y = paragraph(panel, Component.translatable("carpet-gui.workspace.preset_help", RulePresetFiles.directory().toString()), x, y, width, GUIStyle.MUTED_COLOR) + 6;
+        var filename = new NativeTextInput(tr("preset_filename"), importFilename, value -> importFilename = value,
+            () -> importPreset(importFilename), () -> setMode(Mode.VIEW));
+        filename.setBounds(x, y, width, GUIStyle.CONTROL_HEIGHT);
+        panel.add(filename);
+        y += 25;
+        var confirm = new ControlButton(tr("preset_import"), () -> importPreset(importFilename));
+        confirm.setBounds(x, y, Math.max(1, width / 2), GUIStyle.CONTROL_HEIGHT);
+        panel.add(confirm);
+        var back = new ControlButton(tr("back"), () -> setMode(Mode.VIEW));
+        back.setBounds(x + width / 2 + 4, y, Math.max(1, width / 2 - 4), GUIStyle.CONTROL_HEIGHT);
+        panel.add(back);
+        y += 30;
+        try {
+            for (String name : RulePresetFiles.list(RulePresetFiles.directory())) {
+                final String file = name;
+                var item = new Button(Component.literal(name), () -> importPreset(file));
+                item.setBounds(x, y, width, GUIStyle.CONTROL_HEIGHT);
+                panel.add(item);
+                y += 23;
+            }
+        } catch (java.io.IOException failure) { paragraph(panel, tr("preset_error"), x, y, width, GUIStyle.NEW_RULE_COLOR); }
+    }
+
     private void restore(RuleGroupStore.Group group) {
         RuleGroupStore.clearStage(group);
-        int accepted = applyHead(group, false);
+        int accepted = applyHead(group);
         screen.showFeedback(Component.translatable("carpet-gui.workspace.restore_result", accepted, group.head().size()));
         mode = Mode.STATUS;
         screen.refreshRules();
         screen.rebuildWorkspace();
     }
 
-    private int applyHead(RuleGroupStore.Group group, boolean persistent) {
+    private int applyHead(RuleGroupStore.Group group) {
+        if (!session.currentSession()) return 0;
         Map<String, RuleRef> byId = rulesById();
         int accepted = 0;
         for (Map.Entry<String, String> entry : group.head().entrySet()) {
             RuleRef ref = byId.get(entry.getKey());
             if (ref == null || !(ref.rule() instanceof EditableRuleView editable)) continue;
             RuleEditResult result;
-            if (persistent && editable.editor() instanceof PersistentRuleEditor editor && editor.canSaveDefault()) {
-                result = editor.saveDefault(entry.getValue(), ignored -> {});
-            } else {
-                result = editable.editor().submit(entry.getValue(), ignored -> {});
-            }
+            result = editable.editor().submit(entry.getValue(), completed -> screen.showFeedback(completed.message()));
             if (result.accepted()) accepted++;
         }
         return accepted;
@@ -656,13 +939,23 @@ final class RuleGroupWorkspace {
 
     private void mutate(Runnable change) {
         pendingScrollOffsets = panels.stream()
-            .mapToInt(panel -> Math.max(0, panel.getBounds().y - panel.getContentBounds().y))
-            .toArray();
+            .map(panel -> new int[]{
+                Math.max(0, panel.getBounds().x - panel.getContentBounds().x),
+                Math.max(0, panel.getBounds().y - panel.getContentBounds().y)
+            })
+            .toArray(int[][]::new);
         change.run();
         screen.rebuildWorkspace();
     }
 
     void tick() {
+        if (!session.currentSession()) {
+            cancelDrafts();
+            draftSnapshot.clear();
+            applyPlan = null;
+            selectedApplyRules.clear();
+            return;
+        }
         long remoteRevision = ClientRuleChanges.revision();
         if (remoteRevision != observedRemoteRevision) {
             observedRemoteRevision = remoteRevision;
@@ -758,7 +1051,11 @@ final class RuleGroupWorkspace {
 
     private Map<String, RuleRef> rulesById() {
         Map<String, RuleRef> result = new LinkedHashMap<>();
-        rules().forEach(ref -> result.put(ref.key(), ref));
+        rules().forEach(ref -> {
+            result.put(ref.key(), ref);
+            // Groups written by the original legacy UI used bare state IDs.
+            result.putIfAbsent(ref.rule().stateId(), ref);
+        });
         return result;
     }
 
@@ -780,7 +1077,7 @@ final class RuleGroupWorkspace {
         return Component.translatable("carpet-gui.workspace." + key);
     }
 
-    private enum Mode { VIEW, MANAGE, STATUS, COMMIT }
+    private enum Mode { VIEW, MANAGE, STATUS, COMMIT, IMPORT, PREVIEW }
 
     private record RuleRef(Component owner, String ownerId, String key, RuleView rule) {
     }
@@ -790,6 +1087,7 @@ final class RuleGroupWorkspace {
 
     private record RuleChange(String key, String value, String detail, RuleRef ref, String marker, int color) {
     }
+
 
     private static final class CommitGraphNode extends TElement {
         private final boolean pending;
@@ -809,6 +1107,25 @@ final class RuleGroupWorkspace {
             int color = pending ? 0xFFB68CFF : 0xFF7050C0;
             graphics.fillColor(center - 3, bounds.y + 3, 7, 7, color);
             graphics.fillColor(center - 1, bounds.y + 5, 3, 3, 0xFF202126);
+        }
+    }
+
+    /** Small code-drawn folder marker so the tree does not require another texture asset. */
+    private static final class FolderIcon extends TElement {
+        private FolderIcon() {
+            hoverableProperty().set(false, FolderIcon.class);
+            focusableProperty().set(false, FolderIcon.class);
+        }
+
+        @Override
+        public void renderCallback(TGuiGraphics graphics) {
+            var bounds = getBounds();
+            int width = Math.max(5, bounds.width);
+            int height = Math.max(5, bounds.height);
+            int color = 0xFF6FA8E8;
+            graphics.fillColor(bounds.x + 1, bounds.y + 3, width - 2, height - 3, color);
+            graphics.fillColor(bounds.x + 2, bounds.y + 1, Math.max(3, width / 2), 3, color);
+            graphics.drawOutlineIn(bounds.x, bounds.y + 2, width, height - 2, 0xFF9CC7F5);
         }
     }
 }

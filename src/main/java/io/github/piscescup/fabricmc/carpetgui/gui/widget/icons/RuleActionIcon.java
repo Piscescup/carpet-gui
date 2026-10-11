@@ -18,11 +18,15 @@
  * along with Carpet GUI.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-//#if MC >= 12111
 package io.github.piscescup.fabricmc.carpetgui.gui.widget.icons;
 
+//#if MC >= 12111
 import com.thecsdev.commonmc.api.client.gui.render.TGuiGraphics;
 import com.thecsdev.commonmc.api.client.gui.widget.TButtonWidget;
+//#else
+//$$ import io.github.thecsdev.tcdcommons.api.client.gui.util.TDrawContext;
+//$$ import io.github.thecsdev.tcdcommons.api.client.gui.widget.TButtonWidget;
+//#endif
 import io.github.piscescup.fabricmc.carpetgui.gui.GUIStyle;
 import io.github.piscescup.fabricmc.carpetgui.resources.WorkspaceActionTextures;
 import net.minecraft.network.chat.Component;
@@ -30,10 +34,16 @@ import net.minecraft.network.chat.Component;
 import java.util.function.BooleanSupplier;
 
 
-public final class RuleActionIcon extends TButtonWidget.Transparent {
+public final class RuleActionIcon extends
+    //#if MC >= 12111
+    TButtonWidget.Transparent {
+    //#else
+    //$$ TButtonWidget {
+    //#endif
     private final boolean lock;
     private final BooleanSupplier saved;
 
+    //#if MC >= 12111
     public RuleActionIcon(boolean lock, BooleanSupplier saved, Runnable action) {
         this.lock = lock;
         this.saved = saved;
@@ -44,7 +54,16 @@ public final class RuleActionIcon extends TButtonWidget.Transparent {
             if (enabledProperty().getZ()) action.run();
         });
     }
+    //#else
+    //$$ public RuleActionIcon(int x, int y, int width, int height,
+    //$$                       boolean lock, BooleanSupplier saved, Runnable action) {
+    //$$     super(x, y, width, height, Component.empty(), ignored -> action.run());
+    //$$     this.lock = lock;
+    //$$     this.saved = saved;
+    //$$ }
+    //#endif
 
+    //#if MC >= 12111
     @Override
     public void renderCallback(TGuiGraphics graphics) {
         var bounds = getBounds();
@@ -61,5 +80,21 @@ public final class RuleActionIcon extends TButtonWidget.Transparent {
             graphics.drawOutlineIn(bounds.x, bounds.y, bounds.width, bounds.height, GUIStyle.FOCUS_COLOR);
         }
     }
+    //#else
+    //$$ @Override
+    //$$ public void render(TDrawContext graphics) {
+    //$$     boolean closed = lock && saved.getAsBoolean();
+    //$$     WorkspaceActionTextures.Icon icon = lock
+    //$$         ? closed ? WorkspaceActionTextures.Icon.LOCK_CLOSED : WorkspaceActionTextures.Icon.LOCK_OPEN
+    //$$         : WorkspaceActionTextures.Icon.RESET;
+    //$$     setIcon(WorkspaceActionTextures.texture(icon));
+    //$$     renderIcon(graphics);
+    //$$     if (!getEnabled() || !isFocusedOrHovered()) return;
+    //$$     int color = GUIStyle.FOCUS_COLOR;
+    //$$     graphics.fill(getX(), getY(), getX() + getWidth(), getY() + 1, color);
+    //$$     graphics.fill(getX(), getY() + getHeight() - 1, getX() + getWidth(), getY() + getHeight(), color);
+    //$$     graphics.fill(getX(), getY(), getX() + 1, getY() + getHeight(), color);
+    //$$     graphics.fill(getX() + getWidth() - 1, getY(), getX() + getWidth(), getY() + getHeight(), color);
+    //$$ }
+    //#endif
 }
-//#endif

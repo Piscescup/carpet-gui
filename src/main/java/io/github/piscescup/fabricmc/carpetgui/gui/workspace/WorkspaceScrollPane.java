@@ -25,18 +25,26 @@ import com.thecsdev.commonmc.api.client.gui.TElement;
 import com.thecsdev.commonmc.api.client.gui.panel.TPanelElement;
 import com.thecsdev.commonmc.api.client.gui.widget.TScrollBarWidget;
 
-/** Reusable TCDCommons viewport with a vertical scrollbar only. */
+/** Reusable viewport with a vertical scrollbar and optional horizontal scrolling. */
 final class WorkspaceScrollPane extends TElement {
     private final TPanelElement panel;
     WorkspaceScrollPane(TPanelElement panel) { this.panel = panel; }
 
     @Override protected void initCallback() {
         var bounds = getBounds();
-        panel.setBounds(bounds.x, bounds.y, Math.max(1, bounds.width - 8), Math.max(1, bounds.height));
+        boolean horizontal = panel instanceof WorkspacePanel workspacePanel && workspacePanel.horizontalScrolling();
+        int barSize = 8;
+        panel.setBounds(bounds.x, bounds.y, Math.max(1, bounds.width - barSize),
+            Math.max(1, bounds.height - (horizontal ? barSize : 0)));
         add(panel);
         var vertical = new TScrollBarWidget.Flat(panel, TScrollBarWidget.ScrollDirection.VERTICAL);
-        vertical.setBounds(bounds.endX - 7, bounds.y, 7, Math.max(1, bounds.height));
+        vertical.setBounds(bounds.endX - 7, bounds.y, 7, Math.max(1, bounds.height - (horizontal ? barSize : 0)));
         add(vertical);
+        if (horizontal) {
+            var horizontalBar = new TScrollBarWidget.Flat(panel, TScrollBarWidget.ScrollDirection.HORIZONTAL);
+            horizontalBar.setBounds(bounds.x, bounds.endY - 7, Math.max(1, bounds.width - barSize), 7);
+            add(horizontalBar);
+        }
     }
 }
 //#endif

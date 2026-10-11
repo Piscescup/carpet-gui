@@ -2,7 +2,7 @@
 A script to scan through the versions directory and collect all folder names as the subproject list,
 then output a json as the github action include matrix
 """
-__author__ = 'Fallen_Breath'
+__author__ = 'PiscesCup'
 
 import json
 import os

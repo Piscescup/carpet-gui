@@ -18,10 +18,13 @@
  * along with Carpet GUI.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-//#if MC >= 12111
 package io.github.piscescup.fabricmc.carpetgui.gui.widget.button;
 
+//#if MC >= 12111
 import com.thecsdev.commonmc.api.client.gui.widget.TButtonWidget;
+//#else
+//$$ import io.github.thecsdev.tcdcommons.api.client.gui.widget.TButtonWidget;
+//#endif
 import net.minecraft.network.chat.Component;
 
 import static io.github.piscescup.fabricmc.carpetgui.gui.GUIStyle.TEXT_SCALE;
@@ -32,6 +35,7 @@ import static io.github.piscescup.fabricmc.carpetgui.gui.GUIStyle.TEXT_SCALE;
  * @since 1.0.0
  */
 public final class ControlButton extends TButtonWidget {
+    //#if MC >= 12111
     public ControlButton(Component text, Runnable action) {
         getLabel().setText(text);
         getLabel().hoverableProperty()
@@ -46,5 +50,9 @@ public final class ControlButton extends TButtonWidget {
             .set(false, ControlButton.class);
         eClicked.addListener(ignored -> action.run());
     }
+    //#else
+    //$$ public ControlButton(int x, int y, int width, int height, Component text, Runnable action) {
+    //$$     super(x, y, width, height, text, ignored -> action.run());
+    //$$ }
+    //#endif
 }
-//#endif
