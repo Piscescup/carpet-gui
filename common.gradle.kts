@@ -316,7 +316,7 @@ val licenseExtension = extensions.getByName("license")
 licenseExtension.withGroovyBuilder {
     setProperty("header", rootProject.file("HEADER.txt"))
     "include"("**/*.java")
-    setProperty("skipExistingHeaders", true)
+//    setProperty("skipExistingHeaders", true)
     "headerDefinitions" {
         requireNotNull("create"("SLASHSTAR_STYLE_NEWLINE")).withGroovyBuilder {
             setProperty("firstLine", "/*")
@@ -335,7 +335,7 @@ licenseExtension.withGroovyBuilder {
 }
 (licenseExtension as ExtensionAware).extensions.extraProperties.apply {
     set("name", modProperty("mod_name"))
-    set("author", "Fallen_Breath")
+    set("author", "PiscesCup")
     set("year", Calendar.getInstance().get(Calendar.YEAR).toString())
 }
 tasks.named("classes") { dependsOn("licenseFormatMain") }
