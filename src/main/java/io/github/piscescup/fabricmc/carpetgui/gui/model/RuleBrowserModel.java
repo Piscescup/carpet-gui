@@ -80,6 +80,7 @@ public final class RuleBrowserModel {
     public String category = "";
     public boolean modifiedOnly;
     public boolean initialDifferenceOnly;
+    public boolean favoritesOnly;
     public boolean savedDefaultOnly;
     public Sort sort = Sort.NAME_ASC;
     public Grouping grouping = Grouping.CATEGORY;
@@ -124,9 +125,9 @@ public final class RuleBrowserModel {
             .stream()
             .filter(rule -> !modifiedOnly || rule.differsFromConfiguredValue())
             .filter(rule -> !initialDifferenceOnly || rule.differsFromInitialValue())
+            .filter(rule -> !favoritesOnly || FavoriteRules.contains(rule.stateId()))
             .filter(rule -> !savedDefaultOnly || rule.explicitlyConfigured())
             .filter(rule -> category.isEmpty()
-                || category.equals(FAVORITES) && FavoriteRules.contains(rule.stateId())
                 || rule.categories().contains(category)
                 || category.equals(UNCATEGORIZED) && rule.categories().isEmpty())
             .filter(rule -> matches(rule, tokens))
@@ -140,10 +141,6 @@ public final class RuleBrowserModel {
     }
 
     public List<Group> groups(List<RuleView> filteredRules) {
-        if (category.equals(FAVORITES)) {
-            List<RuleView> rules = filteredRules;
-            return rules.isEmpty() ? List.of() : List.of(new Group(FAVORITES, rules));
-        }
         if (grouping == Grouping.NONE) {
             List<RuleView> rules = filteredRules;
             return rules.isEmpty() ? List.of() : List.of(new Group(ALL_RULES, rules));

@@ -20,6 +20,10 @@
 
 package io.github.piscescup.fabricmc.carpetgui;
 
+import carpet.CarpetServer;
+import carpet.api.settings.CarpetRule;
+import carpet.api.settings.SettingsManager;
+import carpet.script.external.Carpet;
 import net.fabricmc.api.ModInitializer;
 import io.github.piscescup.fabricmc.carpetgui.integration.carpet.CarpetSeriesMods;
 

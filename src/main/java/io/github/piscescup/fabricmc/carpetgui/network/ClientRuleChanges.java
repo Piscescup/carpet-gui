@@ -28,13 +28,16 @@ import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.Minecraft;
 
+import java.util.Comparator;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 
-/** Latest server-authored edit per rule for the current connection. */
+/** Server-authored edit state and per-rule history for the current connection. */
 public final class ClientRuleChanges {
     private static final Map<String, RuleChangeEvent> LATEST = new LinkedHashMap<>();
+    private static final Map<String, List<RuleChangeEvent>> HISTORY = new LinkedHashMap<>();
     private static final AtomicLong REVISION = new AtomicLong();
 
     private ClientRuleChanges() {}
@@ -51,12 +54,21 @@ public final class ClientRuleChanges {
 
         ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
             LATEST.clear();
+            HISTORY.clear();
             REVISION.incrementAndGet();
         });
     }
 
     public static RuleChangeEvent latest(String stateId) {
         return LATEST.get(stateId);
+    }
+
+    /** Newest first, so older changes are rendered lower in a tooltip. */
+    public static List<RuleChangeEvent> history(String stateId) {
+        List<RuleChangeEvent> history = HISTORY.get(stateId);
+        return history == null ? List.of() : history.stream()
+            .sorted(Comparator.comparingLong(RuleChangeEvent::changedAt).reversed())
+            .toList();
     }
 
     public static long revision() {
@@ -84,9 +96,12 @@ public final class ClientRuleChanges {
     private static void receive(RuleChangeEvent event) {
         if (!event.valid()) return;
         var player = Minecraft.getInstance().player;
-        if (player != null && event.actorId().equals(player.getUUID().toString())) return;
-        applyServerValue(event.managerId(), event.ruleId(), event.newValue());
-        LATEST.put(event.stateId(), event);
+        boolean local = player != null && event.actorId().equals(player.getUUID().toString());
+        if (!local) {
+            applyServerValue(event.managerId(), event.ruleId(), event.newValue());
+            LATEST.put(event.stateId(), event);
+        }
+        HISTORY.computeIfAbsent(event.stateId(), ignored -> new java.util.ArrayList<>()).add(event);
         REVISION.incrementAndGet();
     }
 }

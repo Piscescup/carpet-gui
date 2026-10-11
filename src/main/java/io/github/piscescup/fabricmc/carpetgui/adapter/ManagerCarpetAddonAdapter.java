@@ -29,9 +29,22 @@ import java.util.List;
 import java.util.Objects;
 
 /**
- * Reflects a dedicated manager without importing optional addon types.
- * The manager must also be exposed by a registered Carpet extension.
- * Shared managers require an adapter that selects only the addon's own rules.
+ * Reads a dedicated {@link SettingsManager} without importing optional addon types and exposes all
+ * rules registered in it. Static manager access requires only its declaring class; instance access
+ * uses the configured live Carpet extension. Carpet's global manager is rejected because it cannot
+ * establish ownership for a single addon.
+ *
+ * <pre>{@code
+ * ManagerCarpetAddonAdapter adapter = CarpetAddonAdapter
+ *     .managerBuilder("my_mod", "dev.example")
+ *     .managerClassName("MyExtension")
+ *     .managerAccessor(Accessor.ofStaticField("MANAGER"))
+ *     .build();
+ * }</pre>
+ *
+ * @see ManagerAdapterBuilder
+ * @see SettingsManager
+ * @see CarpetAddonAdapter
  */
 public final class ManagerCarpetAddonAdapter extends CarpetAddonAdapter {
     private final PackageRef managerClassRef;
@@ -45,26 +58,47 @@ public final class ManagerCarpetAddonAdapter extends CarpetAddonAdapter {
         this.managerAccessor = builder.managerAccessor;
     }
 
+    /**
+     * Returns the unresolved class reference for the member that supplies the manager.
+     *
+     * @return the configured manager declaring-class reference
+     */
     public PackageRef managerClassRef() { return managerClassRef; }
+
+    /**
+     * Returns the accessor used to obtain the dedicated manager.
+     *
+     * @return the configured manager accessor
+     */
     public Accessor<?> managerAccessor() { return managerAccessor; }
 
+    /**
+     * Returns the names of every rule registered in the dedicated manager.
+     *
+     * @param args must be empty
+     * @return the manager's rule names, or an empty collection while the manager is unavailable
+     * @throws IllegalArgumentException if any arguments are supplied
+     */
     @Override
     protected Collection<String> getRuleNames(Object... args) {
         if (args != null && args.length != 0) {
             throw new IllegalArgumentException("Manager adapter does not accept rule-name arguments");
         }
-        return resolveRuleNames(settingsManager());
-    }
-
-    @Override
-    protected Collection<String> resolveRuleNames(SettingsManager manager) {
+        SettingsManager manager = settingsManager();
         return manager == null ? List.of()
-            : manager.getCarpetRules().stream().map(CarpetRule::name).toList();
+            : manager.getCarpetRules().stream()
+                .map(CarpetRule::name)
+                .toList();
     }
 
-    /** Re-read on each access so null or replaced managers are not cached. */
+    /**
+     * Re-reads the configured accessor on every call so an unavailable or replaced manager is not
+     * cached. Lookup failures are logged and converted to {@code null}.
+     *
+     * @return the dedicated manager, or {@code null} while unavailable or on failure
+     */
     @Override
-    protected SettingsManager settingsManager() {
+    public SettingsManager settingsManager() {
         try {
             Class<?> owner = load(managerClassCanonicalName);
             Object target;
@@ -89,6 +123,7 @@ public final class ManagerCarpetAddonAdapter extends CarpetAddonAdapter {
     }
 }
 
+/** Package-private implementation of {@link ManagerAdapterBuilder}. */
 class ManagerBuilder extends Builder<ManagerAdapterBuilder> implements ManagerAdapterBuilder {
     PackageRef managerClassRef;
     String managerClassCanonicalName;

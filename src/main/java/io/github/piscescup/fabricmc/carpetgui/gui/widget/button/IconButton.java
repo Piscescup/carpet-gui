@@ -18,10 +18,13 @@
  * along with Carpet GUI.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-//#if MC >= 12111
 package io.github.piscescup.fabricmc.carpetgui.gui.widget.button;
 
+//#if MC >= 12111
 import com.thecsdev.commonmc.api.client.gui.render.TGuiGraphics;
+//#else
+//$$ import io.github.thecsdev.tcdcommons.api.client.gui.util.TDrawContext;
+//#endif
 import net.minecraft.network.chat.Component;
 
 import static io.github.piscescup.fabricmc.carpetgui.gui.GUIStyle.FOCUS_COLOR;
@@ -32,10 +35,17 @@ import static io.github.piscescup.fabricmc.carpetgui.gui.GUIStyle.FOCUS_COLOR;
  * @since 1.0.0
  */
 public class IconButton extends Button {
+    //#if MC >= 12111
     public IconButton(Runnable action) {
         super(Component.empty(), action);
     }
+    //#else
+    //$$ public IconButton(int x, int y, int width, int height, Runnable action) {
+    //$$     super(x, y, width, height, Component.empty(), action, false);
+    //$$ }
+    //#endif
 
+    //#if MC >= 12111
     @Override
     public void renderCallback(TGuiGraphics graphics) {
         super.renderCallback(graphics);
@@ -45,5 +55,10 @@ public class IconButton extends Button {
                 FOCUS_COLOR : 0xFF707070
         );
     }
+    //#else
+    //$$ @Override
+    //$$ public void render(TDrawContext graphics) {
+    //$$     super.render(graphics);
+    //$$ }
+    //#endif
 }
-//#endif

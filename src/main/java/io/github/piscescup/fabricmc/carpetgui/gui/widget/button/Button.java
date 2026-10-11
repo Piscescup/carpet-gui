@@ -18,22 +18,29 @@
  * along with Carpet GUI.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-//#if MC >= 12111
 package io.github.piscescup.fabricmc.carpetgui.gui.widget.button;
 
+//#if MC >= 12111
 import com.thecsdev.commonmc.api.client.gui.render.TGuiGraphics;
 import com.thecsdev.commonmc.api.client.gui.widget.TButtonWidget;
+//#else
+//$$ import io.github.thecsdev.tcdcommons.api.client.gui.util.TDrawContext;
+//$$ import io.github.thecsdev.tcdcommons.api.client.gui.util.UITexture;
+//$$ import io.github.thecsdev.tcdcommons.api.client.gui.widget.TButtonWidget;
+//$$ import io.github.thecsdev.tcdcommons.api.util.enumerations.HorizontalAlignment;
+//#endif
 import io.github.piscescup.fabricmc.carpetgui.gui.GUIStyle;
 import net.minecraft.network.chat.Component;
 
 /**
  *
  * @author REN YuanTong
- * @since
+ * @since 1.0.0
  */
 public class Button extends TButtonWidget {
     private boolean selected;
 
+    //#if MC >= 12111
     public Button(Component text, Runnable action) {
         getLabel().setText(text);
         getLabel().hoverableProperty()
@@ -46,13 +53,34 @@ public class Button extends TButtonWidget {
         //#endif
         eClicked.addListener(ignored -> action.run());
     }
+    //#else
+    //$$ protected HorizontalAlignment alignment = HorizontalAlignment.CENTER;
+    //$$
+    //$$ public Button(int x, int y, int width, int height, Component text, Runnable action, boolean selected) {
+    //$$     super(x, y, width, height, text, ignored -> action.run());
+    //$$     this.selected = selected;
+    //$$ }
+    //$$
+    //$$ public Button withTexture(UITexture icon) {
+    //$$     setIcon(icon);
+    //$$     return this;
+    //$$ }
+    //$$
+    //$$ public Button align(HorizontalAlignment value) {
+    //$$     alignment = value;
+    //$$     return this;
+    //$$ }
+    //#endif
 
     public void setSelected(boolean value) {
         selected = value;
+        //#if MC >= 12111
         getLabel().textColorProperty()
             .set(selected ? GUIStyle.ACCENT_COLOR : GUIStyle.TEXT_COLOR, Button.class);
+        //#endif
     }
 
+    //#if MC >= 12111
     @Override
     public void renderCallback(TGuiGraphics graphics) {
         var bounds = getBounds();
@@ -73,5 +101,19 @@ public class Button extends TButtonWidget {
                 Button.class
             );
     }
+    //#else
+    //$$ @Override
+    //$$ public void render(TDrawContext graphics) {
+    //$$     int fill = selected ? 0x70505018 : isFocusedOrHovered() ? 0x60393939 : 0x30000000;
+    //$$     graphics.fill(getX(), getY(), getX() + getWidth(), getY() + getHeight(), fill);
+    //$$     int border = isFocusedOrHovered() ? GUIStyle.FOCUS_COLOR : GUIStyle.BORDER_COLOR;
+    //$$     graphics.fill(getX(), getY(), getX() + getWidth(), getY() + 1, border);
+    //$$     graphics.fill(getX(), getY() + getHeight() - 1, getX() + getWidth(), getY() + getHeight(), border);
+    //$$     graphics.fill(getX(), getY(), getX() + 1, getY() + getHeight(), border);
+    //$$     graphics.fill(getX() + getWidth() - 1, getY(), getX() + getWidth(), getY() + getHeight(), border);
+    //$$     if (getIcon() != null) renderIcon(graphics);
+    //$$     else graphics.drawTElementTextTHC(getText(), alignment,
+    //$$         getEnabled() ? selected ? GUIStyle.ACCENT_COLOR : GUIStyle.TEXT_COLOR : GUIStyle.MUTED_COLOR);
+    //$$ }
+    //#endif
 }
-//#endif

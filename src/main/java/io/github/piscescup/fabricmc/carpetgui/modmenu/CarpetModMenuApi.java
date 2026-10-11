@@ -18,10 +18,11 @@
  * along with Carpet GUI.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-package io.github.piscescup.fabricmc.carpetgui.api;
+package io.github.piscescup.fabricmc.carpetgui.modmenu;
 
 import com.terraformersmc.modmenu.api.ConfigScreenFactory;
 import com.terraformersmc.modmenu.api.ModMenuApi;
+import io.github.piscescup.fabricmc.carpetgui.api.CarpetModInfoApi;
 
 /**
  * Implement this in a client mod's own "modmenu" entrypoint to open its corresponding Carpet rule page.

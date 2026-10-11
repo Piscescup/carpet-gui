@@ -25,9 +25,39 @@ import io.github.piscescup.fabricmc.carpetgui.adapter.*;
 
 import java.lang.reflect.Type;
 
-/** Only persists builder inputs; runtime instances and caches are excluded. */
+/**
+ * Gson codec for {@link CarpetAddonAdapter} configurations using schema version {@code 1}.
+ * Only builder inputs are persisted; live extension and manager instances, warning state, and
+ * runtime caches are deliberately excluded.
+ *
+ * <pre>{@code
+ * Gson gson = new GsonBuilder()
+ *     .registerTypeAdapter(PackageRef.class, new PackageRefJsonCodec())
+ *     .registerTypeAdapter(Accessor.class, new AccessorJsonCodec())
+ *     .registerTypeAdapter(CarpetAddonAdapter.class, new CarpetAddonAdapterJsonCodec())
+ *     .create();
+ * String json = gson.toJson(adapter, CarpetAddonAdapter.class);
+ * }</pre>
+ *
+ * @see CarpetAddonAdapter
+ * @see AccessorJsonCodec
+ * @see PackageRefJsonCodec
+ */
 public final class CarpetAddonAdapterJsonCodec
     implements JsonSerializer<CarpetAddonAdapter>, JsonDeserializer<CarpetAddonAdapter> {
+    /**
+     * Serializes the builder inputs needed to recreate an adapter.
+     *
+     * <pre>{@code
+     * JsonElement json = codec.serialize(adapter, CarpetAddonAdapter.class, context);
+     * }</pre>
+     *
+     * @param source the adapter configuration to serialize
+     * @param type the declared Gson type
+     * @param context Gson context used for package references and accessors
+     * @return a schema-versioned adapter JSON object
+     * @throws JsonParseException if {@code source} is an unsupported adapter implementation
+     */
     @Override
     public JsonElement serialize(CarpetAddonAdapter source, Type type, JsonSerializationContext context) {
         JsonObject json = new JsonObject();
@@ -64,6 +94,20 @@ public final class CarpetAddonAdapterJsonCodec
         return json;
     }
 
+    /**
+     * Validates a schema-versioned JSON object and rebuilds the represented adapter.
+     *
+     * <pre>{@code
+     * CarpetAddonAdapter adapter = codec.deserialize(json, CarpetAddonAdapter.class, context);
+     * }</pre>
+     *
+     * @param json the adapter JSON object
+     * @param type the requested adapter type
+     * @param context Gson context used for package references and accessors
+     * @return the rebuilt adapter
+     * @throws JsonParseException if required fields, the schema version, adapter type, nested
+     *                            configuration, or requested Java type is invalid
+     */
     @Override
     public CarpetAddonAdapter deserialize(JsonElement json, Type type, JsonDeserializationContext context) {
         if (!json.isJsonObject()) throw new JsonParseException("Adapter must be an object");

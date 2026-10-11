@@ -18,10 +18,14 @@
  * along with Carpet GUI.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-//#if MC >= 12111
 package io.github.piscescup.fabricmc.carpetgui.store;
 
+//#if MC >= 12111
 import com.thecsdev.commonmc.api.client.gui.misc.TTextureElement;
+//#else
+//$$ import io.github.thecsdev.tcdcommons.api.client.gui.other.TTextureElement;
+//$$ import io.github.thecsdev.tcdcommons.api.client.gui.util.UITexture;
+//#endif
 import io.github.piscescup.fabricmc.carpetgui.References;
 import net.minecraft.resources.Identifier;
 
@@ -42,12 +46,17 @@ public final class WorkspaceIcon extends TTextureElement {
         public Identifier texture() { return texture; }
     }
 
+    //#if MC >= 12111
     public WorkspaceIcon(Kind kind) {
         super(kind.texture());
         modeProperty().set(Mode.TEXTURE, WorkspaceIcon.class);
         hoverableProperty().set(false, WorkspaceIcon.class);
         focusableProperty().set(false, WorkspaceIcon.class);
     }
+    //#else
+    //$$ public WorkspaceIcon(int x, int y, int size, Kind kind) {
+    //$$     super(x, y, size, size, new UITexture(kind.texture()));
+    //$$ }
+    //#endif
 
 }
-//#endif

@@ -20,7 +20,29 @@
 
 package io.github.piscescup.fabricmc.carpetgui.api;
 
-/** Optional write capability, kept separate from the read-only RuleView contract. */
+/**
+ * Extends a read-only {@link RuleView} with a backend-provided editing capability.
+ * Keeping the editor separate lets callers display every rule while enabling controls only for
+ * rules whose backend can safely apply changes.
+ *
+ * <pre>{@code
+ * if (rule instanceof EditableRuleView editable && editable.editor().editable()) {
+ *     editable.editor().submit("true");
+ * }
+ * }</pre>
+ *
+ * @see RuleEditor
+ * @see PersistentRuleEditor
+ */
 public interface EditableRuleView extends RuleView {
+    /**
+     * Returns the editor responsible for validating and submitting changes to this rule.
+     *
+     * <pre>{@code
+     * RuleEditResult result = editableRule.editor().submit(newValue);
+     * }</pre>
+     *
+     * @return the rule's editing backend
+     */
     RuleEditor editor();
 }

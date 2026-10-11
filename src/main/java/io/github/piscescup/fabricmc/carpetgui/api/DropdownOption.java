@@ -23,10 +23,41 @@ package io.github.piscescup.fabricmc.carpetgui.api;
 import net.minecraft.network.chat.Component;
 
 /**
- * A selectable GUI entry, not necessarily a mod. IDs must be stable and unique.
+ * Describes one selectable entry in a Carpet GUI drop-down list.
+ * An option may represent a mod, a rule group, or another navigation target; its identifier
+ * therefore must be stable and unique within the containing list.
+ *
+ * <pre>{@code
+ * DropdownOption option = ...;
+ * String persistedSelection = option.id();
+ * Component visibleText = option.label();
+ * }</pre>
+ *
+ * @see RuleSource
+ * @see net.minecraft.network.chat.Component
  */
 public interface DropdownOption {
+    /**
+     * Returns the stable machine-readable identifier of this option.
+     *
+     * <pre>{@code
+     * if (option.id().equals(savedId)) {
+     *     select(option);
+     * }
+     * }</pre>
+     *
+     * @return the non-changing identifier used for selection and persistence
+     */
     String id();
 
+    /**
+     * Returns the text displayed for this option.
+     *
+     * <pre>{@code
+     * drawLabel(option.label());
+     * }</pre>
+     *
+     * @return the localized or literal display component
+     */
     Component label();
 }

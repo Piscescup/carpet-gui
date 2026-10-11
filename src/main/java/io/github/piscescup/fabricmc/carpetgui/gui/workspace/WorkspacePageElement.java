@@ -40,35 +40,8 @@ public abstract class WorkspacePageElement extends TElement {
         Objects.requireNonNull(editor, "editor");
         if (editor.isSelected(CarpetWorkspaceEditor.RULE_GROUPS_PAGE_ID)) return new RuleGroups(workspace);
         RulePage page = editor.selectedPage();
-        if (page == null) return new Home(workspace);
-        return new Rules(workspace, page);
-    }
-
-    private static final class Home extends WorkspacePageElement {
-        private Home(WorkspaceDocumentInterface workspace) {
-            super(workspace);
-        }
-
-        @Override
-        protected void initCallback() {
-            var bounds = getBounds();
-            workspace.buildHomePage(bounds.x, bounds.y, bounds.width, bounds.height);
-        }
-    }
-
-    private static final class Rules extends WorkspacePageElement {
-        private final RulePage page;
-
-        private Rules(WorkspaceDocumentInterface workspace, RulePage page) {
-            super(workspace);
-            this.page = Objects.requireNonNull(page, "page");
-        }
-
-        @Override
-        protected void initCallback() {
-            var bounds = getBounds();
-            workspace.buildRulesPage(page, bounds.x, bounds.y, bounds.width, bounds.height);
-        }
+        if (page == null) return new WorkspaceHomePageElement(workspace, editor);
+        return new WorkspaceRulesPageElement(workspace, page);
     }
 
     private static final class RuleGroups extends WorkspacePageElement {

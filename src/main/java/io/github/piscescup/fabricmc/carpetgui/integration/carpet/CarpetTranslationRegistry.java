@@ -24,7 +24,7 @@ import carpet.CarpetExtension;
 import carpet.CarpetServer;
 import com.google.common.collect.Maps;
 import io.github.piscescup.fabricmc.carpetgui.api.CarpetModInfoApi;
-import io.github.piscescup.fabricmc.carpetgui.resources.CarpetTranslationResources;
+import io.github.piscescup.fabricmc.carpetgui.util.CarpetTranslationUtils;
 import net.fabricmc.loader.api.FabricLoader;
 import net.fabricmc.loader.api.ModContainer;
 
@@ -85,12 +85,12 @@ public final class CarpetTranslationRegistry {
         public Map<String, String> getTranslations(String language) {
             Map<String, String> translations = new LinkedHashMap<>();
             if (explicit != null)
-                CarpetTranslationResources.merge(translations, explicit.getTranslations(language));
+                CarpetTranslationUtils.merge(translations, explicit.getTranslations(language));
 
             for (CarpetExtension extension : extensions) {
-                CarpetTranslationResources.merge(translations, extension.canHasTranslations(language));
+                CarpetTranslationUtils.merge(translations, extension.canHasTranslations(language));
             }
-            CarpetTranslationResources.merge(translations, CarpetTranslationResources.read(mod, language));
+            CarpetTranslationUtils.merge(translations, CarpetTranslationUtils.read(mod, language));
             return Map.copyOf(translations);
         }
     }

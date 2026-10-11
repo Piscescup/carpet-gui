@@ -18,10 +18,14 @@
  * along with Carpet GUI.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-//#if MC >= 12111
 package io.github.piscescup.fabricmc.carpetgui.gui.widget.button;
 
+//#if MC >= 12111
 import com.thecsdev.commonmc.api.client.gui.render.TGuiGraphics;
+//#else
+//$$ import io.github.thecsdev.tcdcommons.api.client.gui.util.TDrawContext;
+//$$ import io.github.thecsdev.tcdcommons.api.util.enumerations.HorizontalAlignment;
+//#endif
 import net.minecraft.network.chat.Component;
 
 /**
@@ -32,9 +36,22 @@ import net.minecraft.network.chat.Component;
 public class ChromeButton extends Button {
     private boolean selected;
 
+    //#if MC >= 12111
     public ChromeButton(Component text, Runnable action) {
         super(text, action);
     }
+    //#else
+    //$$ public ChromeButton(int x, int y, int width, int height, Component text, Runnable action, boolean selected) {
+    //$$     super(x, y, width, height, text, action, selected);
+    //$$     this.selected = selected;
+    //$$ }
+    //$$
+    //$$ @Override
+    //$$ public ChromeButton align(HorizontalAlignment value) {
+    //$$     super.align(value);
+    //$$     return this;
+    //$$ }
+    //#endif
 
     @Override
     public void setSelected(boolean value) {
@@ -42,6 +59,7 @@ public class ChromeButton extends Button {
         selected = value;
     }
 
+    //#if MC >= 12111
     @Override
     public void renderCallback(TGuiGraphics graphics) {
         var bounds = getBounds();
@@ -50,5 +68,18 @@ public class ChromeButton extends Button {
         }
         if (selected) graphics.fillColor(bounds.x, bounds.endY - 1, bounds.width, 1, 0xFF4288B8);
     }
+    //#else
+    //$$ @Override
+    //$$ public void render(TDrawContext graphics) {
+    //$$     if (selected || isFocusedOrHovered()) {
+    //$$         graphics.fill(getX(), getY(), getX() + getWidth(), getY() + getHeight(),
+    //$$             selected ? 0xFF414345 : 0xA0454545);
+    //$$     }
+    //$$     if (selected) graphics.fill(getX(), getY() + getHeight() - 1,
+    //$$         getX() + getWidth(), getY() + getHeight(), 0xFF4288B8);
+    //$$     if (getIcon() != null) renderIcon(graphics);
+    //$$     else graphics.drawTElementTextTHC(getText(), alignment,
+    //$$         getEnabled() ? selected ? 0xFFFFFF55 : 0xFFFFFFFF : 0xFF999999);
+    //$$ }
+    //#endif
 }
-//#endif

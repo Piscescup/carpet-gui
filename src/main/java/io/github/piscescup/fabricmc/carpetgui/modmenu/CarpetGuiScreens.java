@@ -18,8 +18,9 @@
  * along with Carpet GUI.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-package io.github.piscescup.fabricmc.carpetgui.api;
+package io.github.piscescup.fabricmc.carpetgui.modmenu;
 
+import io.github.piscescup.fabricmc.carpetgui.api.RuleSource;
 //#if MC >= 12111
 import io.github.piscescup.fabricmc.carpetgui.gui.CarpetWorkspaceScreen;
 //#else

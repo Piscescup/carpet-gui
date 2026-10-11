@@ -26,7 +26,25 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
 
-/** Discovers rule names from objects held in a settings collection. */
+/**
+ * Discovers rule names from addon-specific objects held in a settings collection.
+ * One accessor obtains the collection and another extracts a string name from every validated
+ * rule object; the base adapter then resolves those names through the live Carpet manager.
+ *
+ * <pre>{@code
+ * RuleClassCarpetAddonAdapter adapter = CarpetAddonAdapter
+ *     .ruleBuilder("my_mod", "dev.example")
+ *     .settingsClassName("MySettings")
+ *     .carpetRuleClassName("RuleDefinition")
+ *     .rulesAccessor(Accessor.ofStaticField("RULES"))
+ *     .ruleNameAccessor(Accessor.ofInstanceMethod("name"))
+ *     .build();
+ * }</pre>
+ *
+ * @see RuleAdapterBuilder
+ * @see Accessor
+ * @see CarpetAddonAdapter
+ */
 public class RuleClassCarpetAddonAdapter extends CarpetAddonAdapter {
     private final PackageRef ruleClassRef;
     private final String carpetRuleCanonicalClassName;
@@ -43,10 +61,36 @@ public class RuleClassCarpetAddonAdapter extends CarpetAddonAdapter {
         this.ruleNameAccessor = builder.ruleNameAccessor;
     }
 
+    /**
+     * Returns the unresolved rule-object class reference.
+     *
+     * @return the configured rule class reference
+     */
     public PackageRef ruleClassRef() { return ruleClassRef; }
+
+    /**
+     * Returns the accessor used to obtain the rule collection.
+     *
+     * @return the configured collection accessor
+     */
     public Accessor<?> rulesAccessor() { return rulesAccessor; }
+
+    /**
+     * Returns the accessor used to extract each rule's name.
+     *
+     * @return the configured rule-name accessor
+     */
     public Accessor<?> ruleNameAccessor() { return ruleNameAccessor; }
 
+    /**
+     * Reads, validates, and de-duplicates names from the configured rule collection.
+     *
+     * @param args must be empty because method arguments belong in the configured accessor
+     * @return an immutable ordered collection of non-blank rule names
+     * @throws ClassNotFoundException if the configured settings or rule class cannot be loaded
+     * @throws IllegalArgumentException if arguments are supplied or reflected values have the wrong type
+     * @throws IllegalStateException if an accessor cannot read its configured member
+     */
     @Override
     protected Collection<String> getRuleNames(Object... args) throws ClassNotFoundException {
         if (args != null && args.length != 0) {
@@ -87,6 +131,7 @@ public class RuleClassCarpetAddonAdapter extends CarpetAddonAdapter {
 
 }
 
+/** Package-private implementation of {@link RuleAdapterBuilder}. */
 class RuleBuilder
     extends Builder<RuleAdapterBuilder>
     implements RuleAdapterBuilder
