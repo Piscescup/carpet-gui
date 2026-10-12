@@ -167,13 +167,18 @@ final class RuleGroupWorkspace {
         panel.add(create);
         y += 27;
         int half = Math.max(1, (width - 4) / 2);
-        var importButton = new ControlButton(tr("preset_import"), () -> setMode(Mode.IMPORT));
-        importButton.setBounds(x, y, half, GUIStyle.CONTROL_HEIGHT);
+        Component importLabel = tr("preset_import"), exportLabel = tr("preset_export");
+        int minimumWidth = Math.max(screen.textWidth(importLabel.getString()), screen.textWidth(exportLabel.getString())) + 16;
+        // Stack long translated labels when the sidebar cannot fit both buttons on one row.
+        boolean stacked = half < minimumWidth;
+        int buttonWidth = stacked ? Math.max(width, minimumWidth) : half;
+        var importButton = new ControlButton(importLabel, () -> setMode(Mode.IMPORT));
+        importButton.setBounds(x, y, buttonWidth, GUIStyle.CONTROL_HEIGHT);
         panel.add(importButton);
-        var exportButton = new ControlButton(tr("preset_export"), this::exportPreset);
-        exportButton.setBounds(x + half + 4, y, half, GUIStyle.CONTROL_HEIGHT);
+        var exportButton = new ControlButton(exportLabel, this::exportPreset);
+        exportButton.setBounds(stacked ? x : x + half + 4, stacked ? y + 27 : y, buttonWidth, GUIStyle.CONTROL_HEIGHT);
         panel.add(exportButton);
-        y += 27;
+        y += stacked ? 54 : 27;
         if (RuleGroupStore.legacyAvailable()) {
             var legacy = new ControlButton(tr("context_copy_legacy"), this::copyLegacyGroups);
             legacy.setBounds(x, y, width, GUIStyle.CONTROL_HEIGHT);
