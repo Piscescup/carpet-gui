@@ -3,15 +3,16 @@
 	"id": "carpet-gui",
 	"version": "${version}",
 	"name": "Carpet GUI",
-	"description": "A grouped, collapsible rule browser for Carpet mods.",
+	"description": "A graphical workspace for browsing Carpet rules, editing values, and managing rule groups and presets.",
 	"authors": [
-		"Me!"
+		"PiscesCup"
 	],
 	"contact": {
-		"homepage": "https://fabricmc.net/",
-		"sources": "https://github.com/FabricMC/fabric-example-mod"
+		"homepage": "https://github.com/Piscescup/carpet-gui",
+		"sources": "https://github.com/Piscescup/carpet-gui",
+		"issues": "https://github.com/Piscescup/carpet-gui/issues"
 	},
-	"license": "CC0-1.0",
+	"license": "LGPL-3.0-or-later",
 	"icon": "assets/carpet-gui/icon.png",
 	"environment": "*",
 	"entrypoints": {
