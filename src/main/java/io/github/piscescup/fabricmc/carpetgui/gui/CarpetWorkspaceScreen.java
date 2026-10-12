@@ -681,14 +681,19 @@ public final class CarpetWorkspaceScreen
 //$$
 //$$         int gy = navigationY + 27;
 //$$         int half = Math.max(1, (leftWidth - 22) / 2);
-//$$         add(left, new ControlButton(x + 9, gy, half, CONTROL_HEIGHT, tr("preset_import"), () -> {
+//$$         Component importLabel = tr("preset_import"), exportLabel = tr("preset_export");
+//$$         int minimumWidth = Math.max(textWidth(importLabel), textWidth(exportLabel)) + 16;
+//$$         boolean stacked = half < minimumWidth;
+//$$         int buttonWidth = stacked ? Math.max(leftWidth - 18, minimumWidth) : half;
+//$$         add(left, new ControlButton(x + 9, gy, buttonWidth, CONTROL_HEIGHT, importLabel, () -> {
 //$$             groupMode = LegacyGroupMode.IMPORT;
 //$$             centerScroll = 0;
 //$$             groupCenterPanel = null;
 //$$             rebuild();
 //$$         }));
-//$$         add(left, new ControlButton(x + 13 + half, gy, half, CONTROL_HEIGHT, tr("preset_export"), this::exportPreset));
-//$$         gy += 25;
+//$$         add(left, new ControlButton(stacked ? x + 9 : x + 13 + half, stacked ? gy + 25 : gy,
+//$$             buttonWidth, CONTROL_HEIGHT, exportLabel, this::exportPreset));
+//$$         gy += stacked ? 50 : 25;
 //$$         if (RuleGroupStore.legacyAvailable()) {
 //$$             add(left, new ControlButton(x + 9, gy, leftWidth - 18, CONTROL_HEIGHT, tr("context_copy_legacy"), this::copyLegacyGroups));
 //$$             gy += 25;
