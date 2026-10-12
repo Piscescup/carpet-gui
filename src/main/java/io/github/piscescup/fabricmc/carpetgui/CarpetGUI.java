@@ -2,7 +2,7 @@
  * This file is part of the Carpet GUI project, licensed under the
  * GNU Lesser General Public License v3.0
  *
- * Copyright (C) 2026  Fallen_Breath and contributors
+ * Copyright (C) 2026  PiscesCup and contributors
  *
  * Carpet GUI is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -20,6 +20,10 @@
 
 package io.github.piscescup.fabricmc.carpetgui;
 
+import carpet.CarpetServer;
+import carpet.api.settings.CarpetRule;
+import carpet.api.settings.SettingsManager;
+import carpet.script.external.Carpet;
 import net.fabricmc.api.ModInitializer;
 import io.github.piscescup.fabricmc.carpetgui.integration.carpet.CarpetSeriesMods;
 

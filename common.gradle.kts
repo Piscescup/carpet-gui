@@ -155,6 +155,19 @@ runConfigs.configureEach {
     }
 }
 
+// Only the main preprocess node owns generated resources. Keep datagen output
+// aligned with the shared source directory added to that node below.
+val mainProjectName = rootProject.file("versions/mainProject").readText().trim()
+if (project.name == mainProjectName) {
+    extensions.getByName("fabricApi").withGroovyBuilder {
+        "configureDataGeneration" {
+            setProperty("outputDirectory", rootProject.file("src/main/generated"))
+            // The main source set below already includes this directory.
+            setProperty("addToResources", false)
+        }
+    }
+}
+
 // Optional MIXIN_AUDITOR runs:
 // val runs = loomExtension.withGroovyBuilder { getProperty("runs") } as NamedDomainObjectContainer<Any>
 // runs.create("serverMixinAudit").withGroovyBuilder {
@@ -258,15 +271,16 @@ extensions.getByName("yamlang").withGroovyBuilder {
 
 extensions.configure<SourceSetContainer> {
     named("main") {
-        // Workspace source selection is handled in-place by ReplayMod //#if blocks.
-        if (mcVersion < 260000) {
-            java.exclude("io/github/piscescup/fabricmc/carpetgui/integration/vanilla/VanillaRuleStore.java")
-            java.exclude("io/github/piscescup/fabricmc/carpetgui/integration/vanilla/VanillaRuleView.java")
-        }
+        // All preprocess nodes share the main source tree. Package boundaries
+        // such as api, modmenu and util are organizational only;
+        // keep version alternatives in ReplayMod //#if blocks instead of
+        // introducing duplicate/version-specific interface source sets.
+        // Whole-file guards also remove version-exclusive classes. Do not add
+        // path exclusions here: moved classes would otherwise leave stale,
+        // silently ineffective configuration behind.
         // The main preprocess node owns generated resources. Other nodes receive
         // them through preprocessResources, so adding the root directory again
         // would create duplicate lang entries.
-        val mainProjectName = rootProject.file("versions/mainProject").readText().trim()
         if (project.name == mainProjectName) {
             resources.srcDir(rootProject.file("src/main/generated"))
         }
@@ -281,10 +295,8 @@ tasks.withType<JavaCompile>().configureEach {
 }
 
 tasks.withType<Test>().configureEach {
-    // The template currently contains a compile-only smoke-test class rather
-    // than a JUnit test case. Gradle 9 otherwise fails the whole multi-version
-    // build when no test methods are discovered.
-    failOnNoDiscoveredTests.set(false)
+    useJUnitPlatform()
+    failOnNoDiscoveredTests.set(true)
 }
 
 extensions.configure<JavaPluginExtension> {
@@ -304,7 +316,7 @@ val licenseExtension = extensions.getByName("license")
 licenseExtension.withGroovyBuilder {
     setProperty("header", rootProject.file("HEADER.txt"))
     "include"("**/*.java")
-    setProperty("skipExistingHeaders", true)
+//    setProperty("skipExistingHeaders", true)
     "headerDefinitions" {
         requireNotNull("create"("SLASHSTAR_STYLE_NEWLINE")).withGroovyBuilder {
             setProperty("firstLine", "/*")
@@ -323,7 +335,7 @@ licenseExtension.withGroovyBuilder {
 }
 (licenseExtension as ExtensionAware).extensions.extraProperties.apply {
     set("name", modProperty("mod_name"))
-    set("author", "Fallen_Breath")
+    set("author", "PiscesCup")
     set("year", Calendar.getInstance().get(Calendar.YEAR).toString())
 }
 tasks.named("classes") { dependsOn("licenseFormatMain") }

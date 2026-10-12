@@ -2,7 +2,7 @@
  * This file is part of the Carpet GUI project, licensed under the
  * GNU Lesser General Public License v3.0
  *
- * Copyright (C) 2026  Fallen_Breath and contributors
+ * Copyright (C) 2026  PiscesCup and contributors
  *
  * Carpet GUI is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -18,10 +18,13 @@
  * along with Carpet GUI.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-//#if MC >= 12111
 package io.github.piscescup.fabricmc.carpetgui.gui;
 
+//#if MC >= 12111
 import com.thecsdev.commonmc.api.client.gui.render.TGuiGraphics;
+//#else
+//$$ import io.github.thecsdev.tcdcommons.api.client.gui.util.TDrawContext;
+//#endif
 //#if MC >= 260000
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 //#endif
@@ -58,9 +61,16 @@ public final class GUIStyle {
 
     private GUIStyle() {}
 
+    //#if MC >= 12111
     public static void background(TGuiGraphics graphics, int x, int y, int width, int height) {
         background(graphics::fillColor, x, y, width, height);
     }
+    //#else
+    //$$ public static void background(TDrawContext graphics, int x, int y, int width, int height) {
+    //$$     background((left, top, w, h, color) ->
+    //$$         graphics.fill(left, top, left + w, top + h, color), x, y, width, height);
+    //$$ }
+    //#endif
 
     //#if MC >= 260000
     public static void background(GuiGraphicsExtractor graphics, int x, int y, int width, int height) {
@@ -90,4 +100,3 @@ public final class GUIStyle {
         void draw(int x, int y, int width, int height, int color);
     }
 }
-//#endif

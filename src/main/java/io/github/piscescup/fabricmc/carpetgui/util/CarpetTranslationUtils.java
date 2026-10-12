@@ -2,7 +2,7 @@
  * This file is part of the Carpet GUI project, licensed under the
  * GNU Lesser General Public License v3.0
  *
- * Copyright (C) 2026  Fallen_Breath and contributors
+ * Copyright (C) 2026  PiscesCup and contributors
  *
  * Carpet GUI is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -18,7 +18,7 @@
  * along with Carpet GUI.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-package io.github.piscescup.fabricmc.carpetgui.resources;
+package io.github.piscescup.fabricmc.carpetgui.util;
 
 import carpet.utils.Translations;
 import net.fabricmc.loader.api.FabricLoader;
@@ -34,8 +34,8 @@ import java.util.Map;
 /**
  * Finds actual resource namespaces in a mod instead of assuming they match its mod/manager ID.
  */
-public final class CarpetTranslationResources {
-    private CarpetTranslationResources() {
+public final class CarpetTranslationUtils {
+    private CarpetTranslationUtils() {
     }
 
     public static Map<String, String> read(String modId, String language) {

@@ -2,7 +2,7 @@
  * This file is part of the Carpet GUI project, licensed under the
  * GNU Lesser General Public License v3.0
  *
- * Copyright (C) 2026  Fallen_Breath and contributors
+ * Copyright (C) 2026  PiscesCup and contributors
  *
  * Carpet GUI is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -25,6 +25,7 @@ import carpet.api.settings.CarpetRule;
 import carpet.api.settings.RuleHelper;
 import carpet.api.settings.SettingsManager;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.server.MinecraftServer;
@@ -49,6 +50,13 @@ final class ServerRuleChanges {
     static void initialize() {
         SettingsManager.registerGlobalRuleObserver(ServerRuleChanges::changed);
         ServerLifecycleEvents.SERVER_STARTED.register(ServerRuleChanges::snapshot);
+        // Configuration commands can change the file without changing a rule's value,
+        // so Carpet's value observer alone cannot keep this cache current.
+        ServerTickEvents.END_SERVER_TICK.register(server -> {
+            if (server.getTickCount() % 20 == 0) {
+                for (SettingsManager manager : managers()) refreshConfiguration(server, manager);
+            }
+        });
         ServerLifecycleEvents.SERVER_STOPPED.register(server -> {
             VALUES.clear();
             CONFIGURED_VALUES.clear();
@@ -76,6 +84,7 @@ final class ServerRuleChanges {
     }
 
     static RuleConfigurationSnapshot configurationSnapshot(MinecraftServer server) {
+        for (SettingsManager manager : managers()) refreshConfiguration(server, manager);
         // Include rules registered after SERVER_STARTED without disturbing an existing configuration baseline.
         for (SettingsManager manager : managers()) {
             Map<String, String> configured = readConfiguration(server, manager);
@@ -118,11 +127,9 @@ final class ServerRuleChanges {
             boolean explicit = configured.containsKey(rule.name());
             if (!explicit && previous != null && !previous.explicitlyConfigured()) continue;
             String fileValue = configured.get(rule.name());
-            String value = explicit && previous != null && previous.explicitlyConfigured()
-                           && Objects.equals(fileValue, CONFIGURED_FILE_VALUES.get(stateId))
-                ? previous.value() : RuleHelper.toRuleString(rule.value());
-            if (value.length() > 4096) continue;
-            var current = entry(rule, value, explicit);
+            var current = configurationEntry(manager.identifier(), rule.name(), RuleHelper.toRuleString(rule.value()),
+                previous, CONFIGURED_FILE_VALUES.get(stateId), explicit, fileValue);
+            if (current.value().length() > 4096) continue;
             if (explicit) CONFIGURED_FILE_VALUES.put(stateId, fileValue);
             else CONFIGURED_FILE_VALUES.remove(stateId);
             if (current.equals(previous)) continue;
@@ -130,6 +137,15 @@ final class ServerRuleChanges {
             updates.add(current);
         }
         if (!updates.isEmpty()) broadcast(server, updates);
+    }
+
+    /** Configuration presence is independent of whether the effective value changed. */
+    static RuleConfigurationSnapshot.Entry configurationEntry(String manager, String rule, String currentValue,
+                                                               RuleConfigurationSnapshot.Entry previous,
+                                                               String previousFileValue, boolean explicit, String fileValue) {
+        String baseline = explicit && previous != null && previous.explicitlyConfigured()
+                          && Objects.equals(fileValue, previousFileValue) ? previous.value() : currentValue;
+        return new RuleConfigurationSnapshot.Entry(manager, rule, baseline, explicit);
     }
 
     private static void broadcast(MinecraftServer server, List<RuleConfigurationSnapshot.Entry> entries) {
@@ -143,8 +159,8 @@ final class ServerRuleChanges {
 
     private static void changed(CommandSourceStack source, CarpetRule<?> rule, String suppliedValue) {
         if (source != null) {
-            // setDefault writes the file after notifying observers. Queue the read so command-driven
-            // additions and removals are visible even when the effective value did not change.
+            // Best-effort immediate refresh; the end-tick poll also observes file writes
+            // made after this callback and commands which never notify value observers.
             source.getServer().execute(() -> refreshConfiguration(source.getServer(), rule.settingsManager()));
         }
         String newValue = RuleHelper.toRuleString(rule.value());

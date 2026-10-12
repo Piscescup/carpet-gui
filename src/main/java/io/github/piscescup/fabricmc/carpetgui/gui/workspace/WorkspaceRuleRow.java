@@ -2,7 +2,7 @@
  * This file is part of the Carpet GUI project, licensed under the
  * GNU Lesser General Public License v3.0
  *
- * Copyright (C) 2026  Fallen_Breath and contributors
+ * Copyright (C) 2026  PiscesCup and contributors
  *
  * Carpet GUI is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -37,6 +37,7 @@ import io.github.piscescup.fabricmc.carpetgui.gui.widget.NativeTextInput;
 import io.github.piscescup.fabricmc.carpetgui.gui.widget.button.FavoriteButton;
 import io.github.piscescup.fabricmc.carpetgui.gui.widget.icons.RuleActionIcon;
 import io.github.piscescup.fabricmc.carpetgui.store.FavoriteRules;
+import io.github.piscescup.fabricmc.carpetgui.store.WorkspaceSession;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 
@@ -55,6 +56,7 @@ final class WorkspaceRuleRow
     private static final Map<String, String> PERMISSIONS = Map.of(
         "ops", "op", "0", "all", "1", "moderator", "2", "game master", "3", "admin", "4", "owner");
     private final String modId;
+    private final WorkspaceSession.Token session = WorkspaceSession.current();
     private final RuleView rule;
     private final Consumer<RuleEditResult> feedback;
     private final Consumer<String> discardDrafts;
@@ -109,13 +111,13 @@ final class WorkspaceRuleRow
                              IntSupplier statusColor, Supplier<Component> detailText, boolean coloredStatus) {
         this.modId = modId;
         this.rule = rule;
-        this.feedback = feedback;
+        this.feedback = result -> { if (session.currentSession()) feedback.accept(result); };
         this.discardDrafts = discardDrafts;
         this.statusColor = statusColor;
         this.detailText = detailText;
         this.coloredStatus = coloredStatus;
         observed = rule.value();
-        tooltipProperty().set(ignored -> tooltip(), WorkspaceRuleRow.class);
+        tooltipProperty().set(ignored -> WorkspaceRuleTooltip.create(modId, rule), WorkspaceRuleRow.class);
     }
 
     @Override
@@ -183,7 +185,7 @@ final class WorkspaceRuleRow
         }
         valueControl.setBounds(valueX, bounds.y + 2, valueWidth, GUIStyle.CONTROL_HEIGHT);
         valueControl.tooltipProperty()
-            .set(ignored -> tooltip(), WorkspaceRuleRow.class);
+            .set(ignored -> WorkspaceRuleTooltip.create(modId, rule), WorkspaceRuleRow.class);
         add(valueControl);
         reset = new RuleActionIcon(false, () -> false, () -> {
             discardDrafts.accept(rule.stateId());
@@ -192,7 +194,7 @@ final class WorkspaceRuleRow
         );
         reset.setBounds(resetX, bounds.y + 2, resetWidth, GUIStyle.CONTROL_HEIGHT);
         reset.tooltipProperty()
-            .set(ignored -> tooltip(), WorkspaceRuleRow.class);
+            .set(ignored -> WorkspaceRuleTooltip.create(modId, rule), WorkspaceRuleRow.class);
         add(reset);
         if (persistent) {
             saveDefault = new RuleActionIcon(true,
@@ -296,6 +298,7 @@ final class WorkspaceRuleRow
     }
 
     private RuleEditResult submit(String value) {
+        if (!session.currentSession()) return RuleEditResult.rejected(Component.translatable("carpet-gui.workspace.preview_stale"));
         if (!(rule instanceof EditableRuleView editable)) return RuleEditResult.rejected(Component.empty());
         RuleEditResult result = editable.editor()
             .submit(value, feedback);
@@ -305,6 +308,7 @@ final class WorkspaceRuleRow
     }
 
     private void saveDefault() {
+        if (!session.currentSession()) { cancelDraft(); return; }
         suppressBlur = false;
         if (!(rule instanceof EditableRuleView editable) || !(editable.editor() instanceof PersistentRuleEditor editor)) return;
         String value = pendingSaveValue != null ? pendingSaveValue : draftValue();
@@ -315,7 +319,7 @@ final class WorkspaceRuleRow
     }
 
     private boolean editable() {
-        return rule instanceof EditableRuleView editable && editable.editor()
+        return session.currentSession() && rule instanceof EditableRuleView editable && editable.editor()
             .editable();
     }
 
@@ -388,37 +392,6 @@ final class WorkspaceRuleRow
         return Component.literal(label)
             .withStyle(value.equals("true") ? ChatFormatting.GREEN
                 : value.equals("false") ? ChatFormatting.RED : ChatFormatting.WHITE);
-    }
-
-    private TTooltip tooltip() {
-        String key = rule.id()
-            .contains(":") ? rule.id() : modId + ":" + rule.id();
-        var text = rule.label()
-            .copy()
-            .withStyle(ChatFormatting.YELLOW)
-            .append(Component.literal("\nKey: " + key + "\nValue: " + rule.value())
-                .withStyle(ChatFormatting.GRAY));
-        if (!rule.description()
-            .getString()
-            .isBlank()) {
-            text.append(Component.literal("\n\n"))
-                .append(rule.description()
-                    .copy()
-                    .withStyle(ChatFormatting.WHITE));
-        }
-        for (Component info : rule.extraInfo())
-            text.append(Component.literal("\n"))
-                .append(info.copy()
-                    .withStyle(ChatFormatting.GRAY));
-        if (rule instanceof EditableRuleView editable && !editable.editor()
-            .editable()) {
-            text.append(Component.literal("\n"))
-                .append(editable.editor()
-                    .disabledReason()
-                    .copy()
-                    .withStyle(ChatFormatting.RED));
-        }
-        return TTooltip.of(text);
     }
 
     @Override

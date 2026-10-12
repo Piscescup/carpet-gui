@@ -2,7 +2,7 @@
  * This file is part of the Carpet GUI project, licensed under the
  * GNU Lesser General Public License v3.0
  *
- * Copyright (C) 2026  Fallen_Breath and contributors
+ * Copyright (C) 2026  PiscesCup and contributors
  *
  * Carpet GUI is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -18,11 +18,14 @@
  * along with Carpet GUI.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-//#if MC >= 12111
 package io.github.piscescup.fabricmc.carpetgui.resources;
 
+//#if MC >= 12111
 import com.thecsdev.common.math.Bounds2i;
 import com.thecsdev.commonmc.api.client.gui.render.TGuiGraphics;
+//#else
+//$$ import io.github.thecsdev.tcdcommons.api.client.gui.util.UITexture;
+//#endif
 import io.github.piscescup.fabricmc.carpetgui.References;
 import net.minecraft.resources.Identifier;
 
@@ -36,17 +39,28 @@ public final class WorkspaceActionTextures {
         FAVORITE_ON("favorite_on");
 
         private final Identifier texture;
+        //#if MC <= 12110
+        //$$ private final UITexture legacyTexture;
+        //#endif
         Icon(String name) {
             texture = References.fromPath("textures/gui/icons/actions/" + name + ".png");
+            //#if MC <= 12110
+            //$$ legacyTexture = new UITexture(texture);
+            //#endif
         }
     }
 
     private WorkspaceActionTextures() {}
 
+    //#if MC >= 12111
     public static void draw(TGuiGraphics graphics, Bounds2i bounds, Icon icon, int tint) {
         int size = Math.max(1, Math.min(14, Math.min(bounds.width, bounds.height)));
             graphics.drawTexture(icon.texture, bounds.x + (bounds.width - size) / 2,
             bounds.y + (bounds.height - size) / 2, size, size, tint);
     }
+    //#else
+    //$$ public static UITexture texture(Icon icon) {
+    //$$     return icon.legacyTexture;
+    //$$ }
+    //#endif
 }
-//#endif

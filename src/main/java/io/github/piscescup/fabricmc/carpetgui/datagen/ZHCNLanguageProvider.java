@@ -2,7 +2,7 @@
  * This file is part of the Carpet GUI project, licensed under the
  * GNU Lesser General Public License v3.0
  *
- * Copyright (C) 2026  Fallen_Breath and contributors
+ * Copyright (C) 2026  PiscesCup and contributors
  *
  * Carpet GUI is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -70,6 +70,8 @@ public class ZHCNLanguageProvider
         builder.add("carpet-gui.collapsed", "已折叠");
         builder.add("carpet-gui.counts", "%s 条规则 / %s 个分类");
         builder.add("carpet-gui.current_value", "当前值：%s");
+        builder.add("carpet-gui.change_history", "修改记录");
+        builder.add("carpet-gui.change_time", "，时间：[%s]");
         builder.add("carpet-gui.default_value", "默认值：%s");
         builder.add("carpet-gui.edit.applied", "已更新客户端规则");
         builder.add("carpet-gui.edit.apply", "应用");
@@ -141,6 +143,8 @@ public class ZHCNLanguageProvider
         builder.add("carpet-gui.workspace.modified_only_server_required", "需要服务端安装 Carpet GUI。");
         builder.add("carpet-gui.workspace.initial_difference_only", "与 Mod 初始值不同");
         builder.add("carpet-gui.workspace.initial_difference_hint", "显示当前值与 Mod Java 代码声明初始值不同的规则。");
+        builder.add("carpet-gui.workspace.favorites_only", "仅显示收藏");
+        builder.add("carpet-gui.workspace.favorites_only_hint", "仅显示已收藏的规则。");
         builder.add("carpet-gui.workspace.saved_default_only", "已设为服务器默认值");
         builder.add("carpet-gui.workspace.saved_default_only_hint", "显示已明确保存到当前世界 Carpet 配置文件中的规则。");
         builder.add("carpet-gui.workspace.grouping", "分组");
@@ -166,6 +170,12 @@ public class ZHCNLanguageProvider
         builder.add("carpet-gui.workspace.features", "功能");
         builder.add("carpet-gui.workspace.favorites", "收藏");
         builder.add("carpet-gui.workspace.rule_groups", "规则分组");
+        builder.add("carpet-gui.workspace.context_label", "当前环境：%s");
+        builder.add("carpet-gui.workspace.context_storage_error", "状态读写失败，原文件未被覆盖；部分修改可能仅在内存中。退出前请检查日志。");
+        builder.add("carpet-gui.workspace.context_offline", "当前没有服务器或存档环境，不能应用规则分组。");
+        builder.add("carpet-gui.workspace.context_copy_legacy", "复制旧分组到当前环境");
+        builder.add("carpet-gui.workspace.context_legacy_copied", "已复制 %s 个旧分组。原文件不变；已提交快照重新待推送，未完成的暂存保留。未修改服务器规则。");
+        builder.add("carpet-gui.workspace.context_legacy_error", "旧分组读取或保存失败，原文件未被修改。");
         builder.add("carpet-gui.workspace.rule_groups_home", "收集、版本化并部署一组规则。");
         builder.add("carpet-gui.workspace.new_group", "+ 新建分组");
         builder.add("carpet-gui.workspace.cancel", "取消");
@@ -221,6 +231,41 @@ public class ZHCNLanguageProvider
         builder.add("carpet-gui.workspace.process", "提交流程");
         builder.add("carpet-gui.workspace.pipeline_summary", "分组 %s 条规则 · 暂存 %s 项 · %s 个提交等待 push");
         builder.add("carpet-gui.workspace.no_commits_graph", "还没有提交。修改分组规则、执行 add，然后创建 commit。");
+        builder.add("carpet-gui.workspace.commit_detail_message", "提交信息：%s");
+        builder.add("carpet-gui.workspace.commit_detail_author", "修改人：%s");
+        builder.add("carpet-gui.workspace.commit_detail_time", "时间：[%s]");
+        builder.add("carpet-gui.workspace.commit_detail_rules", "修改的规则（%s）");
+        builder.add("carpet-gui.workspace.commit_detail_no_rules", "此提交没有规则值变化。");
+        builder.add("carpet-gui.workspace.unknown_author", "未知");
+        builder.add("carpet-gui.workspace.unrecorded", "未记录");
+        builder.add("carpet-gui.workspace.preset_import", "导入预设");
+        builder.add("carpet-gui.workspace.preset_export", "导出 HEAD");
+        builder.add("carpet-gui.workspace.preset_commit_first", "请先提交分组，再导出 HEAD 快照。");
+        builder.add("carpet-gui.workspace.preset_exported", "HEAD 已导出至 %s（不包含暂存或未跟踪的修改）。");
+        builder.add("carpet-gui.workspace.preset_imported", "预设已导入为新的本地分组；审阅并确认后才会应用。");
+        builder.add("carpet-gui.workspace.preset_error", "预设读写失败。请检查文件名、权限、JSON 格式及大小（最多 1 MiB）。");
+        builder.add("carpet-gui.workspace.preset_filename", "文件名.json");
+        builder.add("carpet-gui.workspace.preset_help", "将 JSON 文件放在 %s。点击文件即可导入为新分组，不覆盖已有分组，也不修改服务器。");
+        builder.add("carpet-gui.workspace.preview_title", "应用前差异预览");
+        builder.add("carpet-gui.workspace.preview_help", "当前值 → 目标默认值。取消勾选可跳过规则；部分应用仍保留待推送状态。服务器值变化后请刷新预览。");
+        builder.add("carpet-gui.workspace.preview_confirm", "应用已选（%s）");
+        builder.add("carpet-gui.workspace.preview_refresh", "刷新预览");
+        builder.add("carpet-gui.workspace.preview_select_all", "全选可应用规则");
+        builder.add("carpet-gui.workspace.preview_partial", "已应用所选规则 %s/%s 条；完整提交仍待推送。");
+        builder.add("carpet-gui.workspace.preview_stale", "分组或服务器值已变化，请刷新预览后重新确认。");
+        builder.add("carpet-gui.workspace.preview_missing", "规则或所属模组不可用，无法应用。");
+        builder.add("carpet-gui.workspace.preview_not_persistent", "此规则不支持保存服务器默认值。");
+        builder.add("carpet-gui.workspace.preview_same", "当前值相同；确认后仍会保存为默认值。");
+        builder.add("carpet-gui.workspace.preview_ready", "可以保存为服务器默认值。");
+        builder.add("carpet-gui.workspace.push_pending", "正在推送，等待服务器确认…");
+        builder.add("carpet-gui.workspace.push_busy", "已有推送正在进行，请稍候。");
+        builder.add("carpet-gui.workspace.push_failed", "推送未完成（已确认 %s/%s）：%s。提交仍待推送。");
+        builder.add("carpet-gui.workspace.push_missing_rule", "规则不可用：%s");
+        builder.add("carpet-gui.workspace.push_not_persistent", "此规则不支持保存服务器默认值：%s");
+        builder.add("carpet-gui.workspace.push_exception", "规则后端在发送推送时发生异常。");
+        builder.add("carpet-gui.workspace.removed_from_group", "从此分组移除");
+        builder.add("carpet-gui.workspace.commit_baseline_missing", "前置历史已清理。以下为规则快照，并非修改列表。");
+        builder.add("carpet-gui.workspace.commit_snapshot_rules", "快照规则（%s）");
         builder.add("carpet-gui.workspace.news", "新闻与更新");
         builder.add("carpet-gui.workspace.news_intro", "当前构建的更新信息；不请求外部新闻。");
         builder.add("carpet-gui.workspace.news_workspace", "新增工作台：首页、模组标签页、分类筛选、中英文搜索和排序。");

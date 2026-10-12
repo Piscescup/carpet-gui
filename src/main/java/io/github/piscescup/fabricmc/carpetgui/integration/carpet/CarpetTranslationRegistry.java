@@ -2,7 +2,7 @@
  * This file is part of the Carpet GUI project, licensed under the
  * GNU Lesser General Public License v3.0
  *
- * Copyright (C) 2026  Fallen_Breath and contributors
+ * Copyright (C) 2026  PiscesCup and contributors
  *
  * Carpet GUI is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -24,7 +24,7 @@ import carpet.CarpetExtension;
 import carpet.CarpetServer;
 import com.google.common.collect.Maps;
 import io.github.piscescup.fabricmc.carpetgui.api.CarpetModInfoApi;
-import io.github.piscescup.fabricmc.carpetgui.resources.CarpetTranslationResources;
+import io.github.piscescup.fabricmc.carpetgui.util.CarpetTranslationUtils;
 import net.fabricmc.loader.api.FabricLoader;
 import net.fabricmc.loader.api.ModContainer;
 
@@ -85,12 +85,12 @@ public final class CarpetTranslationRegistry {
         public Map<String, String> getTranslations(String language) {
             Map<String, String> translations = new LinkedHashMap<>();
             if (explicit != null)
-                CarpetTranslationResources.merge(translations, explicit.getTranslations(language));
+                CarpetTranslationUtils.merge(translations, explicit.getTranslations(language));
 
             for (CarpetExtension extension : extensions) {
-                CarpetTranslationResources.merge(translations, extension.canHasTranslations(language));
+                CarpetTranslationUtils.merge(translations, extension.canHasTranslations(language));
             }
-            CarpetTranslationResources.merge(translations, CarpetTranslationResources.read(mod, language));
+            CarpetTranslationUtils.merge(translations, CarpetTranslationUtils.read(mod, language));
             return Map.copyOf(translations);
         }
     }

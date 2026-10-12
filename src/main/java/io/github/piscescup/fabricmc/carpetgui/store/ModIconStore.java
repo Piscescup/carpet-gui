@@ -2,7 +2,7 @@
  * This file is part of the Carpet GUI project, licensed under the
  * GNU Lesser General Public License v3.0
  *
- * Copyright (C) 2026  Fallen_Breath and contributors
+ * Copyright (C) 2026  PiscesCup and contributors
  *
  * Carpet GUI is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -18,7 +18,6 @@
  * along with Carpet GUI.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-//#if MC >= 12111
 package io.github.piscescup.fabricmc.carpetgui.store;
 
 import com.mojang.blaze3d.platform.NativeImage;
@@ -72,7 +71,11 @@ public final class ModIconStore
             Identifier id = References.fromPath("mod_icons/" + storeId + "/" + modId);
             DynamicTexture texture;
             try {
+                //#if MC >= 12105
                 texture = new DynamicTexture(() -> "Carpet GUI icon: " + modId, image);
+                //#else
+                //$$ texture = new DynamicTexture(image);
+                //#endif
             } catch (RuntimeException error) {
                 image.close();
                 throw error;
@@ -101,4 +104,3 @@ public final class ModIconStore
         textures.clear();
     }
 }
-//#endif

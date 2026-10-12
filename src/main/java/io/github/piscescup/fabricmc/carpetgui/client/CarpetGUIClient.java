@@ -2,7 +2,7 @@
  * This file is part of the Carpet GUI project, licensed under the
  * GNU Lesser General Public License v3.0
  *
- * Copyright (C) 2026  Fallen_Breath and contributors
+ * Copyright (C) 2026  PiscesCup and contributors
  *
  * Carpet GUI is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -22,7 +22,7 @@ package io.github.piscescup.fabricmc.carpetgui.client;
 
 import com.mojang.blaze3d.platform.InputConstants;
 import io.github.piscescup.fabricmc.carpetgui.References;
-import io.github.piscescup.fabricmc.carpetgui.api.CarpetGuiScreens;
+import io.github.piscescup.fabricmc.carpetgui.modmenu.CarpetGuiScreens;
 import io.github.piscescup.fabricmc.carpetgui.integration.carpet.CarpetRuleSource;
 //#if MC >= 260000
 import io.github.piscescup.fabricmc.carpetgui.store.VanillaRuleStore;
@@ -30,6 +30,7 @@ import io.github.piscescup.fabricmc.carpetgui.store.VanillaRuleStore;
 import io.github.piscescup.fabricmc.carpetgui.network.ClientRuleNetworking;
 import io.github.piscescup.fabricmc.carpetgui.network.ClientRuleChanges;
 import io.github.piscescup.fabricmc.carpetgui.network.ClientRuleConfigurations;
+import io.github.piscescup.fabricmc.carpetgui.gui.model.RuleGroupPushController;
 import carpet.api.settings.SettingsManager;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.fabricmc.api.ClientModInitializer;
@@ -47,6 +48,8 @@ public final class CarpetGUIClient implements ClientModInitializer {
         ClientRuleNetworking.initialize();
         ClientRuleChanges.initialize();
         ClientRuleConfigurations.initialize();
+        ClientPlayConnectionEvents.JOIN.register((connection, sender, client) -> ClientWorkspaceContext.joined(client));
+        ClientPlayConnectionEvents.DISCONNECT.register((connection, client) -> ClientWorkspaceContext.disconnected());
         SettingsManager.registerGlobalRuleObserver((source, rule, value) -> CarpetRuleSource.RULE_REVISION.incrementAndGet());
         //#if MC >= 260000
         ClientPlayConnectionEvents.DISCONNECT.register((connection, client) -> VanillaRuleStore.clear());
@@ -72,6 +75,7 @@ public final class CarpetGUIClient implements ClientModInitializer {
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             ClientRuleNetworking.tick();
+            RuleGroupPushController.tick();
             while (openRules.consumeClick()) {
                 //#if MC >= 260200
                 if (client.gui.screen() == null) {

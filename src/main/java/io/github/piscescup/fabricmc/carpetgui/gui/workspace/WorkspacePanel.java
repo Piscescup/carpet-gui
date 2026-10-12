@@ -2,7 +2,7 @@
  * This file is part of the Carpet GUI project, licensed under the
  * GNU Lesser General Public License v3.0
  *
- * Copyright (C) 2026  Fallen_Breath and contributors
+ * Copyright (C) 2026  PiscesCup and contributors
  *
  * Carpet GUI is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -30,19 +30,31 @@ import io.github.piscescup.fabricmc.carpetgui.gui.GUIStyle;
 /** Scroll by wheel, keyboard or scrollbar, not by dragging blank panel space. */
 class WorkspacePanel extends TPanelElement.Paintable {
     private final int padding;
+    private final boolean horizontalScrolling;
     private TElement scrollExtent;
 
     WorkspacePanel(int padding) {
+        this(padding, false);
+    }
+
+    WorkspacePanel(int padding, boolean horizontalScrolling) {
         super(GUIStyle.PANEL_COLOR, GUIStyle.BORDER_COLOR, GUIStyle.BORDER_COLOR);
         this.padding = padding;
+        this.horizontalScrolling = horizontalScrolling;
         // Layouts already include their own insets. TPanelElement otherwise snaps the
         // children's bounding box to scrollPadding on the first wheel event, moving
         // both axes even when the content fits inside the viewport.
         scrollPaddingProperty().set(0, WorkspacePanel.class);
         eInitialized.addListener(ignored -> updateScrollExtent(padding));
-        // These workspaces only expose a vertical scrollbar. Trackpads may still report a
-        // horizontal wheel component, so clamp it here instead of letting content drift sideways.
-        scrollAmountProperty().addFilter(point -> new Point2d(0, point.y), WorkspacePanel.class);
+        if (!horizontalScrolling) {
+            // Most workspaces only expose a vertical scrollbar. Trackpads may still report a
+            // horizontal wheel component, so clamp it instead of letting content drift sideways.
+            scrollAmountProperty().addFilter(point -> new Point2d(0, point.y), WorkspacePanel.class);
+        }
+    }
+
+    boolean horizontalScrolling() {
+        return horizontalScrolling;
     }
 
     void refreshScrollExtent() {
@@ -60,7 +72,8 @@ class WorkspacePanel extends TPanelElement.Paintable {
         var bounds = getBounds();
         var content = getContentBounds();
         scrollExtent = new TElement();
-        scrollExtent.setBounds(bounds.x, bounds.y, bounds.width,
+        int width = horizontalScrolling ? Math.max(bounds.width, content.endX - bounds.x + padding) : bounds.width;
+        scrollExtent.setBounds(bounds.x, bounds.y, width,
             Math.max(bounds.height, content.endY - bounds.y + padding));
         scrollExtent.focusableProperty().set(false, WorkspacePanel.class);
         scrollExtent.hoverableProperty().set(false, WorkspacePanel.class);

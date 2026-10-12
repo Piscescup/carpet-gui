@@ -2,7 +2,7 @@
  * This file is part of the Carpet GUI project, licensed under the
  * GNU Lesser General Public License v3.0
  *
- * Copyright (C) 2026  Fallen_Breath and contributors
+ * Copyright (C) 2026  PiscesCup and contributors
  *
  * Carpet GUI is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -101,4 +101,38 @@ public final class CarpetWorkspaceGUI extends TElement {
         document.addWorkspaceElement(element);
     }
 }
+//#endif
+//#if MC <= 12110
+//$$ package io.github.piscescup.fabricmc.carpetgui.gui.workspace;
+//$$
+//$$ import io.github.thecsdev.tcdcommons.api.client.gui.TElement;
+//$$ import io.github.thecsdev.tcdcommons.api.client.gui.util.TDrawContext;
+//$$
+//$$ /** Top-level legacy workspace controller, mirroring the modern GUI composition layer. */
+//$$ public final class CarpetWorkspaceGUI extends TElement {
+//$$     private final WorkspaceDocumentInterface document;
+//$$
+//$$     public CarpetWorkspaceGUI(CarpetWorkspaceScreen screen, CarpetWorkspaceEditor editor) {
+//$$         super(0, 0, screen.getWidth(), screen.getHeight());
+//$$         document = new WorkspaceDocumentInterface(screen, editor);
+//$$         addChild(document);
+//$$     }
+//$$
+//$$     public void initialize() {
+//$$         document.initialize();
+//$$     }
+//$$
+//$$     public void closeResources() {
+//$$         document.closeResources();
+//$$     }
+//$$
+//$$     @Override
+//$$     public void tick() {
+//$$         document.tick();
+//$$     }
+//$$
+//$$     @Override
+//$$     public void render(TDrawContext graphics) {
+//$$     }
+//$$ }
 //#endif
